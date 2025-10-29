@@ -5,7 +5,8 @@ require_once __DIR__ . '/exceptions.php';
 /**
  * Database
  *
- * SQLite database storage handler for items.
+ * SQLite database storage handler for user authentication data.
+ * Stores user records identified by token with code and timestamps.
  * Implemented as a singleton.
  */
 class Database {
@@ -74,13 +75,13 @@ class Database {
             $this->pdo->exec('PRAGMA foreign_keys = ON');
             $this->pdo->exec('PRAGMA journal_mode = WAL');
             
-            // Create items table if it doesn't exist
+            // Create users table if it doesn't exist
             $sql = "
-                CREATE TABLE IF NOT EXISTS items (
-                    id INTEGER PRIMARY KEY,
-                    data TEXT NOT NULL,
-                    createdAt TEXT NOT NULL,
-                    lastUpdatedAt TEXT NOT NULL
+                CREATE TABLE IF NOT EXISTS users (
+                    token TEXT PRIMARY KEY,
+                    code TEXT NOT NULL,
+                    code_valid_until TEXT NOT NULL,
+                    last_activity_at TEXT NOT NULL
                 )
             ";
             $this->pdo->exec($sql);
@@ -91,118 +92,174 @@ class Database {
     }
 
     /**
-     * Public: retrieve a single item by id. Returns null if not found.
+     * Generate a random 6-digit numeric code.
      *
-     * @param int $id
+     * @return string
+     */
+    private function generateCode(): string {
+        return str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Public: retrieve a user record by token. Returns null if not found.
+     *
+     * @param string $token
      * @return array|null
      * @throws StorageException on database error
      */
-    public function getItem(int $id): ?array {
+    public function getUserByToken(string $token): ?array {
         try {
-            $stmt = $this->pdo->prepare('SELECT data, createdAt, lastUpdatedAt FROM items WHERE id = ?');
-            $stmt->execute([$id]);
+            $stmt = $this->pdo->prepare('SELECT token, code, code_valid_until, last_activity_at FROM users WHERE token = ?');
+            $stmt->execute([$token]);
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if (!$row) {
                 return null;
             }
             
-            $data = json_decode($row['data'], true);
-            if (!is_array($data)) {
-                throw new StorageException('STORAGE_ERROR', 'Invalid JSON data in database');
-            }
-            
-            $data['id'] = $id;
-            $data['createdAt'] = $row['createdAt'];
-            $data['lastUpdatedAt'] = $row['lastUpdatedAt'];
-            
-            return $data;
+            return [
+                'token' => $row['token'],
+                'code' => $row['code'],
+                'code_valid_until' => $row['code_valid_until'],
+                'last_activity_at' => $row['last_activity_at']
+            ];
         } catch (PDOException $e) {
             throw new StorageException('STORAGE_ERROR', 'Database query failed: ' . $e->getMessage());
         }
     }
 
     /**
-     * Public: save an item. If $id is null, a new id is assigned. Otherwise item is created/updated.
-     * Storage decides whether it's a create or update and handles timestamps.
-     * Returns the saved item.
+     * Public: create a new user record with auto-generated code.
+     * Generates a random 6-digit code and sets validity period.
      *
-     * @param array $userData
-     * @param int|null $id
-     * @return array
-     * @throws StorageException on database error
+     * @param string $token
+     * @param int $codeValiditySeconds Seconds until code expires (default: 300 = 5 minutes)
+     * @return array The created user record with generated code
+     * @throws StorageException on database error or invalid parameters
      */
-    public function saveItem(array $userData, ?int $id = null): array {
+    public function createUser(string $token, int $codeValiditySeconds = 300): array {
         try {
-            $now = gmdate('c');
-            
-            if ($id === null) {
-                // Create new item
-                $id = $this->getNextId();
-                $created = $now;
-                
-                // Prepare data without id, createdAt, lastUpdatedAt as they are stored separately
-                $cleanData = $userData;
-                unset($cleanData['id'], $cleanData['createdAt'], $cleanData['lastUpdatedAt']);
-                
-                $stmt = $this->pdo->prepare('INSERT INTO items (id, data, createdAt, lastUpdatedAt) VALUES (?, ?, ?, ?)');
-                $stmt->execute([$id, json_encode($cleanData, JSON_UNESCAPED_UNICODE), $created, $now]);
-            } else {
-                // Update existing item or create with specific ID
-                $stmt = $this->pdo->prepare('SELECT createdAt FROM items WHERE id = ?');
-                $stmt->execute([$id]);
-                $row = $stmt->fetch(PDO::FETCH_ASSOC);
-                $created = $row ? $row['createdAt'] : $now;
-                
-                // Prepare data without id, createdAt, lastUpdatedAt as they are stored separately
-                $cleanData = $userData;
-                unset($cleanData['id'], $cleanData['createdAt'], $cleanData['lastUpdatedAt']);
-                
-                $stmt = $this->pdo->prepare('INSERT OR REPLACE INTO items (id, data, createdAt, lastUpdatedAt) VALUES (?, ?, ?, ?)');
-                $stmt->execute([$id, json_encode($cleanData, JSON_UNESCAPED_UNICODE), $created, $now]);
+            // Validate token is not empty
+            if (empty($token)) {
+                throw new StorageException('STORAGE_ERROR', 'Token cannot be empty');
             }
             
-            // Return the complete item
-            $item = $userData;
-            $item['id'] = $id;
-            $item['createdAt'] = $created;
-            $item['lastUpdatedAt'] = $now;
+            // Generate 6-digit code
+            $code = $this->generateCode();
             
-            return $item;
+            // Calculate expiry time
+            $now = time();
+            $codeValidUntil = gmdate('c', $now + $codeValiditySeconds);
+            $lastActivityAt = gmdate('c', $now);
+            
+            // Insert user record
+            $stmt = $this->pdo->prepare('INSERT INTO users (token, code, code_valid_until, last_activity_at) VALUES (?, ?, ?, ?)');
+            $stmt->execute([$token, $code, $codeValidUntil, $lastActivityAt]);
+            
+            return [
+                'token' => $token,
+                'code' => $code,
+                'code_valid_until' => $codeValidUntil,
+                'last_activity_at' => $lastActivityAt
+            ];
+        } catch (PDOException $e) {
+            // Check if it's a duplicate key error
+            if ($e->getCode() == '23000') {
+                throw new StorageException('STORAGE_ERROR', 'User with this token already exists');
+            }
+            throw new StorageException('STORAGE_ERROR', 'Database operation failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Public: regenerate the code for an existing user.
+     * Creates a new 6-digit code and updates the validity period.
+     *
+     * @param string $token
+     * @param int $codeValiditySeconds Seconds until code expires (default: 300 = 5 minutes)
+     * @return array|null The updated user record or null if token not found
+     * @throws StorageException on database error
+     */
+    public function regenerateCode(string $token, int $codeValiditySeconds = 300): ?array {
+        try {
+            // Check if user exists
+            $existing = $this->getUserByToken($token);
+            if (!$existing) {
+                return null;
+            }
+            
+            // Generate new code
+            $code = $this->generateCode();
+            
+            // Calculate new expiry time
+            $now = time();
+            $codeValidUntil = gmdate('c', $now + $codeValiditySeconds);
+            
+            // Update user record
+            $stmt = $this->pdo->prepare('UPDATE users SET code = ?, code_valid_until = ? WHERE token = ?');
+            $stmt->execute([$code, $codeValidUntil, $token]);
+            
+            return [
+                'token' => $token,
+                'code' => $code,
+                'code_valid_until' => $codeValidUntil,
+                'last_activity_at' => $existing['last_activity_at']
+            ];
         } catch (PDOException $e) {
             throw new StorageException('STORAGE_ERROR', 'Database operation failed: ' . $e->getMessage());
         }
     }
 
     /**
-     * Public: return a list of available ids (as ints)
+     * Public: delete a user record by token.
      *
-     * @return int[]
+     * @param string $token
+     * @return bool True if a record was deleted, false if token didn't exist
      * @throws StorageException on database error
      */
-    public function listIds(): array {
+    public function deleteUser(string $token): bool {
         try {
-            $stmt = $this->pdo->query('SELECT id FROM items ORDER BY id');
-            return $stmt->fetchAll(PDO::FETCH_COLUMN, 0);
+            $stmt = $this->pdo->prepare('DELETE FROM users WHERE token = ?');
+            $stmt->execute([$token]);
+            return $stmt->rowCount() > 0;
         } catch (PDOException $e) {
-            throw new StorageException('STORAGE_ERROR', 'Database query failed: ' . $e->getMessage());
+            throw new StorageException('STORAGE_ERROR', 'Database operation failed: ' . $e->getMessage());
         }
     }
 
     /**
-     * Public: compute the next id based on existing ids (highest + 1).
-     * Returns 1 when no ids exist.
+     * Public: update last_activity_at timestamp for a user to current time.
      *
-     * @return int
+     * @param string $token
+     * @return bool True if record was updated, false if token doesn't exist
      * @throws StorageException on database error
      */
-    public function getNextId(): int {
+    public function touchUser(string $token): bool {
         try {
-            $stmt = $this->pdo->query('SELECT MAX(id) FROM items');
-            $maxId = $stmt->fetchColumn();
-            return $maxId ? (int)$maxId + 1 : 1;
+            $now = gmdate('c');
+            $stmt = $this->pdo->prepare('UPDATE users SET last_activity_at = ? WHERE token = ?');
+            $stmt->execute([$now, $token]);
+            return $stmt->rowCount() > 0;
         } catch (PDOException $e) {
-            throw new StorageException('STORAGE_ERROR', 'Database query failed: ' . $e->getMessage());
+            throw new StorageException('STORAGE_ERROR', 'Database operation failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Public: delete all users where code_valid_until is before the given timestamp.
+     *
+     * @param string|null $beforeTimestamp ISO 8601 timestamp (defaults to now if null)
+     * @return int Number of deleted records
+     * @throws StorageException on database error
+     */
+    public function deleteExpiredCodes(?string $beforeTimestamp = null): int {
+        try {
+            $beforeTimestamp = $beforeTimestamp ?? gmdate('c');
+            $stmt = $this->pdo->prepare('DELETE FROM users WHERE code_valid_until < ?');
+            $stmt->execute([$beforeTimestamp]);
+            return $stmt->rowCount();
+        } catch (PDOException $e) {
+            throw new StorageException('STORAGE_ERROR', 'Database operation failed: ' . $e->getMessage());
         }
     }
     

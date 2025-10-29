@@ -31,32 +31,30 @@ class DatabaseTest extends TestCase {
         if (file_exists($this->tmpFile)) @unlink($this->tmpFile);
         $db = \Database::getInstance($this->tmpFile);
 
-        // When file is missing, listing ids returns empty and next id will be assigned on save
-        $ids = $db->listIds();
-        $this->assertIsArray($ids);
-        $this->assertSame([], $ids);
+        // When file is missing, no users should exist
+        $this->assertNull($db->getUserByToken('anytoken'));
     }
 
     public function testSaveAndLoadRoundtrip(): void {
         $db = \Database::getInstance($this->tmpFile);
 
-        // Save an item using the public API
-        $item = $db->saveItem(['value' => 'x']);
-        $this->assertArrayHasKey('id', $item);
-        $id = $item['id'];
+        // Create a user using the public API
+        $user = $db->createUser('token123');
+        $this->assertArrayHasKey('token', $user);
+        $token = $user['token'];
 
         // Reset instance to force re-read from file
         \Database::resetInstance();
         $db2 = \Database::getInstance($this->tmpFile);
-        $loaded = $db2->getItem($id);
+        $loaded = $db2->getUserByToken($token);
 
         $this->assertIsArray($loaded);
-        $this->assertSame($id, $loaded['id']);
-        $this->assertSame('x', $loaded['value']);
+        $this->assertSame($token, $loaded['token']);
+        $this->assertSame($user['code'], $loaded['code']);
     }
 
     public function testSaveFailsThrowsStorageException(): void {
-        // Use a path that is a directory to force fopen failure when trying to open it as a file
+        // Use a path that is a directory to force database initialization failure
         $dirPath = sys_get_temp_dir() . '/php_rest_logging_test_dir_' . bin2hex(random_bytes(6));
         mkdir($dirPath, 0775);
 
@@ -64,8 +62,8 @@ class DatabaseTest extends TestCase {
 
         // Initialize Database with the path that points to a directory
         $db = \Database::getInstance($dirPath);
-        // Attempting to save an item should throw StorageException because path is a directory
-        $db->saveItem(['value' => 'y']);
+        // Attempting to create a user should throw StorageException
+        $db->createUser('token123');
 
         // cleanup
         if (is_dir($dirPath)) @rmdir($dirPath);
@@ -80,37 +78,42 @@ class DatabaseTest extends TestCase {
         
         $db = \Database::getInstance($this->tmpFile);
         // Any operation should trigger the database initialization and throw an exception
-        $db->listIds();
+        $db->getUserByToken('anytoken');
     }
 
-    public function testGetNextIdComputesFromExistingIds(): void {
+    public function testPersistenceAcrossMultipleOperations(): void {
         $db = \Database::getInstance($this->tmpFile);
 
-        // Create item with id 1
-        $db->saveItem(['name' => 'first'], 1);
+        // Create multiple users
+        $db->createUser('token1');
+        $db->createUser('token2');
         
-        // getNextId should compute based on existing ids (max + 1)
-        $this->assertSame(2, $db->getNextId());
+        // Reset and verify
+        \Database::resetInstance();
+        $db2 = \Database::getInstance($this->tmpFile);
         
-        // Add another item with a higher id
-        $db->saveItem(['name' => 'higher'], 10);
-        
-        // getNextId should now return 11
-        $this->assertSame(11, $db->getNextId());
+        $this->assertNotNull($db2->getUserByToken('token1'));
+        $this->assertNotNull($db2->getUserByToken('token2'));
     }
 
-    public function testSaveWithZeroOrNegativeIdUsesProvidedId(): void {
-        $db = \Database::getInstance($this->tmpFile);
-
-        $itemZero = $db->saveItem(['name' => 'zero'], 0);
-        $this->assertSame(0, $itemZero['id']);
-        $this->assertSame('zero', $db->getItem(0)['name']);
-
-        $itemNeg = $db->saveItem(['name' => 'neg'], -5);
-        $this->assertSame(-5, $itemNeg['id']);
-        $this->assertSame('neg', $db->getItem(-5)['name']);
-
-        // getNextId should still compute max + 1 (max of -5,0 is 0 -> next is 1)
-        $this->assertSame(1, $db->getNextId());
+    public function testDatabaseCreatesDirectoryIfNotExists(): void {
+        $nestedPath = sys_get_temp_dir() . '/php_test_' . bin2hex(random_bytes(6)) . '/nested/data.db';
+        
+        $this->assertFalse(file_exists(dirname($nestedPath)));
+        
+        $db = \Database::getInstance($nestedPath);
+        $db->createUser('token123');
+        
+        $this->assertTrue(file_exists($nestedPath));
+        
+        // Cleanup
+        \Database::resetInstance();
+        unlink($nestedPath);
+        $walFile = $nestedPath . '-wal';
+        $shmFile = $nestedPath . '-shm';
+        if (file_exists($walFile)) @unlink($walFile);
+        if (file_exists($shmFile)) @unlink($shmFile);
+        rmdir(dirname($nestedPath));
+        rmdir(dirname(dirname($nestedPath)));
     }
 }
