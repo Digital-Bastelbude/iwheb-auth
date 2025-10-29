@@ -8,13 +8,23 @@ class StorageTest extends TestCase {
 
     protected function setUp(): void {
         \Database::resetInstance();
-        $this->tmpFile = sys_get_temp_dir() . '/php_rest_storage_test_' . bin2hex(random_bytes(6)) . '.json';
+        $this->tmpFile = sys_get_temp_dir() . '/php_rest_storage_test_' . bin2hex(random_bytes(6)) . '.db';
         if (file_exists($this->tmpFile)) @unlink($this->tmpFile);
+        // Also clean up SQLite auxiliary files
+        $walFile = $this->tmpFile . '-wal';
+        $shmFile = $this->tmpFile . '-shm';
+        if (file_exists($walFile)) @unlink($walFile);
+        if (file_exists($shmFile)) @unlink($shmFile);
     }
 
     protected function tearDown(): void {
         \Database::resetInstance();
         if (file_exists($this->tmpFile) && is_file($this->tmpFile)) @unlink($this->tmpFile);
+        // Also clean up SQLite auxiliary files
+        $walFile = $this->tmpFile . '-wal';
+        $shmFile = $this->tmpFile . '-shm';
+        if (file_exists($walFile)) @unlink($walFile);
+        if (file_exists($shmFile)) @unlink($shmFile);
     }
 
     public function testSaveItemCreatesAndAssignsId(): void {
@@ -119,7 +129,9 @@ class StorageTest extends TestCase {
         mkdir($dirPath, 0775);
 
         $this->expectException(\StorageException::class);
-        $db = \Database::getInstance($dirPath);
+        // For SQLite, we need to try to use the directory as a database file
+        $dbPath = $dirPath; // Using directory as database path should fail
+        $db = \Database::getInstance($dbPath);
         $db->saveItem(['name' => 'x']);
 
         if (is_dir($dirPath)) @rmdir($dirPath);

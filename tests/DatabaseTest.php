@@ -8,13 +8,23 @@ class DatabaseTest extends TestCase {
 
     protected function setUp(): void {
         \Database::resetInstance();
-        $this->tmpFile = sys_get_temp_dir() . '/php_rest_logging_test_' . bin2hex(random_bytes(6)) . '.json';
+        $this->tmpFile = sys_get_temp_dir() . '/php_rest_logging_test_' . bin2hex(random_bytes(6)) . '.db';
         if (file_exists($this->tmpFile)) @unlink($this->tmpFile);
+        // Also clean up SQLite auxiliary files
+        $walFile = $this->tmpFile . '-wal';
+        $shmFile = $this->tmpFile . '-shm';
+        if (file_exists($walFile)) @unlink($walFile);
+        if (file_exists($shmFile)) @unlink($shmFile);
     }
 
     protected function tearDown(): void {
         \Database::resetInstance();
         if (file_exists($this->tmpFile) && is_file($this->tmpFile)) @unlink($this->tmpFile);
+        // Also clean up SQLite auxiliary files
+        $walFile = $this->tmpFile . '-wal';
+        $shmFile = $this->tmpFile . '-shm';
+        if (file_exists($walFile)) @unlink($walFile);
+        if (file_exists($shmFile)) @unlink($shmFile);
     }
 
     public function testLoadWhenFileMissingReturnsDefault(): void {
@@ -61,32 +71,32 @@ class DatabaseTest extends TestCase {
         if (is_dir($dirPath)) @rmdir($dirPath);
     }
 
-    public function testLoadWithCorruptJsonReturnsEmpty(): void {
-        // create a corrupt json file
-        file_put_contents($this->tmpFile, "{ this is not: json,,}\n");
+    public function testLoadWithCorruptDatabaseThrowsException(): void {
+        // create a corrupt database file (not a valid SQLite database)
+        file_put_contents($this->tmpFile, "this is not a database file");
 
+        $this->expectException(\StorageException::class);
+        $this->expectExceptionMessage('Database initialization failed');
+        
         $db = \Database::getInstance($this->tmpFile);
-
-        // load should treat corrupt JSON as empty storage per implementation
-        $ids = $db->listIds();
-        $this->assertIsArray($ids);
-        $this->assertSame([], $ids);
+        // Any operation should trigger the database initialization and throw an exception
+        $db->listIds();
     }
 
-    public function testLegacyNextIdInFileIsIgnored(): void {
-        // create a legacy-style file that contains a nextId along with items
-        $payload = [
-            'nextId' => 123,
-            'items' => [
-                '1' => ['id' => 1, 'name' => 'legacy']
-            ]
-        ];
-        file_put_contents($this->tmpFile, json_encode($payload));
-
+    public function testGetNextIdComputesFromExistingIds(): void {
         $db = \Database::getInstance($this->tmpFile);
 
-        // getNextId should compute based on existing ids, not use persisted nextId
+        // Create item with id 1
+        $db->saveItem(['name' => 'first'], 1);
+        
+        // getNextId should compute based on existing ids (max + 1)
         $this->assertSame(2, $db->getNextId());
+        
+        // Add another item with a higher id
+        $db->saveItem(['name' => 'higher'], 10);
+        
+        // getNextId should now return 11
+        $this->assertSame(11, $db->getNextId());
     }
 
     public function testSaveWithZeroOrNegativeIdUsesProvidedId(): void {
