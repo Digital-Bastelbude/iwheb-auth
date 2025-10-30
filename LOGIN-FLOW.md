@@ -46,15 +46,17 @@ The system implements a secure, passwordless user login with code-based two-fact
 
 ---
 
-### 2. Code Validation (`POST /validate`)
+### 2. Code Validation (`POST /validate/{session_id}`)
 
 **Request:**
 ```json
 {
-  "session_id": "abc123...",
   "code": "123456"
 }
 ```
+*Note: `session_id` is passed as URL parameter*
+
+**Example URL:** `POST /validate/abc123...`
 
 **Process:**
 1. Session is loaded by `session_id`
@@ -85,14 +87,15 @@ The system implements a secure, passwordless user login with code-based two-fact
 
 ---
 
-### 3. Get User Info (`POST /user/info`)
+### 3. Get User Info (`POST /user/info/{session_id}`)
 
 **Request:**
 ```json
-{
-  "session_id": "xyz789..."
-}
+{}
 ```
+*Note: `session_id` is passed as URL parameter, body can be empty*
+
+**Example URL:** `POST /user/info/xyz789...`
 
 **Process:**
 1. Session is checked for validity (`isSessionActive`)
@@ -225,17 +228,17 @@ echo "Your code: $CODE"
 # 2. User enters code (e.g., from email)
 # Then validate code:
 
-RESPONSE=$(curl -X POST https://api.example.com/validate \
+RESPONSE=$(curl -X POST https://api.example.com/validate/$SESSION_ID \
   -H "Content-Type: application/json" \
-  -d "{\"session_id\":\"$SESSION_ID\",\"code\":\"$CODE\"}")
+  -d "{\"code\":\"$CODE\"}")
 
 NEW_SESSION_ID=$(echo $RESPONSE | jq -r '.session_id')
 echo "Authenticated! New session ID: $NEW_SESSION_ID"
 
 # 3. Get user information
-RESPONSE=$(curl -X POST https://api.example.com/user/info \
+RESPONSE=$(curl -X POST https://api.example.com/user/info/$NEW_SESSION_ID \
   -H "Content-Type: application/json" \
-  -d "{\"session_id\":\"$NEW_SESSION_ID\"}")
+  -d "{}")
 
 USER_DATA=$(echo $RESPONSE | jq -r '.user')
 LATEST_SESSION_ID=$(echo $RESPONSE | jq -r '.session_id')
@@ -333,8 +336,8 @@ CREATE TABLE sessions (
 | Method | Path | Description |
 |---------|------|--------------|
 | POST | `/login` | Starts login process, returns session_id and code |
-| POST | `/validate` | Validates code, marks session as authenticated |
-| POST | `/user/info` | Get user information from Webling, refreshes session |
+| POST | `/validate/{session_id}` | Validates code, marks session as authenticated |
+| POST | `/user/info/{session_id}` | Get user information from Webling, refreshes session |
 
 **Future:**
 - `GET /session/info` - Get session information

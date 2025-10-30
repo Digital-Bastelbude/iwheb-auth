@@ -90,14 +90,20 @@ $routes = [
         ]
     ],
     'validate' => [
-        'noParam' => [
+        'withParam' => [
             'POST' => function($pathVars, $body) use ($dbService, $auth) {
-                // Validate input
-                if (!isset($body['session_id']) || !isset($body['code'])) {
-                    throw new InvalidInputException('INVALID_INPUT', 'session_id and code required');
+                // Session ID comes from URL parameter
+                $sessionId = $pathVars['id'] ?? null;
+                
+                if (!$sessionId) {
+                    throw new InvalidInputException('INVALID_INPUT', 'session_id required in URL');
+                }
+                
+                // Validate input - code must be in body
+                if (!isset($body['code'])) {
+                    throw new InvalidInputException('INVALID_INPUT', 'code required');
                 }
 
-                $sessionId = $body['session_id'];
                 $code = $body['code'];
 
                 // Get session
@@ -138,14 +144,14 @@ $routes = [
         ]
     ],
     'user/info' => [
-        'noParam' => [
+        'withParam' => [
             'POST' => function($pathVars, $body) use ($dbService, $weblingClient, $uidEncryptor, $auth) {
-                // Validate input
-                if (!isset($body['session_id'])) {
-                    throw new InvalidInputException('INVALID_INPUT', 'session_id required');
+                // Session ID comes from URL parameter
+                $sessionId = $pathVars['id'] ?? null;
+                
+                if (!$sessionId) {
+                    throw new InvalidInputException('INVALID_INPUT', 'session_id required in URL');
                 }
-
-                $sessionId = $body['session_id'];
 
                 // Check if session is active (not expired)
                 if (!$dbService->isSessionActive($sessionId)) {
