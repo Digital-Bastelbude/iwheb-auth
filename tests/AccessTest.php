@@ -2,7 +2,7 @@
 use PHPUnit\Framework\TestCase;
 
 require_once __DIR__ . '/bootstrap.php';
-require_once __DIR__ . '/../access.php';
+require_once __DIR__ . '/../src/access.php';
 
 class AccessTest extends TestCase {
     public function testGetApiKeyFromHeader(): void {

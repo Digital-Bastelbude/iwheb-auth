@@ -2,7 +2,7 @@
 use PHPUnit\Framework\TestCase;
 
 require_once __DIR__ . '/bootstrap.php';
-require_once __DIR__ . '/../apikeymanager.php';
+require_once __DIR__ . '/../src/apikeymanager.php';
 
 class ApiKeyManagerTest extends TestCase {
     
