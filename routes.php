@@ -136,6 +136,7 @@ $routes = [
                 return [
                     'data' => [
                         'session_id' => $newSessionId,
+                        'session_expires_at' => $session['expires_at'],
                         'validated' => true
                     ],
                     'status' => 200
@@ -193,6 +194,7 @@ $routes = [
                 return [
                     'data' => [
                         'session_id' => $newSessionId,
+                        'session_expires_at' => $session['expires_at'],
                         'user' => $weblingUser
                     ],
                     'status' => 200
@@ -200,9 +202,66 @@ $routes = [
             }
         ]
     ],
-    'user/touch' => [
+    'session/touch' => [
         'withParam' => [
-            'GET' => function($pathVars, $body) use ($dbService, $auth) {        
+            'POST' => function($pathVars, $body) use ($dbService, $auth) {
+                // Session ID comes from URL parameter
+                $sessionId = $pathVars['id'] ?? null;
+                
+                if (!$sessionId) {
+                    throw new InvalidInputException('INVALID_INPUT', 'session_id required in URL');
+                }
+
+                // Check if session is active (not expired)
+                if (!$dbService->isSessionActive($sessionId)) {
+                    throw new InvalidSessionException('Session invalid or expired');
+                }
+
+                // Touch user to refresh session and update last activity
+                $newSessionId = $dbService->touchUser($sessionId);
+
+                if (!$newSessionId) {
+                    throw new StorageException('STORAGE_ERROR', 'Failed to refresh session');
+                }
+
+                // Get the new session to retrieve expires_at
+                $newSession = $dbService->getSessionBySessionId($newSessionId);
+                
+                if (!$newSession) {
+                    throw new StorageException('STORAGE_ERROR', 'Failed to retrieve new session');
+                }
+
+                return [
+                    'data' => [
+                        'session_id' => $newSessionId,
+                        'expires_at' => $newSession['expires_at']
+                    ],
+                    'status' => 200
+                ];
+            }
+        ]
+    ],
+    'session/logout' => [
+        'withParam' => [
+            'POST' => function($pathVars, $body) use ($dbService, $auth) {
+                // Session ID comes from URL parameter
+                $sessionId = $pathVars['id'] ?? null;
+                
+                if (!$sessionId) {
+                    throw new InvalidInputException('INVALID_INPUT', 'session_id required in URL');
+                }
+
+                // Delete the session
+                $deleted = $dbService->deleteSession($sessionId);
+                
+                if (!$deleted) {
+                    throw new InvalidSessionException('Session not found');
+                }
+
+                return [
+                    'data' => [],
+                    'status' => 204  // No Content
+                ];
             }
         ]
     ]

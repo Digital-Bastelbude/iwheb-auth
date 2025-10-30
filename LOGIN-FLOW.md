@@ -132,6 +132,72 @@ The system implements a secure, passwordless user login with code-based two-fact
 
 ---
 
+### 4. Touch Session (`POST /session/touch/{session_id}`)
+
+**Request:**
+```json
+{}
+```
+*Note: `session_id` is passed as URL parameter, body can be empty*
+
+**Example URL:** `POST /session/touch/xyz789...`
+
+**Process:**
+1. Session is checked for validity (`isSessionActive`)
+   - Session must exist and not be expired
+2. Session is refreshed (`touchUser`)
+3. New session ID is generated
+4. User's last activity timestamp is updated
+5. New session ID and expiry time are returned
+
+**Response (Success):**
+```json
+{
+  "session_id": "newxyz456...",
+  "expires_at": "2025-10-30T11:15:00+00:00"
+}
+```
+
+**Response (Error):**
+```json
+{
+  "error": "Not found"
+}
+```
+*HTTP Status: 404*
+
+---
+
+### 5. Logout (`POST /session/logout/{session_id}`)
+
+**Request:**
+```json
+{}
+```
+*Note: `session_id` is passed as URL parameter, body can be empty*
+
+**Example URL:** `POST /session/logout/xyz789...`
+
+**Process:**
+1. Session is deleted from database
+2. Empty response is returned
+
+**Response (Success):**
+```
+(empty response)
+```
+*HTTP Status: 204 No Content*
+
+**Response (Error):**
+```json
+{
+  "error": "Not found"
+}
+```
+*HTTP Status: 404*
+
+---
+
 ## Security Features
 
 ### ✅ Implemented Security Measures:
@@ -246,7 +312,23 @@ LATEST_SESSION_ID=$(echo $RESPONSE | jq -r '.session_id')
 echo "User data: $USER_DATA"
 echo "Latest session ID: $LATEST_SESSION_ID"
 
-# 4. Use latest session ID for further authenticated requests
+# 4. Touch session (refresh without fetching user data)
+RESPONSE=$(curl -X POST https://api.example.com/session/touch/$LATEST_SESSION_ID \
+  -H "Content-Type: application/json" \
+  -d "{}")
+
+REFRESHED_SESSION_ID=$(echo $RESPONSE | jq -r '.session_id')
+EXPIRES_AT=$(echo $RESPONSE | jq -r '.expires_at')
+
+echo "Refreshed session ID: $REFRESHED_SESSION_ID"
+echo "Expires at: $EXPIRES_AT"
+
+# 5. Logout
+curl -X POST https://api.example.com/session/logout/$REFRESHED_SESSION_ID \
+  -H "Content-Type: application/json" \
+  -d "{}"
+
+echo "Logged out successfully"
 ```
 
 ---
@@ -333,16 +415,15 @@ CREATE TABLE sessions (
 ## API Endpoints
 
 | Method | Path | Description |
-| Method | Path | Description |
 |---------|------|--------------|
 | POST | `/login` | Starts login process, returns session_id and code |
 | POST | `/validate/{session_id}` | Validates code, marks session as authenticated |
-| POST | `/user/info/{session_id}` | Get user information from Webling, refreshes session |
+| POST | `/user/{session_id}` | Get user information from Webling, refreshes session |
+| POST | `/session/touch/{session_id}` | Refreshes session, returns new session_id and expiry |
+| POST | `/session/logout/{session_id}` | Deletes session (logout), returns 204 No Content |
 
 **Future:**
-- `GET /session/info` - Get session information
-- `POST /session/refresh` - Extend session
-- `DELETE /session` - End session (logout)
+- `GET /session/info/{session_id}` - Get session information
 - `GET /sessions` - Get all active sessions of user
 
 ---
