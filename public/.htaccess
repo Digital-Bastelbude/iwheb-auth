@@ -1,4 +1,9 @@
+# Enable mod_rewrite
 RewriteEngine On
+
+# Redirect to HTTPS (optional, uncomment if SSL is available)
+# RewriteCond %{HTTPS} off
+# RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
 # Serve existing files directly
 RewriteCond %{REQUEST_FILENAME} -f [OR]
@@ -7,3 +12,14 @@ RewriteRule ^ - [L]
 
 # Otherwise route everything to index.php
 RewriteRule ^ index.php [L]
+
+# Security: Deny access to hidden files
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+
+# Disable directory listing
+Options -Indexes
+
+# Set default charset
+AddDefaultCharset utf-8

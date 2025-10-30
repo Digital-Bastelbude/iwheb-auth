@@ -37,12 +37,27 @@ Complete documentation is located in the `doc/` directory:
 - **[🔐 Secrets Setup](doc/SECRETS-SETUP.md)** - Configure API keys and credentials
 - **[🔑 Login Flow](doc/LOGIN-FLOW.md)** - Authentication process details
 - **[🎫 Key Generator](doc/KEYGENERATOR.md)** - Generate and manage API keys
+- **[🚀 Deployment](doc/DEPLOYMENT.md)** - Deploy to shared hosting (Strato/Ionos)
 
 ## Requirements
 
-- PHP 8.1+ with `libsodium`, `sqlite3`, `json`, `curl`
+- PHP 7.2+ (recommended: 8.0+) with:
+  - `pdo_sqlite` - Database
+  - `sodium` - Encryption
+  - `json` - JSON handling
+  - `curl` - Webling API
 - Composer
 - Webling account with API access
+
+## Webspace Deployment
+
+Check compatibility with your webspace:
+
+```bash
+php check-webspace.php
+```
+
+See **[doc/DEPLOYMENT.md](doc/DEPLOYMENT.md)** for detailed instructions on deploying to Strato, Ionos, or similar shared hosting.
 
 ## License
 

@@ -1,6 +1,15 @@
 {
   "name": "hannes/iwheb-auth",
   "description": "iWheb Authentication Service with Webling integration",
+  "license": "proprietary",
+  "require": {
+    "php": ">=7.2",
+    "ext-pdo": "*",
+    "ext-sqlite3": "*",
+    "ext-sodium": "*",
+    "ext-json": "*",
+    "ext-curl": "*"
+  },
   "require-dev": {
     "phpunit/phpunit": "^10.0"
   },
