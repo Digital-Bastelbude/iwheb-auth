@@ -150,7 +150,7 @@ find . -name '*.php' -not -path './vendor/*' -print0 | xargs -0 php -l
 - Run PHPUnit test suite:
 
 ```bash
-vendor/bin/phpunit --colors=always
+vendor/bin/phpunit --colors=always --testdox
 ```
 
 Strict test mode
@@ -159,7 +159,7 @@ Strict test mode
 During development you may want deprecations and notices to fail tests so they are fixed immediately. The test bootstrap (`tests/bootstrap.php`) includes an optional strict error handler that converts deprecations and notices into exceptions. Enable it by setting the `TEST_STRICT_ERRORS` environment variable to `1` when running PHPUnit:
 
 ```bash
-TEST_STRICT_ERRORS=1 vendor/bin/phpunit --colors=always
+TEST_STRICT_ERRORS=1 vendor/bin/phpunit --colors=always --testdox
 ```
 
 When the env var is not set, the test suite will run without converting notices/deprecations to exceptions (the default for CI or casual runs).
