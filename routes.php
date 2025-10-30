@@ -45,7 +45,7 @@ $routes = [
             'POST' => function($pathVars, $body) use ($dbService, $weblingClient, $uidEncryptor, $auth) {
                 // Validate input
                 if (!isset($body['email'])) {
-                    return ['data' => ['error' => 'Email required'], 'status' => 400];
+                    throw new InvalidInputException('INVALID_INPUT', 'Email required');
                 }
 
                 // Decode base64 URL-safe encoded email
@@ -53,46 +53,39 @@ $routes = [
                 $email = base64_decode(strtr($encodedEmail, '-_', '+/'), true);
                 
                 if ($email === false || empty($email)) {
-                    return ['data' => ['error' => 'Invalid email encoding'], 'status' => 400];
+                    throw new InvalidInputException('INVALID_INPUT', 'Invalid email encoding');
                 }
 
                 // Check if user exists in Webling
-                try {
-                    $weblingUserId = $weblingClient->getUserIdByEmail($email);
-                    
-                    if ($weblingUserId === null) {
-                        return ['data' => ['error' => 'User not found'], 'status' => 404];
-                    }
-
-                    // Generate token from Webling user ID
-                    $token = $uidEncryptor->encrypt((string)$weblingUserId);
-
-                    // Check if user already exists in database
-                    $existingUser = $dbService->getUserByToken($token);
-                    
-                    if (!$existingUser) {
-                        // Create new user (without code - code is in session now)
-                        $dbService->createUser($token);
-                    }
-
-                    // Create session for user (generates code automatically)
-                    $session = $dbService->createSession($token);
-
-                    return [
-                        'data' => [
-                            'session_id' => $session['session_id'],
-                            'code' => $session['code'],
-                            'code_expires_at' => $session['code_valid_until'],
-                            'session_expires_at' => $session['expires_at']
-                        ],
-                        'status' => 200
-                    ];
-
-                } catch (WeblingException $e) {
-                    return ['data' => ['error' => 'Webling API error: ' . $e->getMessage()], 'status' => 500];
-                } catch (StorageException $e) {
-                    return ['data' => ['error' => 'Storage error'], 'status' => 500];
+                $weblingUserId = $weblingClient->getUserIdByEmail($email);
+                
+                if ($weblingUserId === null) {
+                    throw new UserNotFoundException();
                 }
+
+                // Generate token from Webling user ID
+                $token = $uidEncryptor->encrypt((string)$weblingUserId);
+
+                // Check if user already exists in database
+                $existingUser = $dbService->getUserByToken($token);
+                
+                if (!$existingUser) {
+                    // Create new user (without code - code is in session now)
+                    $dbService->createUser($token);
+                }
+
+                // Create session for user (generates code automatically)
+                $session = $dbService->createSession($token);
+
+                return [
+                    'data' => [
+                        'session_id' => $session['session_id'],
+                        'code' => $session['code'],
+                        'code_expires_at' => $session['code_valid_until'],
+                        'session_expires_at' => $session['expires_at']
+                    ],
+                    'status' => 200
+                ];
             }
         ]
     ],
@@ -101,67 +94,107 @@ $routes = [
             'POST' => function($pathVars, $body) use ($dbService, $auth) {
                 // Validate input
                 if (!isset($body['session_id']) || !isset($body['code'])) {
-                    return ['data' => ['error' => 'session_id and code required'], 'status' => 400];
+                    throw new InvalidInputException('INVALID_INPUT', 'session_id and code required');
                 }
 
                 $sessionId = $body['session_id'];
                 $code = $body['code'];
 
-                try {
-                    // Get session
-                    $session = $dbService->getSessionBySessionId($sessionId);
-                    
-                    if (!$session) {
-                        return ['data' => ['error' => 'Invalid or expired session'], 'status' => 404];
-                    }
-
-                    // Validate code for the session
-                    $isValidCode = $dbService->validateCode($sessionId, $code);
-                    
-                    if (!$isValidCode) {
-                        return ['data' => ['error' => 'Invalid or expired code'], 'status' => 401];
-                    }
-
-                    // Mark session as validated
-                    $dbService->validateSession($sessionId);
-
-                    // Touch user to generate new session ID
-                    $newSessionId = $dbService->touchUser($sessionId);
-
-                    if (!$newSessionId) {
-                        return ['data' => ['error' => 'Failed to refresh session'], 'status' => 500];
-                    }
-
-                    // Regenerate code for security (so old code can't be reused)
-                    $dbService->regenerateSessionCode($newSessionId);
-
-                    return [
-                        'data' => [
-                            'session_id' => $newSessionId,
-                            'validated' => true
-                        ],
-                        'status' => 200
-                    ];
-
-                } catch (StorageException $e) {
-                    return ['data' => ['error' => 'Storage error'], 'status' => 500];
+                // Get session
+                $session = $dbService->getSessionBySessionId($sessionId);
+                
+                if (!$session) {
+                    throw new InvalidSessionException();
                 }
+
+                // Validate code for the session
+                $isValidCode = $dbService->validateCode($sessionId, $code);
+                
+                if (!$isValidCode) {
+                    throw new InvalidCodeException();
+                }
+
+                // Mark session as validated
+                $dbService->validateSession($sessionId);
+
+                // Touch user to generate new session ID
+                $newSessionId = $dbService->touchUser($sessionId);
+
+                if (!$newSessionId) {
+                    throw new StorageException('STORAGE_ERROR', 'Failed to refresh session');
+                }
+
+                // Regenerate code for security (so old code can't be reused)
+                $dbService->regenerateSessionCode($newSessionId);
+
+                return [
+                    'data' => [
+                        'session_id' => $newSessionId,
+                        'validated' => true
+                    ],
+                    'status' => 200
+                ];
             }
         ]
     ],
     'user/info' => [
-        'withParam' => [
-            'GET' => function($pathVars, $body) use ($dbService, $auth) {        
-            },
-        ]
-    ],
-    'user/touch' => [
-        'withParam' => [
-            'GET' => function($pathVars, $body) use ($dbService, $auth) {        
+        'noParam' => [
+            'POST' => function($pathVars, $body) use ($dbService, $weblingClient, $uidEncryptor, $auth) {
+                // Validate input
+                if (!isset($body['session_id'])) {
+                    throw new InvalidInputException('INVALID_INPUT', 'session_id required');
+                }
+
+                $sessionId = $body['session_id'];
+
+                // Check if session is active (not expired)
+                if (!$dbService->isSessionActive($sessionId)) {
+                    throw new InvalidSessionException();
+                }
+
+                // Get session to retrieve user token
+                $session = $dbService->getSessionBySessionId($sessionId);
+                
+                if (!$session) {
+                    throw new InvalidSessionException('Session not found');
+                }
+
+                // Decrypt user token to get Webling user ID
+                try {
+                    $weblingUserId = $uidEncryptor->decrypt($session['user_token']);
+                } catch (\Exception $e) {
+                    throw new StorageException('DECRYPTION_ERROR', 'Failed to decrypt user token');
+                }
+                
+                // Fetch user data from Webling
+                try {
+                    $weblingUser = $weblingClient->getUserDataById((int)$weblingUserId);
+                } catch (WeblingException $e) {
+                    throw new UserNotFoundException('Webling API error: ' . $e->getMessage());
+                }
+                
+                if ($weblingUser === null) {
+                    throw new UserNotFoundException();
+                }
+
+                // Touch user to refresh session and update last activity
+                $newSessionId = $dbService->touchUser($sessionId);
+
+                if (!$newSessionId) {
+                    throw new StorageException('STORAGE_ERROR', 'Failed to refresh session');
+                }
+
+                return [
+                    'data' => [
+                        'session_id' => $newSessionId,
+                        'user' => $weblingUser
+                    ],
+                    'status' => 200
+                ];
             }
         ]
     ],
-    'user/validate' => [
+    'user/touch' => [
         'withParam' => [
             'GET' => function($pathVars, $body) use ($dbService, $auth) {        
             }
@@ -179,11 +212,15 @@ try {
         $response->notFound($auth['key'] ?? null, 'NOT_FOUND');
     }
 } catch (StorageException $e) {
-    // storage errors map to STORAGE_ERROR
+    // storage errors map to STORAGE_ERROR (500 Internal Server Error)
     $response->notFound($auth['key'] ?? null, 'STORAGE_ERROR');
 } catch (InvalidInputException $e) {
     // Invalid input should produce a 400 Bad Request response
     $response->sendJson(['error' => 'Invalid input'], 400, [], 'DENY', 'INVALID_INPUT', $auth['key'] ?? null);
+} catch (NotFoundException $e) {
+    // All NotFoundException and subclasses (InvalidSessionException, InvalidCodeException, UserNotFoundException)
+    // are mapped to a generic 404 response for security
+    $response->notFound($auth['key'] ?? null, 'NOT_FOUND');
 } catch (\Exception $e) {
     // propagate auth info for notFound
     $reason = $e->getMessage() ?: 'NOT_FOUND';

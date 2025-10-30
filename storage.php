@@ -471,6 +471,37 @@ class Database {
     }
 
     /**
+     * Public: check if a session is active (exists and not expired).
+     *
+     * @param string $sessionId Session ID to check
+     * @return bool True if session exists and is not expired, false otherwise
+     * @throws StorageException on database error
+     */
+    public function isSessionActive(string $sessionId): bool {
+        try {
+            $stmt = $this->pdo->prepare('SELECT expires_at FROM sessions WHERE session_id = ?');
+            $stmt->execute([$sessionId]);
+            $session = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$session) {
+                return false;
+            }
+
+            // Check if session is expired
+            $now = gmdate('c');
+            if ($session['expires_at'] < $now) {
+                // Delete expired session
+                $this->deleteSession($sessionId);
+                return false;
+            }
+
+            return true;
+        } catch (PDOException $e) {
+            throw new StorageException('STORAGE_ERROR', 'Database query failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * Public: validate a code for a given session.
      *
      * @param string $sessionId Session ID

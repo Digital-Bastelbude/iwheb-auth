@@ -75,18 +75,54 @@ The system implements a secure, passwordless user login with code-based two-fact
 }
 ```
 
-**Response (Error - invalid code):**
+**Response (Error):**
 ```json
 {
-  "error": "Invalid or expired code"
+  "error": "User not found"
 }
 ```
-*HTTP Status: 401*
+*HTTP Status: 404*
 
-**Response (Error - invalid session):**
+---
+
+### 3. Get User Info (`POST /user/info`)
+
+**Request:**
 ```json
 {
-  "error": "Invalid or expired session"
+  "session_id": "xyz789..."
+}
+```
+
+**Process:**
+1. Session is checked for validity (`isSessionActive`)
+   - Session must exist
+   - Session must not be expired
+2. User token is decrypted to get Webling user ID
+3. User data is fetched from Webling API
+4. Session is refreshed (`touchUser`) and user's last activity updated
+5. User data and new session ID are returned
+
+**Response (Success):**
+```json
+{
+  "session_id": "newxyz123...",
+  "user": {
+    "id": 123,
+    "properties": {
+      "firstName": "John",
+      "lastName": "Doe",
+      "E-Mail": "john@example.com",
+      ...
+    }
+  }
+}
+```
+
+**Response (Error):**
+```json
+{
+  "error": "Not found"
 }
 ```
 *HTTP Status: 404*
@@ -124,6 +160,49 @@ The system implements a secure, passwordless user login with code-based two-fact
    - Sessions are automatically deleted when user is deleted
    - No orphaned sessions in the database
 
+7. **Generic Error Messages**:
+   - Routes throw specific exceptions internally (for logging/debugging)
+   - All authentication failures mapped to same generic 404 response
+   - Prevents information disclosure and enumeration attacks
+   - Logs contain detailed exception info for troubleshooting
+
+---
+
+## Error Handling
+
+The system uses a **two-tier exception approach** for security and debugging:
+
+### Internal Exceptions (for logging/debugging)
+
+Routes throw specific exceptions internally:
+- `InvalidSessionException` - Session invalid or expired
+- `InvalidCodeException` - Code wrong or expired  
+- `UserNotFoundException` - User not found in Webling
+- `StorageException` - Database errors
+- `InvalidInputException` - Missing or malformed parameters
+
+### External Response (security-conscious)
+
+All `NotFoundException` subclasses (`InvalidSessionException`, `InvalidCodeException`, `UserNotFoundException`) are **mapped to the same generic 404 response**:
+
+**Client Errors (400):**
+```json
+{ "error": "Invalid input" }
+```
+Returned when required parameters are missing or malformed.
+
+**Not Found (404):**
+```json
+{ "error": "User not found" }
+```
+Generic response for all authentication failures. Could mean:
+- Invalid/expired session
+- Wrong/expired code
+- User not found in Webling
+- Any other authentication error
+
+**Why generic errors?** Prevents information leakage and enumeration attacks. Logs contain detailed exception names for debugging, but clients only see generic messages.
+
 ---
 
 ## Usage
@@ -153,7 +232,18 @@ RESPONSE=$(curl -X POST https://api.example.com/validate \
 NEW_SESSION_ID=$(echo $RESPONSE | jq -r '.session_id')
 echo "Authenticated! New session ID: $NEW_SESSION_ID"
 
-# 3. Use new session ID for authenticated requests
+# 3. Get user information
+RESPONSE=$(curl -X POST https://api.example.com/user/info \
+  -H "Content-Type: application/json" \
+  -d "{\"session_id\":\"$NEW_SESSION_ID\"}")
+
+USER_DATA=$(echo $RESPONSE | jq -r '.user')
+LATEST_SESSION_ID=$(echo $RESPONSE | jq -r '.session_id')
+
+echo "User data: $USER_DATA"
+echo "Latest session ID: $LATEST_SESSION_ID"
+
+# 4. Use latest session ID for further authenticated requests
 ```
 
 ---
@@ -240,9 +330,11 @@ CREATE TABLE sessions (
 ## API Endpoints
 
 | Method | Path | Description |
+| Method | Path | Description |
 |---------|------|--------------|
 | POST | `/login` | Starts login process, returns session_id and code |
 | POST | `/validate` | Validates code, marks session as authenticated |
+| POST | `/user/info` | Get user information from Webling, refreshes session |
 
 **Future:**
 - `GET /session/info` - Get session information

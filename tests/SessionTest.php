@@ -527,4 +527,34 @@ class SessionTest extends TestCase {
         // (Probability: ~1 - (0.9)^100 ≈ 99.997%)
         $this->assertTrue($foundLeadingZero, 'Should have generated at least one code with leading zero');
     }
+
+    public function testIsSessionActiveReturnsTrueForActiveSession(): void {
+        $db = \Database::getInstance($this->tmpFile);
+        
+        $db->createUser('testtoken123');
+        $session = $db->createSession('testtoken123', 300); // 5 minutes
+        
+        $isActive = $db->isSessionActive($session['session_id']);
+        $this->assertTrue($isActive);
+    }
+
+    public function testIsSessionActiveReturnsFalseForExpiredSession(): void {
+        $db = \Database::getInstance($this->tmpFile);
+        
+        $db->createUser('testtoken123');
+        $session = $db->createSession('testtoken123', -100); // Already expired
+        
+        $isActive = $db->isSessionActive($session['session_id']);
+        $this->assertFalse($isActive);
+        
+        // Verify session was deleted
+        $this->assertNull($db->getSessionBySessionId($session['session_id']));
+    }
+
+    public function testIsSessionActiveReturnsFalseForNonexistentSession(): void {
+        $db = \Database::getInstance($this->tmpFile);
+        
+        $isActive = $db->isSessionActive('nonexistentsession123456789012');
+        $this->assertFalse($isActive);
+    }
 }
