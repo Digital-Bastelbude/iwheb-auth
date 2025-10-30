@@ -1,6 +1,11 @@
 <?php
+declare(strict_types=1);
 
-require_once __DIR__ . '/exceptions.php';
+namespace IWebAuth\Database;
+
+use StorageException;
+use PDO;
+use PDOException;
 
 /**
  * Database

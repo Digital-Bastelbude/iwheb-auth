@@ -1,6 +1,10 @@
 <?php
+declare(strict_types=1);
 
-require_once __DIR__ . '/exceptions.php';
+namespace IWebAuth\Http;
+
+use WeblingApiException;
+use WeblingException;
 
 /**
  * Webling API Client

@@ -1,8 +1,8 @@
 <?php
 use PHPUnit\Framework\TestCase;
+use IWebAuth\Auth\{ApiKeyHelper, RateLimiter, Authorizer, AuthorizationException};
 
 require_once __DIR__ . '/bootstrap.php';
-require_once __DIR__ . '/../src/access.php';
 
 class AccessTest extends TestCase {
     public function testGetApiKeyFromHeader(): void {

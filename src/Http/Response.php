@@ -1,5 +1,9 @@
 <?php
-require_once __DIR__ . '/logging.php';
+declare(strict_types=1);
+
+namespace IWebAuth\Http;
+
+use Logger;
 
 /**
  * Response

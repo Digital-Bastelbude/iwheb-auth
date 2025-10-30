@@ -1,13 +1,16 @@
 <?php
+declare(strict_types=1);
 
-require_once __DIR__ . '/response.php';
-require_once __DIR__ . '/storage.php';
-require_once __DIR__ . '/access.php';
-require_once __DIR__ . '/weblingclient.php';
-require_once __DIR__ . '/uidencryptor.php';
-require_once __DIR__ . '/apikeymanager.php';
+namespace IWebAuth\Http;
 
-use App\Security\UidEncryptor;
+use IWebAuth\Database\{Database, UidEncryptor};
+use IWebAuth\Auth\{Authorizer, ApiKeyManager, AuthorizationException};
+use InvalidInputException;
+use UserNotFoundException;
+use InvalidSessionException;
+use InvalidCodeException;
+use StorageException;
+use NotFoundException;
 
 // -------- Routes --------
 // instantiate helpers / services (assumes $CONFIG exists in bootstrap)
@@ -399,7 +402,7 @@ $routes = [
     ]
 ];
 
-require_once __DIR__ . '/routes-logic.php';
+require_once __DIR__ . '/RoutesLogic.php';
 
 try {
     $result = run_routes($routes, $PATH, $METHOD, $response);

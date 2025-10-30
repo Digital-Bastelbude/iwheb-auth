@@ -1,17 +1,28 @@
 <?php
 declare(strict_types=1);
 
-// Require the old files without namespaces from src/
-require_once __DIR__ . '/../storage.php';
-require_once __DIR__ . '/../response.php';
-require_once __DIR__ . '/../weblingclient.php';
-require_once __DIR__ . '/../exceptions.php';
-require_once __DIR__ . '/../uidencryptor.php';
-require_once __DIR__ . '/../apikeymanager.php';
+namespace IWebAuth\Http;
 
-use App\Security\UidEncryptor;
+use IWebAuth\Database\{Database, UidEncryptor};
+use IWebAuth\Auth\{Authorizer, ApiKeyManager, AuthorizationException};
+use InvalidInputException;
+use UserNotFoundException;
+use InvalidSessionException;
+use InvalidCodeException;
+use StorageException;
+use NotFoundException;
+
+require_once __DIR__ . '/Response.php';
+require_once __DIR__ . '/../Database/Storage.php';
+require_once __DIR__ . '/../Auth/Access.php';
+require_once __DIR__ . '/WeblingClient.php';
+require_once __DIR__ . '/../Database/UidEncryptor.php';
+require_once __DIR__ . '/../Auth/ApiKeyManager.php';
+require_once __DIR__ . '/../exceptions.php';
 
 // -------- Routes --------
+// instantiate helpers / services (assumes $CONFIG exists in bootstrap)
+$authorizer = new Authorizer($CONFIG ?? []);
 $dbService  = Database::getInstance();
 $response   = Response::getInstance();
 

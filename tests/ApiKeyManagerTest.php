@@ -1,8 +1,8 @@
 <?php
 use PHPUnit\Framework\TestCase;
+use IWebAuth\Auth\ApiKeyManager;
 
 require_once __DIR__ . '/bootstrap.php';
-require_once __DIR__ . '/../src/apikeymanager.php';
 
 class ApiKeyManagerTest extends TestCase {
     

@@ -1,7 +1,9 @@
 <?php
 declare(strict_types=1);
 
-namespace App\Security;
+namespace IWebAuth\Database;
+
+use InvalidArgumentException;
 
 /**
  * UidEncryptor
@@ -15,7 +17,7 @@ namespace App\Security;
  *   - PHP >= 7.2 with libsodium (sodium_* functions)
  *
  * Usage:
- *   use App\Security\UidEncryptor;
+ *   use IWebAuth\Database\UidEncryptor;
  *
  *   // Load or generate a 32-byte binary key (store securely!)
  *   $key = UidEncryptor::loadKeyFromEnv('ENCRYPTION_KEY'); // expects 'base64:...' in env

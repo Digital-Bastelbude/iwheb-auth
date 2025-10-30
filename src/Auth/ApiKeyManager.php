@@ -8,6 +8,7 @@ namespace IWebAuth\Auth;
  * 
  * Handles API key validation and permission checking.
  */
+
 class ApiKeyManager {
     /** @var array API keys configuration (loaded from config/.secrets.php) */
     private array $apiKeys;

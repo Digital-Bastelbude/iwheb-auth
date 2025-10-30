@@ -47,11 +47,8 @@ $PATH   = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 require_once __DIR__ . '/../config.php';
 $CONFIG = load_config();
 
-// Require core modules
-require_once __DIR__ . '/../src/logging.php';
-require_once __DIR__ . '/../src/response.php';
-require_once __DIR__ . '/../src/storage.php';
-require_once __DIR__ . '/../src/access.php';
+// Load Composer autoloader (includes PSR-4 namespaces, classmap, and files)
+require_once __DIR__ . '/../vendor/autoload.php';
 
 // Dispatch routes
-require_once __DIR__ . '/../src/routes.php';
+require_once __DIR__ . '/../src/Http/routes.php';

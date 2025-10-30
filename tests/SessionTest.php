@@ -1,5 +1,6 @@
 <?php
 use PHPUnit\Framework\TestCase;
+use IWebAuth\Database\Database;
 
 require_once __DIR__ . '/bootstrap.php';
 
@@ -8,7 +9,7 @@ class SessionTest extends TestCase {
     private string $testApiKey = 'test-api-key-12345';
 
     protected function setUp(): void {
-        \Database::resetInstance();
+        Database::resetInstance();
         $this->tmpFile = sys_get_temp_dir() . '/php_rest_session_test_' . bin2hex(random_bytes(6)) . '.db';
         if (file_exists($this->tmpFile)) @unlink($this->tmpFile);
         // Also clean up SQLite auxiliary files
@@ -19,7 +20,7 @@ class SessionTest extends TestCase {
     }
 
     protected function tearDown(): void {
-        \Database::resetInstance();
+        Database::resetInstance();
         if (file_exists($this->tmpFile) && is_file($this->tmpFile)) @unlink($this->tmpFile);
         // Also clean up SQLite auxiliary files
         $walFile = $this->tmpFile . '-wal';
@@ -29,7 +30,7 @@ class SessionTest extends TestCase {
     }
 
     public function testCreateSessionForExistingUser(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         // Create a user first
         $user = $db->createUser('testtoken123');
@@ -64,7 +65,7 @@ class SessionTest extends TestCase {
     }
 
     public function testCreateSessionWithCustomDuration(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $db->createUser('testtoken123');
         
@@ -84,7 +85,7 @@ class SessionTest extends TestCase {
     }
 
     public function testCreateSessionForNonexistentUserThrowsException(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $this->expectException(\StorageException::class);
         $this->expectExceptionMessage('User not found');
@@ -92,7 +93,7 @@ class SessionTest extends TestCase {
     }
 
     public function testGetSessionBySessionIdReturnsValidSession(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $db->createUser('testtoken123');
         $originalSession = $db->createSession('testtoken123', $this->testApiKey);
@@ -107,14 +108,14 @@ class SessionTest extends TestCase {
     }
 
     public function testGetSessionBySessionIdReturnsNullForNonexistent(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $result = $db->getSessionBySessionId('nonexistentsessionid12345678901');
         $this->assertNull($result);
     }
 
     public function testGetSessionBySessionIdDeletesExpiredSession(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $db->createUser('testtoken123');
         $session = $db->createSession('testtoken123', $this->testApiKey, -100); // Already expired
@@ -129,7 +130,7 @@ class SessionTest extends TestCase {
     }
 
     public function testGetUserBySessionIdReturnsUserData(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $user = $db->createUser('testtoken123');
         $session = $db->createSession('testtoken123', $this->testApiKey);
@@ -143,14 +144,14 @@ class SessionTest extends TestCase {
     }
 
     public function testGetUserBySessionIdReturnsNullForInvalidSession(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $result = $db->getUserBySessionId('invalidsessionid123456789012');
         $this->assertNull($result);
     }
 
     public function testDeleteSessionRemovesSession(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $db->createUser('testtoken123');
         $session = $db->createSession('testtoken123', $this->testApiKey);
@@ -165,14 +166,14 @@ class SessionTest extends TestCase {
     }
 
     public function testDeleteSessionReturnsFalseForNonexistent(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $deleted = $db->deleteSession('nonexistentsession123456789012');
         $this->assertFalse($deleted);
     }
 
     public function testDeleteUserSessionsRemovesAllUserSessions(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $db->createUser('testtoken123');
         $db->createUser('testtoken456');
@@ -195,7 +196,7 @@ class SessionTest extends TestCase {
     }
 
     public function testDeleteExpiredSessionsRemovesOnlyExpired(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $db->createUser('testtoken123');
         
@@ -217,7 +218,7 @@ class SessionTest extends TestCase {
     }
 
     public function testDeleteExpiredSessionsWithCustomTimestamp(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $db->createUser('testtoken123');
         
@@ -238,7 +239,7 @@ class SessionTest extends TestCase {
     }
 
     public function testTouchUserBySessionUpdatesUserAndRefreshesSession(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $user = $db->createUser('testtoken123');
         $originalActivity = $user['last_activity_at'];
@@ -269,14 +270,14 @@ class SessionTest extends TestCase {
     }
 
     public function testTouchUserReturnsNullForInvalidSession(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $result = $db->touchUser('invalidsession123456789012');
         $this->assertNull($result);
     }
 
     public function testSessionIdIsUrlSafeAndSecure(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $db->createUser('testtoken123');
         
@@ -302,7 +303,7 @@ class SessionTest extends TestCase {
     }
 
     public function testSessionsAreForeignKeyConstrainedToUsers(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $db->createUser('testtoken123');
         $session = $db->createSession('testtoken123', $this->testApiKey);
@@ -318,7 +319,7 @@ class SessionTest extends TestCase {
     }
 
     public function testMultipleSessionsPerUser(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $db->createUser('testtoken123');
         
@@ -347,7 +348,7 @@ class SessionTest extends TestCase {
     }
 
     public function testValidateSessionMarksSessionAsValidated(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $db->createUser('testtoken123');
         $session = $db->createSession('testtoken123', $this->testApiKey);
@@ -370,21 +371,21 @@ class SessionTest extends TestCase {
     }
 
     public function testValidateSessionReturnsFalseForNonexistentSession(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $result = $db->validateSession('nonexistentsession123456789012');
         $this->assertFalse($result);
     }
 
     public function testIsSessionValidatedReturnsFalseForNonexistentSession(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $result = $db->isSessionValidated('nonexistentsession123456789012');
         $this->assertFalse($result);
     }
 
     public function testValidateCodeReturnsTrueForValidCode(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $db->createUser('testtoken123');
         $session = $db->createSession('testtoken123', $this->testApiKey);
@@ -394,7 +395,7 @@ class SessionTest extends TestCase {
     }
 
     public function testValidateCodeReturnsFalseForInvalidCode(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $db->createUser('testtoken123');
         $session = $db->createSession('testtoken123', $this->testApiKey);
@@ -404,14 +405,14 @@ class SessionTest extends TestCase {
     }
 
     public function testValidateCodeReturnsFalseForNonexistentSession(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $isValid = $db->validateCode('nonexistentsession123456789012', '123456');
         $this->assertFalse($isValid);
     }
 
     public function testValidateCodeReturnsFalseForExpiredCode(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $db->createUser('testtoken123');
         $session = $db->createSession('testtoken123', 1800, -100); // Session valid, code expired
@@ -421,7 +422,7 @@ class SessionTest extends TestCase {
     }
 
     public function testRegenerateSessionCodeCreatesNewCode(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $db->createUser('testtoken123');
         $session = $db->createSession('testtoken123', $this->testApiKey);
@@ -436,14 +437,14 @@ class SessionTest extends TestCase {
     }
 
     public function testRegenerateSessionCodeReturnsNullForNonexistentSession(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $result = $db->regenerateSessionCode('nonexistentsession123456789012');
         $this->assertNull($result);
     }
 
     public function testRegenerateSessionCodeWithCustomValidity(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $db->createUser('testtoken123');
         $session = $db->createSession('testtoken123', $this->testApiKey);
@@ -464,7 +465,7 @@ class SessionTest extends TestCase {
     }
 
     public function testCodeIsAlwaysSixDigits(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $db->createUser('testtoken123');
         
@@ -478,7 +479,7 @@ class SessionTest extends TestCase {
     }
 
     public function testGeneratedCodesAreRandom(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $db->createUser('testtoken123');
         
@@ -501,7 +502,7 @@ class SessionTest extends TestCase {
     }
 
     public function testCodeWithLeadingZeros(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $db->createUser('testtoken123');
         
@@ -530,7 +531,7 @@ class SessionTest extends TestCase {
     }
 
     public function testIsSessionActiveReturnsTrueForActiveSession(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $db->createUser('testtoken123');
         $session = $db->createSession('testtoken123', $this->testApiKey, 300); // 5 minutes
@@ -540,7 +541,7 @@ class SessionTest extends TestCase {
     }
 
     public function testIsSessionActiveReturnsFalseForExpiredSession(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $db->createUser('testtoken123');
         $session = $db->createSession('testtoken123', $this->testApiKey, -100); // Already expired
@@ -553,7 +554,7 @@ class SessionTest extends TestCase {
     }
 
     public function testIsSessionActiveReturnsFalseForNonexistentSession(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $isActive = $db->isSessionActive('nonexistentsession123456789012');
         $this->assertFalse($isActive);
@@ -562,7 +563,7 @@ class SessionTest extends TestCase {
     // ========== API KEY TESTS ==========
 
     public function testSessionStoresApiKey(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $db->createUser('testtoken123');
         $session = $db->createSession('testtoken123', $this->testApiKey);
@@ -579,7 +580,7 @@ class SessionTest extends TestCase {
     }
 
     public function testCheckSessionAccessWithCorrectApiKey(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $db->createUser('testtoken123');
         $session = $db->createSession('testtoken123', $this->testApiKey);
@@ -590,7 +591,7 @@ class SessionTest extends TestCase {
     }
 
     public function testCheckSessionAccessWithWrongApiKey(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $db->createUser('testtoken123');
         $session = $db->createSession('testtoken123', $this->testApiKey);
@@ -602,7 +603,7 @@ class SessionTest extends TestCase {
     }
 
     public function testCheckSessionAccessWithNonexistentSession(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         // Non-existent session should return false
         $hasAccess = $db->checkSessionAccess('nonexistent-session-id', $this->testApiKey);
@@ -610,7 +611,7 @@ class SessionTest extends TestCase {
     }
 
     public function testMultipleSessionsWithDifferentApiKeys(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $db->createUser('testtoken123');
         
@@ -638,7 +639,7 @@ class SessionTest extends TestCase {
     }
 
     public function testSessionIsolationBetweenApiKeys(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $db->createUser('testtoken123');
         
@@ -664,7 +665,7 @@ class SessionTest extends TestCase {
     }
 
     public function testCheckSessionAccessWithExpiredSession(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $db->createUser('testtoken123');
         
@@ -680,7 +681,7 @@ class SessionTest extends TestCase {
     }
 
     public function testApiKeyPersistsAfterSessionRotation(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $db->createUser('testtoken123');
         $originalSession = $db->createSession('testtoken123', $this->testApiKey);
@@ -699,7 +700,7 @@ class SessionTest extends TestCase {
     }
 
     public function testEmptyApiKeyIsStored(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $db->createUser('testtoken123');
         

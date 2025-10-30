@@ -1,6 +1,5 @@
 <?php
-require_once __DIR__ . '/response.php';
-require_once __DIR__ . '/exceptions.php';
+declare(strict_types=1);
 
 /**
  * Dispatcher: given the routes dictionary, the current path and method,
