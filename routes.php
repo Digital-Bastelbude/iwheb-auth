@@ -252,6 +252,37 @@ $routes = [
             }
         ]
     ],
+    // GET /session/check/{session_id}
+    [
+        'pattern' => '#^/session/check/([a-z0-9]+)$#',
+        'pathVars' => ['session_id'],
+        'methods' => [
+            'GET' => function($pathVars, $body) use ($dbService) {
+                // Session ID comes from URL parameter
+                $sessionId = $pathVars['session_id'];
+
+                // Get session
+                $session = $dbService->getSessionBySessionId($sessionId);
+                
+                if (!$session) {
+                    throw new InvalidSessionException();
+                }
+
+                // Check if session is validated and not expired
+                if (!$session['validated'] || !$dbService->isSessionActive($sessionId)) {
+                    throw new InvalidSessionException();
+                }
+
+                return [
+                    'data' => [
+                        'session_id' => $sessionId,
+                        'expires_at' => $session['expires_at']
+                    ],
+                    'status' => 200
+                ];
+            }
+        ]
+    ],
     // POST /session/touch/{session_id}
     [
         'pattern' => '#^/session/touch/([a-z0-9]+)$#',
