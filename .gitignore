@@ -14,7 +14,7 @@ composer.lock
 
 # Env
 .env
-.secrets.php
+config/.secrets.php
 
 # phpUnit Cache
 .phpunit*/*

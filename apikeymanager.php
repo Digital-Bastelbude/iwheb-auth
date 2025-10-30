@@ -8,7 +8,7 @@
 require_once __DIR__ . '/exceptions.php';
 
 class ApiKeyManager {
-    /** @var array API keys configuration (loaded from .secrets.php) */
+    /** @var array API keys configuration (loaded from config/.secrets.php) */
     private array $apiKeys;
 
     /**

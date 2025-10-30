@@ -23,8 +23,8 @@ const RL_DIR      = BASE_DIR . '/storage/ratelimit';
 const LOG_FILE    = BASE_DIR . '/logs/api.log';
 
 // -------- Load Secrets --------
-// Load environment variables from .secrets.php before anything else
-$secretsFile = BASE_DIR . '/.secrets.php';
+// Load environment variables from config/.secrets.php before anything else
+$secretsFile = BASE_DIR . '/config/.secrets.php';
 if (!file_exists($secretsFile)) {
     http_response_code(500);
     echo json_encode(['error' => 'Configuration error: File not found']);

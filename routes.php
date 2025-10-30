@@ -16,12 +16,12 @@ $dbService  = Database::getInstance();
 $response   = Response::getInstance();
 
 // Initialize Webling client and UidEncryptor from environment variables
-// Environment variables are set in .secrets.php which is loaded in public/index.php
+// Environment variables are set in config/.secrets.php which is loaded in public/index.php
 $weblingDomain = getenv('WEBLING_DOMAIN');
 $weblingApiKey = getenv('WEBLING_API_KEY');
 
 if (!$weblingDomain || !$weblingApiKey) {
-    throw new \RuntimeException('WEBLING_DOMAIN and WEBLING_API_KEY environment variables must be set in .secrets.php');
+    throw new \RuntimeException('WEBLING_DOMAIN and WEBLING_API_KEY environment variables must be set in config/.secrets.php');
 }
 
 $weblingClient = new WeblingClient($weblingDomain, $weblingApiKey);
@@ -29,14 +29,14 @@ $weblingClient = new WeblingClient($weblingDomain, $weblingApiKey);
 // Load encryption key from environment (must be in 'base64:...' format)
 $encryptionKey = getenv('ENCRYPTION_KEY');
 if (!$encryptionKey || strpos($encryptionKey, 'base64:') !== 0) {
-    throw new \RuntimeException('ENCRYPTION_KEY environment variable must be set in .secrets.php with base64: prefix');
+    throw new \RuntimeException('ENCRYPTION_KEY environment variable must be set in config/.secrets.php with base64: prefix');
 }
 
 $uidEncryptor = new UidEncryptor(UidEncryptor::loadKeyFromEnv('ENCRYPTION_KEY'), 'iwheb-auth');
 
-// Load API keys from $API_KEYS global (set in .secrets.php)
-if (!isset($API_KEYS) || !is_array($API_KEYS)) {
-    throw new \RuntimeException('API_KEYS must be defined in .secrets.php');
+// Load API keys from $API_KEYS global (set in config/.secrets.php)
+if (!isset($API_KEYS)) {
+    throw new \RuntimeException('API_KEYS must be defined in config/.secrets.php');
 }
 
 $apiKeyManager = new ApiKeyManager($API_KEYS);
