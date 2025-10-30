@@ -5,6 +5,7 @@ require_once __DIR__ . '/storage.php';
 require_once __DIR__ . '/access.php';
 require_once __DIR__ . '/weblingclient.php';
 require_once __DIR__ . '/uidencryptor.php';
+require_once __DIR__ . '/apikeymanager.php';
 
 use App\Security\UidEncryptor;
 
@@ -33,6 +34,27 @@ if (!$encryptionKey || strpos($encryptionKey, 'base64:') !== 0) {
 
 $uidEncryptor = new UidEncryptor(UidEncryptor::loadKeyFromEnv('ENCRYPTION_KEY'), 'iwheb-auth');
 
+// Load API keys from $API_KEYS global (set in .secrets.php)
+if (!isset($API_KEYS) || !is_array($API_KEYS)) {
+    throw new \RuntimeException('API_KEYS must be defined in .secrets.php');
+}
+
+$apiKeyManager = new ApiKeyManager($API_KEYS);
+
+// Extract and validate API key from request
+$apiKey = ApiKeyManager::extractApiKeyFromRequest();
+
+if (!$apiKey || !$apiKeyManager->isValidApiKey($apiKey)) {
+    // Invalid or missing API key
+    Response::getInstance()->notFound(null, 'UNAUTHORIZED');
+}
+
+// Check if API key has access to the requested route
+if (!$apiKeyManager->canAccessRoute($apiKey, $PATH)) {
+    // API key doesn't have permission for this route
+    Response::getInstance()->notFound(null, 'FORBIDDEN');
+}
+
 // Authorize once for the current request and path. Authorizer will call
 // Response::notFound() and exit on failure, so below we only run routes when
 // authorization succeeded and returned an auth array.
@@ -49,7 +71,7 @@ $routes = [
     [
         'pattern' => '#^/login$#',
         'methods' => [
-            'POST' => function($pathVars, $body) use ($dbService, $weblingClient, $uidEncryptor, $auth) {
+            'POST' => function($pathVars, $body) use ($dbService, $weblingClient, $uidEncryptor, $auth, $apiKey) {
                 // Validate input
                 if (!isset($body['email'])) {
                     throw new InvalidInputException('INVALID_INPUT', 'Email required');
@@ -81,8 +103,8 @@ $routes = [
                     $dbService->createUser($token);
                 }
 
-                // Create session for user (generates code automatically)
-                $session = $dbService->createSession($token);
+                // Create session for user with API key (generates code automatically)
+                $session = $dbService->createSession($token, $apiKey);
 
                 return [
                     'data' => [
@@ -101,9 +123,14 @@ $routes = [
         'pattern' => '#^/validate/([a-z0-9]+)$#',
         'pathVars' => ['session_id'],
         'methods' => [
-            'POST' => function($pathVars, $body) use ($dbService, $auth) {
+            'POST' => function($pathVars, $body) use ($dbService, $auth, $apiKey) {
                 // Session ID comes from URL parameter
                 $sessionId = $pathVars['session_id'];
+                
+                // Check if API key has access to this session
+                if (!$dbService->checkSessionAccess($sessionId, $apiKey)) {
+                    throw new InvalidSessionException();
+                }
                 
                 // Validate input - code must be in body
                 if (!isset($body['code'])) {
@@ -155,9 +182,14 @@ $routes = [
         'pattern' => '#^/user/([a-z0-9]+)/info$#',
         'pathVars' => ['session_id'],
         'methods' => [
-            'POST' => function($pathVars, $body) use ($dbService, $weblingClient, $uidEncryptor, $auth) {
+            'POST' => function($pathVars, $body) use ($dbService, $weblingClient, $uidEncryptor, $auth, $apiKey) {
                 // Get session_id from path
                 $sessionId = $pathVars['session_id'];
+                
+                // Check if API key has access to this session
+                if (!$dbService->checkSessionAccess($sessionId, $apiKey)) {
+                    throw new InvalidSessionException();
+                }
                 
                 // Get session
                 $session = $dbService->getSessionBySessionId($sessionId);
@@ -211,9 +243,14 @@ $routes = [
         'pattern' => '#^/user/([a-z0-9]+)/token$#',
         'pathVars' => ['session_id'],
         'methods' => [
-            'POST' => function($pathVars, $body) use ($dbService, $auth) {
+            'POST' => function($pathVars, $body) use ($dbService, $auth, $apiKey) {
                 // Get session_id from path
                 $sessionId = $pathVars['session_id'];
+                
+                // Check if API key has access to this session
+                if (!$dbService->checkSessionAccess($sessionId, $apiKey)) {
+                    throw new InvalidSessionException();
+                }
                 
                 // Get session
                 $session = $dbService->getSessionBySessionId($sessionId);
@@ -257,9 +294,14 @@ $routes = [
         'pattern' => '#^/session/check/([a-z0-9]+)$#',
         'pathVars' => ['session_id'],
         'methods' => [
-            'GET' => function($pathVars, $body) use ($dbService) {
+            'GET' => function($pathVars, $body) use ($dbService, $apiKey) {
                 // Session ID comes from URL parameter
                 $sessionId = $pathVars['session_id'];
+
+                // Check if API key has access to this session
+                if (!$dbService->checkSessionAccess($sessionId, $apiKey)) {
+                    throw new InvalidSessionException();
+                }
 
                 // Get session
                 $session = $dbService->getSessionBySessionId($sessionId);
@@ -276,7 +318,8 @@ $routes = [
                 return [
                     'data' => [
                         'session_id' => $sessionId,
-                        'expires_at' => $session['expires_at']
+                        'expires_at' => $session['expires_at'],
+                        'active' => true
                     ],
                     'status' => 200
                 ];
@@ -288,9 +331,14 @@ $routes = [
         'pattern' => '#^/session/touch/([a-z0-9]+)$#',
         'pathVars' => ['session_id'],
         'methods' => [
-            'POST' => function($pathVars, $body) use ($dbService) {
+            'POST' => function($pathVars, $body) use ($dbService, $apiKey) {
                 // Session ID comes from URL parameter
                 $sessionId = $pathVars['session_id'];
+
+                // Check if API key has access to this session
+                if (!$dbService->checkSessionAccess($sessionId, $apiKey)) {
+                    throw new InvalidSessionException();
+                }
 
                 // Check if session is active (not expired)
                 if (!$dbService->isSessionActive($sessionId)) {
@@ -326,9 +374,14 @@ $routes = [
         'pattern' => '#^/session/logout/([a-z0-9]+)$#',
         'pathVars' => ['session_id'],
         'methods' => [
-            'POST' => function($pathVars, $body) use ($dbService) {
+            'POST' => function($pathVars, $body) use ($dbService, $apiKey) {
                 // Session ID comes from URL parameter
                 $sessionId = $pathVars['session_id'];
+
+                // Check if API key has access to this session
+                if (!$dbService->checkSessionAccess($sessionId, $apiKey)) {
+                    throw new InvalidSessionException();
+                }
 
                 // Delete the session
                 $deleted = $dbService->deleteSession($sessionId);

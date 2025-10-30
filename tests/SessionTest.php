@@ -5,6 +5,7 @@ require_once __DIR__ . '/bootstrap.php';
 
 class SessionTest extends TestCase {
     private string $tmpFile;
+    private string $testApiKey = 'test-api-key-12345';
 
     protected function setUp(): void {
         \Database::resetInstance();
@@ -34,7 +35,7 @@ class SessionTest extends TestCase {
         $user = $db->createUser('testtoken123');
         
         // Create session
-        $session = $db->createSession('testtoken123');
+        $session = $db->createSession('testtoken123', $this->testApiKey);
 
         $this->assertArrayHasKey('session_id', $session);
         $this->assertArrayHasKey('user_token', $session);
@@ -68,7 +69,7 @@ class SessionTest extends TestCase {
         $db->createUser('testtoken123');
         
         $beforeCreate = time();
-        $session = $db->createSession('testtoken123', 3600); // 1 hour
+        $session = $db->createSession('testtoken123', $this->testApiKey, 3600); // 1 hour
         $afterCreate = time();
         
         $this->assertSame(3600, $session['session_duration']);
@@ -87,14 +88,14 @@ class SessionTest extends TestCase {
         
         $this->expectException(\StorageException::class);
         $this->expectExceptionMessage('User not found');
-        $db->createSession('nonexistent');
+        $db->createSession('nonexistent', $this->testApiKey);
     }
 
     public function testGetSessionBySessionIdReturnsValidSession(): void {
         $db = \Database::getInstance($this->tmpFile);
         
         $db->createUser('testtoken123');
-        $originalSession = $db->createSession('testtoken123');
+        $originalSession = $db->createSession('testtoken123', $this->testApiKey);
         
         $retrievedSession = $db->getSessionBySessionId($originalSession['session_id']);
         
@@ -116,7 +117,7 @@ class SessionTest extends TestCase {
         $db = \Database::getInstance($this->tmpFile);
         
         $db->createUser('testtoken123');
-        $session = $db->createSession('testtoken123', -100); // Already expired
+        $session = $db->createSession('testtoken123', $this->testApiKey, -100); // Already expired
         
         $result = $db->getSessionBySessionId($session['session_id']);
         
@@ -131,7 +132,7 @@ class SessionTest extends TestCase {
         $db = \Database::getInstance($this->tmpFile);
         
         $user = $db->createUser('testtoken123');
-        $session = $db->createSession('testtoken123');
+        $session = $db->createSession('testtoken123', $this->testApiKey);
         
         $retrievedUser = $db->getUserBySessionId($session['session_id']);
         
@@ -152,7 +153,7 @@ class SessionTest extends TestCase {
         $db = \Database::getInstance($this->tmpFile);
         
         $db->createUser('testtoken123');
-        $session = $db->createSession('testtoken123');
+        $session = $db->createSession('testtoken123', $this->testApiKey);
         
         $deleted = $db->deleteSession($session['session_id']);
         
@@ -177,9 +178,9 @@ class SessionTest extends TestCase {
         $db->createUser('testtoken456');
         
         // Create multiple sessions for first user
-        $session1 = $db->createSession('testtoken123');
-        $session2 = $db->createSession('testtoken123');
-        $session3 = $db->createSession('testtoken456'); // Different user
+        $session1 = $db->createSession('testtoken123', $this->testApiKey);
+        $session2 = $db->createSession('testtoken123', $this->testApiKey);
+        $session3 = $db->createSession('testtoken456', $this->testApiKey); // Different user
         
         $deletedCount = $db->deleteUserSessions('testtoken123');
         
@@ -199,9 +200,9 @@ class SessionTest extends TestCase {
         $db->createUser('testtoken123');
         
         // Create expired sessions
-        $expiredSession1 = $db->createSession('testtoken123', -100); // Already expired
-        $expiredSession2 = $db->createSession('testtoken123', -50);  // Already expired
-        $validSession = $db->createSession('testtoken123', 300);     // Valid for 5 minutes
+        $expiredSession1 = $db->createSession('testtoken123', $this->testApiKey, -100); // Already expired
+        $expiredSession2 = $db->createSession('testtoken123', $this->testApiKey, -50);  // Already expired
+        $validSession = $db->createSession('testtoken123', $this->testApiKey, 300);     // Valid for 5 minutes
         
         $deletedCount = $db->deleteExpiredSessions();
         
@@ -221,9 +222,9 @@ class SessionTest extends TestCase {
         $db->createUser('testtoken123');
         
         // Create sessions with different expiry times
-        $session1 = $db->createSession('testtoken123', 100);  // Expires in 100 seconds
-        $session2 = $db->createSession('testtoken123', 200);  // Expires in 200 seconds
-        $session3 = $db->createSession('testtoken123', 300);  // Expires in 300 seconds
+        $session1 = $db->createSession('testtoken123', $this->testApiKey, 100);  // Expires in 100 seconds
+        $session2 = $db->createSession('testtoken123', $this->testApiKey, 200);  // Expires in 200 seconds
+        $session3 = $db->createSession('testtoken123', $this->testApiKey, 300);  // Expires in 300 seconds
         
         // Delete sessions that expire before 150 seconds from now
         $cutoffTime = gmdate('c', time() + 150);
@@ -241,7 +242,7 @@ class SessionTest extends TestCase {
         
         $user = $db->createUser('testtoken123');
         $originalActivity = $user['last_activity_at'];
-        $originalSession = $db->createSession('testtoken123');
+        $originalSession = $db->createSession('testtoken123', $this->testApiKey);
         $originalSessionId = $originalSession['session_id'];
         
         sleep(1); // Ensure timestamp difference
@@ -282,7 +283,7 @@ class SessionTest extends TestCase {
         // Generate multiple sessions to test session ID format
         $sessionIds = [];
         for ($i = 0; $i < 10; $i++) {
-            $session = $db->createSession('testtoken123');
+            $session = $db->createSession('testtoken123', $this->testApiKey);
             $sessionIds[] = $session['session_id'];
             
             // Each session ID should be exactly 32 characters
@@ -304,7 +305,7 @@ class SessionTest extends TestCase {
         $db = \Database::getInstance($this->tmpFile);
         
         $db->createUser('testtoken123');
-        $session = $db->createSession('testtoken123');
+        $session = $db->createSession('testtoken123', $this->testApiKey);
         
         // Verify session exists
         $this->assertNotNull($db->getSessionBySessionId($session['session_id']));
@@ -322,9 +323,9 @@ class SessionTest extends TestCase {
         $db->createUser('testtoken123');
         
         // Create multiple sessions for the same user
-        $session1 = $db->createSession('testtoken123', 1800);
-        $session2 = $db->createSession('testtoken123', 3600);
-        $session3 = $db->createSession('testtoken123', 7200);
+        $session1 = $db->createSession('testtoken123', $this->testApiKey, 1800);
+        $session2 = $db->createSession('testtoken123', $this->testApiKey, 3600);
+        $session3 = $db->createSession('testtoken123', $this->testApiKey, 7200);
         
         // All sessions should exist and be different
         $this->assertNotNull($db->getSessionBySessionId($session1['session_id']));
@@ -349,7 +350,7 @@ class SessionTest extends TestCase {
         $db = \Database::getInstance($this->tmpFile);
         
         $db->createUser('testtoken123');
-        $session = $db->createSession('testtoken123');
+        $session = $db->createSession('testtoken123', $this->testApiKey);
         
         // Initially not validated
         $this->assertFalse($session['validated']);
@@ -386,7 +387,7 @@ class SessionTest extends TestCase {
         $db = \Database::getInstance($this->tmpFile);
         
         $db->createUser('testtoken123');
-        $session = $db->createSession('testtoken123');
+        $session = $db->createSession('testtoken123', $this->testApiKey);
         
         $isValid = $db->validateCode($session['session_id'], $session['code']);
         $this->assertTrue($isValid);
@@ -396,7 +397,7 @@ class SessionTest extends TestCase {
         $db = \Database::getInstance($this->tmpFile);
         
         $db->createUser('testtoken123');
-        $session = $db->createSession('testtoken123');
+        $session = $db->createSession('testtoken123', $this->testApiKey);
         
         $isValid = $db->validateCode($session['session_id'], '000000');
         $this->assertFalse($isValid);
@@ -423,7 +424,7 @@ class SessionTest extends TestCase {
         $db = \Database::getInstance($this->tmpFile);
         
         $db->createUser('testtoken123');
-        $session = $db->createSession('testtoken123');
+        $session = $db->createSession('testtoken123', $this->testApiKey);
         $originalCode = $session['code'];
         
         $newSession = $db->regenerateSessionCode($session['session_id']);
@@ -445,7 +446,7 @@ class SessionTest extends TestCase {
         $db = \Database::getInstance($this->tmpFile);
         
         $db->createUser('testtoken123');
-        $session = $db->createSession('testtoken123');
+        $session = $db->createSession('testtoken123', $this->testApiKey);
         
         $beforeRegen = time();
         $newSession = $db->regenerateSessionCode($session['session_id'], 600); // 10 minutes
@@ -469,7 +470,7 @@ class SessionTest extends TestCase {
         
         // Create multiple sessions and verify all codes are 6 digits
         for ($i = 0; $i < 20; $i++) {
-            $session = $db->createSession('testtoken123');
+            $session = $db->createSession('testtoken123', $this->testApiKey);
             $this->assertMatchesRegularExpression('/^\d{6}$/', $session['code']);
             $this->assertSame(6, strlen($session['code']));
             $db->deleteSession($session['session_id']);
@@ -484,7 +485,7 @@ class SessionTest extends TestCase {
         $codes = [];
         $sessionIds = [];
         for ($i = 0; $i < 10; $i++) {
-            $session = $db->createSession('testtoken123');
+            $session = $db->createSession('testtoken123', $this->testApiKey);
             $codes[] = $session['code'];
             $sessionIds[] = $session['session_id'];
         }
@@ -508,7 +509,7 @@ class SessionTest extends TestCase {
         $foundLeadingZero = false;
         $sessionIds = [];
         for ($i = 0; $i < 100; $i++) {
-            $session = $db->createSession('testtoken123');
+            $session = $db->createSession('testtoken123', $this->testApiKey);
             $sessionIds[] = $session['session_id'];
             if (str_starts_with($session['code'], '0')) {
                 $foundLeadingZero = true;
@@ -532,7 +533,7 @@ class SessionTest extends TestCase {
         $db = \Database::getInstance($this->tmpFile);
         
         $db->createUser('testtoken123');
-        $session = $db->createSession('testtoken123', 300); // 5 minutes
+        $session = $db->createSession('testtoken123', $this->testApiKey, 300); // 5 minutes
         
         $isActive = $db->isSessionActive($session['session_id']);
         $this->assertTrue($isActive);
@@ -542,7 +543,7 @@ class SessionTest extends TestCase {
         $db = \Database::getInstance($this->tmpFile);
         
         $db->createUser('testtoken123');
-        $session = $db->createSession('testtoken123', -100); // Already expired
+        $session = $db->createSession('testtoken123', $this->testApiKey, -100); // Already expired
         
         $isActive = $db->isSessionActive($session['session_id']);
         $this->assertFalse($isActive);

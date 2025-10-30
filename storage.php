@@ -95,10 +95,18 @@ class Database {
                     session_duration INTEGER NOT NULL DEFAULT 1800,
                     validated INTEGER NOT NULL DEFAULT 0,
                     created_at TEXT NOT NULL,
+                    api_key TEXT NOT NULL,
                     FOREIGN KEY (user_token) REFERENCES users(token) ON DELETE CASCADE
                 )
             ";
             $this->pdo->exec($sessionSql);
+            
+            // Migration: Add api_key column if it doesn't exist (for existing databases)
+            try {
+                $this->pdo->exec("ALTER TABLE sessions ADD COLUMN api_key TEXT NOT NULL DEFAULT ''");
+            } catch (PDOException $e) {
+                // Column already exists, ignore error
+            }
             
         } catch (PDOException $e) {
             throw new StorageException('STORAGE_ERROR', 'Database initialization failed: ' . $e->getMessage());
@@ -254,12 +262,13 @@ class Database {
      * Public: create a new session for a user with auto-generated code.
      *
      * @param string $userToken The user token to create a session for
+     * @param string $apiKey The API key used to create this session
      * @param int $sessionDurationSeconds Duration in seconds (default: 1800 = 30 minutes)
      * @param int $codeValiditySeconds Seconds until code expires (default: 300 = 5 minutes)
      * @return array The created session record with code
      * @throws StorageException on database error or if user doesn't exist
      */
-    public function createSession(string $userToken, int $sessionDurationSeconds = 1800, int $codeValiditySeconds = 300): array {
+    public function createSession(string $userToken, string $apiKey, int $sessionDurationSeconds = 1800, int $codeValiditySeconds = 300): array {
         try {
             // Verify user exists
             $user = $this->getUserByToken($userToken);
@@ -283,9 +292,9 @@ class Database {
             $codeValidUntil = gmdate('c', $now + $codeValiditySeconds);
             $createdAt = gmdate('c', $now);
 
-            // Insert session record with code
-            $stmt = $this->pdo->prepare('INSERT INTO sessions (session_id, user_token, code, code_valid_until, expires_at, session_duration, validated, created_at) VALUES (?, ?, ?, ?, ?, ?, 0, ?)');
-            $stmt->execute([$sessionId, $userToken, $code, $codeValidUntil, $expiresAt, $sessionDurationSeconds, $createdAt]);
+            // Insert session record with code and api_key
+            $stmt = $this->pdo->prepare('INSERT INTO sessions (session_id, user_token, code, code_valid_until, expires_at, session_duration, validated, created_at, api_key) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)');
+            $stmt->execute([$sessionId, $userToken, $code, $codeValidUntil, $expiresAt, $sessionDurationSeconds, $createdAt, $apiKey]);
 
             return [
                 'session_id' => $sessionId,
@@ -295,7 +304,8 @@ class Database {
                 'expires_at' => $expiresAt,
                 'session_duration' => $sessionDurationSeconds,
                 'validated' => false,
-                'created_at' => $createdAt
+                'created_at' => $createdAt,
+                'api_key' => $apiKey
             ];
         } catch (PDOException $e) {
             throw new StorageException('STORAGE_ERROR', 'Database operation failed: ' . $e->getMessage());
@@ -311,7 +321,7 @@ class Database {
      */
     public function getSessionBySessionId(string $sessionId): ?array {
         try {
-            $stmt = $this->pdo->prepare('SELECT session_id, user_token, code, code_valid_until, expires_at, session_duration, validated, created_at FROM sessions WHERE session_id = ?');
+            $stmt = $this->pdo->prepare('SELECT session_id, user_token, code, code_valid_until, expires_at, session_duration, validated, created_at, api_key FROM sessions WHERE session_id = ?');
             $stmt->execute([$sessionId]);
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -335,7 +345,8 @@ class Database {
                 'expires_at' => $row['expires_at'],
                 'session_duration' => (int)$row['session_duration'],
                 'validated' => (bool)$row['validated'],
-                'created_at' => $row['created_at']
+                'created_at' => $row['created_at'],
+                'api_key' => $row['api_key']
             ];
         } catch (PDOException $e) {
             throw new StorageException('STORAGE_ERROR', 'Database query failed: ' . $e->getMessage());
@@ -569,6 +580,30 @@ class Database {
             return $this->getSessionBySessionId($sessionId);
         } catch (PDOException $e) {
             throw new StorageException('STORAGE_ERROR', 'Database operation failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Check if the given API key has access to the session.
+     * Sessions can only be accessed by the same API key that created them.
+     *
+     * @param string $sessionId
+     * @param string $apiKey
+     * @return bool True if access is granted, false otherwise
+     * @throws StorageException on database error
+     */
+    public function checkSessionAccess(string $sessionId, string $apiKey): bool {
+        try {
+            $session = $this->getSessionBySessionId($sessionId);
+            
+            if (!$session) {
+                return false;
+            }
+            
+            // Check if the session was created with the same API key
+            return $session['api_key'] === $apiKey;
+        } catch (StorageException $e) {
+            throw $e;
         }
     }
     

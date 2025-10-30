@@ -2,11 +2,48 @@
 
 ## Overview
 
-The system implements a secure, passwordless user login with code-based two-factor authentication.
+The system implements a secure, passwordless user login with code-based two-factor authentication and API key-based access control.
+
+## API Key Authentication
+
+All requests must include a valid API key in the request headers:
+
+```bash
+X-API-Key: your-api-key-here
+```
+
+Or alternatively:
+
+```bash
+Authorization: ApiKey your-api-key-here
+```
+
+### API Key Permissions
+
+- **Default Routes** (always allowed for valid API keys):
+  - `POST /login`
+  - `POST /validate/{session_id}`
+  - `GET /session/check/{session_id}`
+  - `POST /session/touch/{session_id}`
+  - `POST /session/logout/{session_id}`
+
+- **Permission-based Routes**:
+  - `POST /user/{session_id}/info` - Requires `user_info` permission
+  - `POST /user/{session_id}/token` - Requires `user_token` permission
+
+### Session Isolation
+
+**IMPORTANT**: Sessions are isolated by API key. Once a session is created with a specific API key, only that same API key can access or modify it. This applies to all session-related operations.
 
 ## Login Flow
 
 ### 1. Login Request (`POST /login`)
+
+**Headers:**
+```
+X-API-Key: your-api-key-here
+Content-Type: application/json
+```
 
 **Request:**
 ```json
@@ -17,14 +54,16 @@ The system implements a secure, passwordless user login with code-based two-fact
 *Note: Email must be Base64 URL-safe encoded (no padding)*
 
 **Process:**
-1. Email is Base64-decoded
-2. System checks in Webling if user with this email exists
-3. If user found:
+1. API key is validated
+2. Email is Base64-decoded
+3. System checks in Webling if user with this email exists
+4. If user found:
    - Webling User-ID is encrypted (UidEncryptor) → Token
    - Token is checked: does user exist in DB?
      - **No**: New user is created (`createUser`)
-   - Session is started (`createSession`), which generates a new 6-digit code
-4. If user NOT found: HTTP 404
+   - Session is started (`createSession` with API key), which generates a new 6-digit code
+   - Session is bound to the API key used for creation
+5. If user NOT found: HTTP 404
 
 **Response (Success):**
 ```json
@@ -32,6 +71,64 @@ The system implements a secure, passwordless user login with code-based two-fact
   "session_id": "abc123...",
   "code": "123456",
   "code_expires_at": "2025-10-30T10:10:00+00:00",
+  "session_expires_at": "2025-10-30T10:45:00+00:00"
+}
+```
+
+**Response (Error - Invalid API Key):**
+```json
+{
+  "error": "Not found"
+}
+```
+*HTTP Status: 404 (for security, unauthorized is masked as not found)*
+
+**Response (Error - User Not Found):**
+```json
+{
+  "error": "User not found"
+}
+```
+*HTTP Status: 404*
+
+---
+
+### 2. Code Validation (`POST /validate/{session_id}`)
+
+**Headers:**
+```
+X-API-Key: your-api-key-here
+Content-Type: application/json
+```
+
+**Request:**
+```json
+{
+  "code": "123456"
+}
+```
+*Note: `session_id` is passed as URL parameter*
+
+**Example URL:** `POST /validate/abc123...`
+
+**Process:**
+1. API key is validated
+2. System checks if API key matches the session's API key
+3. Session is loaded by `session_id`
+4. Code is validated (`validateCode`):
+   - Code must match session's code
+   - Code must not be expired
+5. On successful validation:
+   - Session is marked as validated (`validated = true`)
+   - User's activity timestamp is updated (`touchUser`)
+   - New session-ID is generated (session rotation)
+   - Used code is replaced with a new one (security)
+
+**Response (Success):**
+```json
+{
+  "session_id": "xyz789...",
+  "validated": true,
   "session_expires_at": "2025-10-30T10:45:00+00:00"
 }
 ```
@@ -46,34 +143,29 @@ The system implements a secure, passwordless user login with code-based two-fact
 
 ---
 
-### 2. Code Validation (`POST /validate/{session_id}`)
+### 3. Check Session Status (`GET /session/check/{session_id}`)
 
-**Request:**
-```json
-{
-  "code": "123456"
-}
+**Headers:**
 ```
-*Note: `session_id` is passed as URL parameter*
+X-API-Key: your-api-key-here
+```
 
-**Example URL:** `POST /validate/abc123...`
+**Example URL:** `GET /session/check/xyz789...`
 
 **Process:**
-1. Session is loaded by `session_id`
-2. Code is validated (`validateCode`):
-   - Code must match session's code
-   - Code must not be expired
-3. On successful validation:
-   - Session is marked as validated (`validated = true`)
-   - User's activity timestamp is updated (`touchUser`)
-   - New session-ID is generated (session rotation)
-   - Used code is replaced with a new one (security)
+1. API key is validated
+2. System checks if API key matches the session's API key
+3. Session is loaded and checked:
+   - Must exist
+   - Must be validated
+   - Must not be expired
 
 **Response (Success):**
 ```json
 {
   "session_id": "xyz789...",
-  "validated": true
+  "expires_at": "2025-10-30T10:45:00+00:00",
+  "active": true
 }
 ```
 
@@ -87,7 +179,15 @@ The system implements a secure, passwordless user login with code-based two-fact
 
 ---
 
-### 3. Get User Info (`POST /user/{session_id}`)
+### 4. Get User Info (`POST /user/{session_id}/info`)
+
+**Requires:** `user_info` permission
+
+**Headers:**
+```
+X-API-Key: your-api-key-here
+Content-Type: application/json
+```
 
 **Request:**
 ```json
@@ -95,16 +195,19 @@ The system implements a secure, passwordless user login with code-based two-fact
 ```
 *Note: `session_id` is passed as URL parameter, body can be empty*
 
-**Example URL:** `POST /user/xyz789...`
+**Example URL:** `POST /user/xyz789.../info`
 
 **Process:**
-1. Session is checked for validity (`isSessionActive`)
+1. API key is validated and must have `user_info` permission
+2. System checks if API key matches the session's API key
+3. Session is checked for validity (`isSessionActive`)
    - Session must exist
+   - Session must be validated
    - Session must not be expired
-2. User token is decrypted to get Webling user ID
-3. User data is fetched from Webling API
-4. Session is refreshed (`touchUser`) and user's last activity updated
-5. User data and new session ID are returned
+4. User token is decrypted to get Webling user ID
+5. User data is fetched from Webling API
+6. Session is refreshed (`touchUser`) and user's last activity updated
+7. User data and new session ID are returned
 
 **Response (Success):**
 ```json
@@ -118,7 +221,64 @@ The system implements a secure, passwordless user login with code-based two-fact
       "E-Mail": "john@example.com",
       ...
     }
-  }
+  },
+  "session_expires_at": "2025-10-30T10:45:00+00:00"
+}
+```
+
+**Response (Error - No Permission):**
+```json
+{
+  "error": "Not found"
+}
+```
+*HTTP Status: 404 (for security, forbidden is masked as not found)*
+
+**Response (Error - Invalid Session):**
+```json
+{
+  "error": "Not found"
+}
+```
+*HTTP Status: 404*
+
+---
+
+### 5. Get User Token (`POST /user/{session_id}/token`)
+
+**Requires:** `user_token` permission
+
+**Headers:**
+```
+X-API-Key: your-api-key-here
+Content-Type: application/json
+```
+
+**Request:**
+```json
+{}
+```
+*Note: `session_id` is passed as URL parameter, body can be empty*
+
+**Example URL:** `POST /user/xyz789.../token`
+
+**Process:**
+1. API key is validated and must have `user_token` permission
+2. System checks if API key matches the session's API key
+3. Session is checked for validity
+   - Session must exist
+   - Session must be validated
+   - Session must not be expired
+4. Encrypted user token (uid) is retrieved
+5. Session is refreshed (`touchUser`)
+6. Token and new session ID are returned
+
+**Response (Success):**
+```json
+{
+  "session_id": "newxyz123...",
+  "token": "encrypted-webling-user-id",
+  "session_expires_at": "2025-10-30T10:45:00+00:00"
 }
 ```
 
@@ -132,7 +292,13 @@ The system implements a secure, passwordless user login with code-based two-fact
 
 ---
 
-### 4. Touch Session (`POST /session/touch/{session_id}`)
+### 6. Touch Session (`POST /session/touch/{session_id}`)
+
+**Headers:**
+```
+X-API-Key: your-api-key-here
+Content-Type: application/json
+```
 
 **Request:**
 ```json
@@ -143,11 +309,13 @@ The system implements a secure, passwordless user login with code-based two-fact
 **Example URL:** `POST /session/touch/xyz789...`
 
 **Process:**
-1. Session is checked for validity (`isSessionActive`)
+1. API key is validated
+2. System checks if API key matches the session's API key
+3. Session is checked for validity (`isSessionActive`)
    - Session must exist and not be expired
-2. Session is refreshed (`touchUser`)
-3. New session ID is generated
-4. User's last activity timestamp is updated
+4. Session is refreshed (`touchUser`)
+5. New session ID is generated
+6. User's last activity timestamp is updated
 5. New session ID and expiry time are returned
 
 **Response (Success):**
@@ -168,7 +336,13 @@ The system implements a secure, passwordless user login with code-based two-fact
 
 ---
 
-### 5. Logout (`POST /session/logout/{session_id}`)
+### 7. Logout (`POST /session/logout/{session_id}`)
+
+**Headers:**
+```
+X-API-Key: your-api-key-here
+Content-Type: application/json
+```
 
 **Request:**
 ```json
@@ -179,8 +353,10 @@ The system implements a secure, passwordless user login with code-based two-fact
 **Example URL:** `POST /session/logout/xyz789...`
 
 **Process:**
-1. Session is deleted from database
-2. Empty response is returned
+1. API key is validated
+2. System checks if API key matches the session's API key
+3. Session is deleted from database
+4. Empty response is returned
 
 **Response (Success):**
 ```
