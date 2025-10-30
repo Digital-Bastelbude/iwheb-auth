@@ -183,7 +183,7 @@ $routes = [
                 $weblingId = $uidEncryptor->decrypt($user['uid']);
 
                 // Fetch user data from Webling
-                $weblingUser = $weblingClient->fetchMember($weblingId);
+                $weblingUser = $weblingClient->getUserDataById((int)$weblingId);
 
                 if (!$weblingUser) {
                     throw new StorageException('WEBLING_ERROR', 'Failed to fetch user from Webling');
