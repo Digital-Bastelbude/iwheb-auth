@@ -3,12 +3,30 @@
 require_once __DIR__ . '/response.php';
 require_once __DIR__ . '/storage.php';
 require_once __DIR__ . '/access.php';
+require_once __DIR__ . '/weblingclient.php';
+require_once __DIR__ . '/uidencryptor.php';
+
+use App\Security\UidEncryptor;
 
 // -------- Routes --------
 // instantiate helpers / services (assumes $CONFIG exists in bootstrap)
 $authorizer = new Authorizer($CONFIG ?? []);
 $dbService  = Database::getInstance();
 $response   = Response::getInstance();
+
+// Initialize Webling client and UidEncryptor from environment
+$weblingDomain = getenv('WEBLING_DOMAIN') ?: 'demo';
+$weblingApiKey = getenv('WEBLING_API_KEY') ?: '';
+$weblingClient = new WeblingClient($weblingDomain, $weblingApiKey);
+
+$encryptionKey = getenv('ENCRYPTION_KEY');
+if ($encryptionKey && strpos($encryptionKey, 'base64:') === 0) {
+    $encryptionKey = UidEncryptor::loadKeyFromEnv('ENCRYPTION_KEY');
+} else {
+    // Fallback: generate a temporary key (WARNING: not persistent!)
+    $encryptionKey = UidEncryptor::generateKey();
+}
+$uidEncryptor = new UidEncryptor($encryptionKey, 'iwheb-auth');
 
 // Authorize once for the current request and path. Authorizer will call
 // Response::notFound() and exit on failure, so below we only run routes when
@@ -22,6 +40,118 @@ try {
 
 // Define route map. Base name -> modes (noParam/withParam) -> HTTP method -> handler (callable/closure)
 $routes = [
+    'login' => [
+        'noParam' => [
+            'POST' => function($pathVars, $body) use ($dbService, $weblingClient, $uidEncryptor, $auth) {
+                // Validate input
+                if (!isset($body['email'])) {
+                    return ['data' => ['error' => 'Email required'], 'status' => 400];
+                }
+
+                // Decode base64 URL-safe encoded email
+                $encodedEmail = $body['email'];
+                $email = base64_decode(strtr($encodedEmail, '-_', '+/'), true);
+                
+                if ($email === false || empty($email)) {
+                    return ['data' => ['error' => 'Invalid email encoding'], 'status' => 400];
+                }
+
+                // Check if user exists in Webling
+                try {
+                    $weblingUserId = $weblingClient->getUserIdByEmail($email);
+                    
+                    if ($weblingUserId === null) {
+                        return ['data' => ['error' => 'User not found'], 'status' => 404];
+                    }
+
+                    // Generate token from Webling user ID
+                    $token = $uidEncryptor->encrypt((string)$weblingUserId);
+
+                    // Check if user already exists in database
+                    $existingUser = $dbService->getUserByToken($token);
+                    
+                    if ($existingUser) {
+                        // Regenerate code for existing user
+                        $user = $dbService->regenerateCode($token);
+                    } else {
+                        // Create new user with code
+                        $user = $dbService->createUser($token);
+                    }
+
+                    // Create session for user
+                    $session = $dbService->createSession($token);
+
+                    return [
+                        'data' => [
+                            'session_id' => $session['session_id'],
+                            'code' => $user['code'],
+                            'expires_at' => $user['code_valid_until']
+                        ],
+                        'status' => 200
+                    ];
+
+                } catch (WeblingException $e) {
+                    return ['data' => ['error' => 'Webling API error: ' . $e->getMessage()], 'status' => 500];
+                } catch (StorageException $e) {
+                    return ['data' => ['error' => 'Storage error'], 'status' => 500];
+                }
+            }
+        ]
+    ],
+    'validate' => [
+        'noParam' => [
+            'POST' => function($pathVars, $body) use ($dbService, $auth) {
+                // Validate input
+                if (!isset($body['session_id']) || !isset($body['code'])) {
+                    return ['data' => ['error' => 'session_id and code required'], 'status' => 400];
+                }
+
+                $sessionId = $body['session_id'];
+                $code = $body['code'];
+
+                try {
+                    // Get session
+                    $session = $dbService->getSessionBySessionId($sessionId);
+                    
+                    if (!$session) {
+                        return ['data' => ['error' => 'Invalid or expired session'], 'status' => 404];
+                    }
+
+                    // Validate code for the user
+                    $isValidCode = $dbService->validateCode($session['user_token'], $code);
+                    
+                    if (!$isValidCode) {
+                        return ['data' => ['error' => 'Invalid or expired code'], 'status' => 401];
+                    }
+
+                    // Mark session as validated
+                    $dbService->validateSession($sessionId);
+
+                    // Touch user to generate new session ID
+                    $newSessionId = $dbService->touchUser($sessionId);
+
+                    if (!$newSessionId) {
+                        return ['data' => ['error' => 'Failed to refresh session'], 'status' => 500];
+                    }
+
+                    // Delete the used code by regenerating a new one (or we could delete the user)
+                    // For security, regenerate a new code so the old one can't be reused
+                    $dbService->regenerateCode($session['user_token']);
+
+                    return [
+                        'data' => [
+                            'session_id' => $newSessionId,
+                            'validated' => true
+                        ],
+                        'status' => 200
+                    ];
+
+                } catch (StorageException $e) {
+                    return ['data' => ['error' => 'Storage error'], 'status' => 500];
+                }
+            }
+        ]
+    ],
     'user/info' => [
         'withParam' => [
             'GET' => function($pathVars, $body) use ($dbService, $auth) {        
@@ -37,12 +167,6 @@ $routes = [
     'user/validate' => [
         'withParam' => [
             'GET' => function($pathVars, $body) use ($dbService, $auth) {        
-            }
-        ]
-    ],
-    'login' => [
-        'noParam' => [
-            'POST' => function($pathVars, $body) use ($dbService, $auth) {        
             }
         ]
     ]

@@ -334,4 +334,75 @@ class SessionTest extends TestCase {
         $this->assertSame($user2['token'], $user3['token']);
         $this->assertSame('testtoken123', $user1['token']);
     }
+
+    public function testValidateSessionMarksSessionAsValidated(): void {
+        $db = \Database::getInstance($this->tmpFile);
+        
+        $db->createUser('testtoken123');
+        $session = $db->createSession('testtoken123');
+        
+        // Initially not validated
+        $this->assertFalse($session['validated']);
+        $this->assertFalse($db->isSessionValidated($session['session_id']));
+        
+        // Validate session
+        $result = $db->validateSession($session['session_id']);
+        $this->assertTrue($result);
+        
+        // Check if now validated
+        $this->assertTrue($db->isSessionValidated($session['session_id']));
+        
+        // Verify via getSessionBySessionId
+        $updatedSession = $db->getSessionBySessionId($session['session_id']);
+        $this->assertNotNull($updatedSession);
+        $this->assertTrue($updatedSession['validated']);
+    }
+
+    public function testValidateSessionReturnsFalseForNonexistentSession(): void {
+        $db = \Database::getInstance($this->tmpFile);
+        
+        $result = $db->validateSession('nonexistentsession123456789012');
+        $this->assertFalse($result);
+    }
+
+    public function testIsSessionValidatedReturnsFalseForNonexistentSession(): void {
+        $db = \Database::getInstance($this->tmpFile);
+        
+        $result = $db->isSessionValidated('nonexistentsession123456789012');
+        $this->assertFalse($result);
+    }
+
+    public function testValidateCodeReturnsTrueForValidCode(): void {
+        $db = \Database::getInstance($this->tmpFile);
+        
+        $user = $db->createUser('testtoken123');
+        
+        $isValid = $db->validateCode('testtoken123', $user['code']);
+        $this->assertTrue($isValid);
+    }
+
+    public function testValidateCodeReturnsFalseForInvalidCode(): void {
+        $db = \Database::getInstance($this->tmpFile);
+        
+        $db->createUser('testtoken123');
+        
+        $isValid = $db->validateCode('testtoken123', '000000');
+        $this->assertFalse($isValid);
+    }
+
+    public function testValidateCodeReturnsFalseForNonexistentUser(): void {
+        $db = \Database::getInstance($this->tmpFile);
+        
+        $isValid = $db->validateCode('nonexistent', '123456');
+        $this->assertFalse($isValid);
+    }
+
+    public function testValidateCodeReturnsFalseForExpiredCode(): void {
+        $db = \Database::getInstance($this->tmpFile);
+        
+        $user = $db->createUser('testtoken123', -100); // Already expired
+        
+        $isValid = $db->validateCode('testtoken123', $user['code']);
+        $this->assertFalse($isValid);
+    }
 }

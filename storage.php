@@ -93,6 +93,7 @@ class Database {
                     user_token TEXT NOT NULL,
                     expires_at TEXT NOT NULL,
                     session_duration INTEGER NOT NULL DEFAULT 1800,
+                    validated INTEGER NOT NULL DEFAULT 0,
                     created_at TEXT NOT NULL,
                     FOREIGN KEY (user_token) REFERENCES users(token) ON DELETE CASCADE
                 )
@@ -315,6 +316,38 @@ class Database {
         }
     }
 
+    /**
+     * Public: validate a code for a given user token.
+     *
+     * @param string $token User token
+     * @param string $code The code to validate
+     * @return bool True if code is valid and not expired, false otherwise
+     * @throws StorageException on database error
+     */
+    public function validateCode(string $token, string $code): bool {
+        try {
+            $user = $this->getUserByToken($token);
+            if (!$user) {
+                return false;
+            }
+
+            // Check if code matches
+            if ($user['code'] !== $code) {
+                return false;
+            }
+
+            // Check if code is expired
+            $now = gmdate('c');
+            if ($user['code_valid_until'] < $now) {
+                return false;
+            }
+
+            return true;
+        } catch (PDOException $e) {
+            throw new StorageException('STORAGE_ERROR', 'Database operation failed: ' . $e->getMessage());
+        }
+    }
+
     // ========== SESSION MANAGEMENT ==========
 
     /**
@@ -346,7 +379,7 @@ class Database {
             $createdAt = gmdate('c', $now);
 
             // Insert session record
-            $stmt = $this->pdo->prepare('INSERT INTO sessions (session_id, user_token, expires_at, session_duration, created_at) VALUES (?, ?, ?, ?, ?)');
+            $stmt = $this->pdo->prepare('INSERT INTO sessions (session_id, user_token, expires_at, session_duration, validated, created_at) VALUES (?, ?, ?, ?, 0, ?)');
             $stmt->execute([$sessionId, $userToken, $expiresAt, $sessionDurationSeconds, $createdAt]);
 
             return [
@@ -354,6 +387,7 @@ class Database {
                 'user_token' => $userToken,
                 'expires_at' => $expiresAt,
                 'session_duration' => $sessionDurationSeconds,
+                'validated' => false,
                 'created_at' => $createdAt
             ];
         } catch (PDOException $e) {
@@ -370,7 +404,7 @@ class Database {
      */
     public function getSessionBySessionId(string $sessionId): ?array {
         try {
-            $stmt = $this->pdo->prepare('SELECT session_id, user_token, expires_at, session_duration, created_at FROM sessions WHERE session_id = ?');
+            $stmt = $this->pdo->prepare('SELECT session_id, user_token, expires_at, session_duration, validated, created_at FROM sessions WHERE session_id = ?');
             $stmt->execute([$sessionId]);
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -391,6 +425,7 @@ class Database {
                 'user_token' => $row['user_token'],
                 'expires_at' => $row['expires_at'],
                 'session_duration' => (int)$row['session_duration'],
+                'validated' => (bool)$row['validated'],
                 'created_at' => $row['created_at']
             ];
         } catch (PDOException $e) {
@@ -492,6 +527,38 @@ class Database {
         } catch (PDOException $e) {
             throw new StorageException('STORAGE_ERROR', 'Database operation failed: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Public: mark a session as validated.
+     *
+     * @param string $sessionId
+     * @return bool True if session was validated, false if not found
+     * @throws StorageException on database error
+     */
+    public function validateSession(string $sessionId): bool {
+        try {
+            $stmt = $this->pdo->prepare('UPDATE sessions SET validated = 1 WHERE session_id = ?');
+            $stmt->execute([$sessionId]);
+            return $stmt->rowCount() > 0;
+        } catch (PDOException $e) {
+            throw new StorageException('STORAGE_ERROR', 'Database operation failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Public: check if a session is validated.
+     *
+     * @param string $sessionId
+     * @return bool True if session exists and is validated, false otherwise
+     * @throws StorageException on database error
+     */
+    public function isSessionValidated(string $sessionId): bool {
+        $session = $this->getSessionBySessionId($sessionId);
+        if (!$session) {
+            return false;
+        }
+        return $session['validated'];
     }
     
 }
