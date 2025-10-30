@@ -14,19 +14,24 @@ $authorizer = new Authorizer($CONFIG ?? []);
 $dbService  = Database::getInstance();
 $response   = Response::getInstance();
 
-// Initialize Webling client and UidEncryptor from environment
-$weblingDomain = getenv('WEBLING_DOMAIN') ?: 'demo';
-$weblingApiKey = getenv('WEBLING_API_KEY') ?: '';
+// Initialize Webling client and UidEncryptor from environment variables
+// Environment variables are set in .secrets.php which is loaded in public/index.php
+$weblingDomain = getenv('WEBLING_DOMAIN');
+$weblingApiKey = getenv('WEBLING_API_KEY');
+
+if (!$weblingDomain || !$weblingApiKey) {
+    throw new \RuntimeException('WEBLING_DOMAIN and WEBLING_API_KEY environment variables must be set in .secrets.php');
+}
+
 $weblingClient = new WeblingClient($weblingDomain, $weblingApiKey);
 
+// Load encryption key from environment (must be in 'base64:...' format)
 $encryptionKey = getenv('ENCRYPTION_KEY');
-if ($encryptionKey && strpos($encryptionKey, 'base64:') === 0) {
-    $encryptionKey = UidEncryptor::loadKeyFromEnv('ENCRYPTION_KEY');
-} else {
-    // Fallback: generate a temporary key (WARNING: not persistent!)
-    $encryptionKey = UidEncryptor::generateKey();
+if (!$encryptionKey || strpos($encryptionKey, 'base64:') !== 0) {
+    throw new \RuntimeException('ENCRYPTION_KEY environment variable must be set in .secrets.php with base64: prefix');
 }
-$uidEncryptor = new UidEncryptor($encryptionKey, 'iwheb-auth');
+
+$uidEncryptor = new UidEncryptor(UidEncryptor::loadKeyFromEnv('ENCRYPTION_KEY'), 'iwheb-auth');
 
 // Authorize once for the current request and path. Authorizer will call
 // Response::notFound() and exit on failure, so below we only run routes when
