@@ -70,22 +70,20 @@ $routes = [
                     // Check if user already exists in database
                     $existingUser = $dbService->getUserByToken($token);
                     
-                    if ($existingUser) {
-                        // Regenerate code for existing user
-                        $user = $dbService->regenerateCode($token);
-                    } else {
-                        // Create new user with code
-                        $user = $dbService->createUser($token);
+                    if (!$existingUser) {
+                        // Create new user (without code - code is in session now)
+                        $dbService->createUser($token);
                     }
 
-                    // Create session for user
+                    // Create session for user (generates code automatically)
                     $session = $dbService->createSession($token);
 
                     return [
                         'data' => [
                             'session_id' => $session['session_id'],
-                            'code' => $user['code'],
-                            'expires_at' => $user['code_valid_until']
+                            'code' => $session['code'],
+                            'code_expires_at' => $session['code_valid_until'],
+                            'session_expires_at' => $session['expires_at']
                         ],
                         'status' => 200
                     ];
@@ -117,8 +115,8 @@ $routes = [
                         return ['data' => ['error' => 'Invalid or expired session'], 'status' => 404];
                     }
 
-                    // Validate code for the user
-                    $isValidCode = $dbService->validateCode($session['user_token'], $code);
+                    // Validate code for the session
+                    $isValidCode = $dbService->validateCode($sessionId, $code);
                     
                     if (!$isValidCode) {
                         return ['data' => ['error' => 'Invalid or expired code'], 'status' => 401];
@@ -134,9 +132,8 @@ $routes = [
                         return ['data' => ['error' => 'Failed to refresh session'], 'status' => 500];
                     }
 
-                    // Delete the used code by regenerating a new one (or we could delete the user)
-                    // For security, regenerate a new code so the old one can't be reused
-                    $dbService->regenerateCode($session['user_token']);
+                    // Regenerate code for security (so old code can't be reused)
+                    $dbService->regenerateSessionCode($newSessionId);
 
                     return [
                         'data' => [

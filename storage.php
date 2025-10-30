@@ -79,8 +79,6 @@ class Database {
             $sql = "
                 CREATE TABLE IF NOT EXISTS users (
                     token TEXT PRIMARY KEY,
-                    code TEXT NOT NULL,
-                    code_valid_until TEXT NOT NULL,
                     last_activity_at TEXT NOT NULL
                 )
             ";
@@ -91,6 +89,8 @@ class Database {
                 CREATE TABLE IF NOT EXISTS sessions (
                     session_id TEXT PRIMARY KEY,
                     user_token TEXT NOT NULL,
+                    code TEXT NOT NULL,
+                    code_valid_until TEXT NOT NULL,
                     expires_at TEXT NOT NULL,
                     session_duration INTEGER NOT NULL DEFAULT 1800,
                     validated INTEGER NOT NULL DEFAULT 0,
@@ -150,7 +150,7 @@ class Database {
      */
     public function getUserByToken(string $token): ?array {
         try {
-            $stmt = $this->pdo->prepare('SELECT token, code, code_valid_until, last_activity_at FROM users WHERE token = ?');
+            $stmt = $this->pdo->prepare('SELECT token, last_activity_at FROM users WHERE token = ?');
             $stmt->execute([$token]);
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
             
@@ -160,8 +160,6 @@ class Database {
             
             return [
                 'token' => $row['token'],
-                'code' => $row['code'],
-                'code_valid_until' => $row['code_valid_until'],
                 'last_activity_at' => $row['last_activity_at']
             ];
         } catch (PDOException $e) {
@@ -170,37 +168,28 @@ class Database {
     }
 
     /**
-     * Public: create a new user record with auto-generated code.
-     * Generates a random 6-digit code and sets validity period.
+     * Public: create a new user record.
      *
      * @param string $token
-     * @param int $codeValiditySeconds Seconds until code expires (default: 300 = 5 minutes)
-     * @return array The created user record with generated code
+     * @return array The created user record
      * @throws StorageException on database error or invalid parameters
      */
-    public function createUser(string $token, int $codeValiditySeconds = 300): array {
+    public function createUser(string $token): array {
         try {
             // Validate token is not empty
             if (empty($token)) {
                 throw new StorageException('STORAGE_ERROR', 'Token cannot be empty');
             }
             
-            // Generate 6-digit code
-            $code = $this->generateCode();
-            
-            // Calculate expiry time
             $now = time();
-            $codeValidUntil = gmdate('c', $now + $codeValiditySeconds);
             $lastActivityAt = gmdate('c', $now);
             
             // Insert user record
-            $stmt = $this->pdo->prepare('INSERT INTO users (token, code, code_valid_until, last_activity_at) VALUES (?, ?, ?, ?)');
-            $stmt->execute([$token, $code, $codeValidUntil, $lastActivityAt]);
+            $stmt = $this->pdo->prepare('INSERT INTO users (token, last_activity_at) VALUES (?, ?)');
+            $stmt->execute([$token, $lastActivityAt]);
             
             return [
                 'token' => $token,
-                'code' => $code,
-                'code_valid_until' => $codeValidUntil,
                 'last_activity_at' => $lastActivityAt
             ];
         } catch (PDOException $e) {
@@ -208,45 +197,6 @@ class Database {
             if ($e->getCode() == '23000') {
                 throw new StorageException('STORAGE_ERROR', 'User with this token already exists');
             }
-            throw new StorageException('STORAGE_ERROR', 'Database operation failed: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * Public: regenerate the code for an existing user.
-     * Creates a new 6-digit code and updates the validity period.
-     *
-     * @param string $token
-     * @param int $codeValiditySeconds Seconds until code expires (default: 300 = 5 minutes)
-     * @return array|null The updated user record or null if token not found
-     * @throws StorageException on database error
-     */
-    public function regenerateCode(string $token, int $codeValiditySeconds = 300): ?array {
-        try {
-            // Check if user exists
-            $existing = $this->getUserByToken($token);
-            if (!$existing) {
-                return null;
-            }
-            
-            // Generate new code
-            $code = $this->generateCode();
-            
-            // Calculate new expiry time
-            $now = time();
-            $codeValidUntil = gmdate('c', $now + $codeValiditySeconds);
-            
-            // Update user record
-            $stmt = $this->pdo->prepare('UPDATE users SET code = ?, code_valid_until = ? WHERE token = ?');
-            $stmt->execute([$code, $codeValidUntil, $token]);
-            
-            return [
-                'token' => $token,
-                'code' => $code,
-                'code_valid_until' => $codeValidUntil,
-                'last_activity_at' => $existing['last_activity_at']
-            ];
-        } catch (PDOException $e) {
             throw new StorageException('STORAGE_ERROR', 'Database operation failed: ' . $e->getMessage());
         }
     }
@@ -298,67 +248,18 @@ class Database {
         }
     }
 
-    /**
-     * Public: delete all users where code_valid_until is before the given timestamp.
-     *
-     * @param string|null $beforeTimestamp ISO 8601 timestamp (defaults to now if null)
-     * @return int Number of deleted records
-     * @throws StorageException on database error
-     */
-    public function deleteExpiredCodes(?string $beforeTimestamp = null): int {
-        try {
-            $beforeTimestamp = $beforeTimestamp ?? gmdate('c');
-            $stmt = $this->pdo->prepare('DELETE FROM users WHERE code_valid_until < ?');
-            $stmt->execute([$beforeTimestamp]);
-            return $stmt->rowCount();
-        } catch (PDOException $e) {
-            throw new StorageException('STORAGE_ERROR', 'Database operation failed: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * Public: validate a code for a given user token.
-     *
-     * @param string $token User token
-     * @param string $code The code to validate
-     * @return bool True if code is valid and not expired, false otherwise
-     * @throws StorageException on database error
-     */
-    public function validateCode(string $token, string $code): bool {
-        try {
-            $user = $this->getUserByToken($token);
-            if (!$user) {
-                return false;
-            }
-
-            // Check if code matches
-            if ($user['code'] !== $code) {
-                return false;
-            }
-
-            // Check if code is expired
-            $now = gmdate('c');
-            if ($user['code_valid_until'] < $now) {
-                return false;
-            }
-
-            return true;
-        } catch (PDOException $e) {
-            throw new StorageException('STORAGE_ERROR', 'Database operation failed: ' . $e->getMessage());
-        }
-    }
-
     // ========== SESSION MANAGEMENT ==========
 
     /**
-     * Public: create a new session for a user.
+     * Public: create a new session for a user with auto-generated code.
      *
      * @param string $userToken The user token to create a session for
      * @param int $sessionDurationSeconds Duration in seconds (default: 1800 = 30 minutes)
-     * @return array The created session record
+     * @param int $codeValiditySeconds Seconds until code expires (default: 300 = 5 minutes)
+     * @return array The created session record with code
      * @throws StorageException on database error or if user doesn't exist
      */
-    public function createSession(string $userToken, int $sessionDurationSeconds = 1800): array {
+    public function createSession(string $userToken, int $sessionDurationSeconds = 1800, int $codeValiditySeconds = 300): array {
         try {
             // Verify user exists
             $user = $this->getUserByToken($userToken);
@@ -374,17 +275,23 @@ class Database {
                 $stmt->execute([$sessionId]);
             } while ($stmt->fetch());
 
+            // Generate 6-digit code
+            $code = $this->generateCode();
+
             $now = time();
             $expiresAt = gmdate('c', $now + $sessionDurationSeconds);
+            $codeValidUntil = gmdate('c', $now + $codeValiditySeconds);
             $createdAt = gmdate('c', $now);
 
-            // Insert session record
-            $stmt = $this->pdo->prepare('INSERT INTO sessions (session_id, user_token, expires_at, session_duration, validated, created_at) VALUES (?, ?, ?, ?, 0, ?)');
-            $stmt->execute([$sessionId, $userToken, $expiresAt, $sessionDurationSeconds, $createdAt]);
+            // Insert session record with code
+            $stmt = $this->pdo->prepare('INSERT INTO sessions (session_id, user_token, code, code_valid_until, expires_at, session_duration, validated, created_at) VALUES (?, ?, ?, ?, ?, ?, 0, ?)');
+            $stmt->execute([$sessionId, $userToken, $code, $codeValidUntil, $expiresAt, $sessionDurationSeconds, $createdAt]);
 
             return [
                 'session_id' => $sessionId,
                 'user_token' => $userToken,
+                'code' => $code,
+                'code_valid_until' => $codeValidUntil,
                 'expires_at' => $expiresAt,
                 'session_duration' => $sessionDurationSeconds,
                 'validated' => false,
@@ -404,7 +311,7 @@ class Database {
      */
     public function getSessionBySessionId(string $sessionId): ?array {
         try {
-            $stmt = $this->pdo->prepare('SELECT session_id, user_token, expires_at, session_duration, validated, created_at FROM sessions WHERE session_id = ?');
+            $stmt = $this->pdo->prepare('SELECT session_id, user_token, code, code_valid_until, expires_at, session_duration, validated, created_at FROM sessions WHERE session_id = ?');
             $stmt->execute([$sessionId]);
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -423,6 +330,8 @@ class Database {
             return [
                 'session_id' => $row['session_id'],
                 'user_token' => $row['user_token'],
+                'code' => $row['code'],
+                'code_valid_until' => $row['code_valid_until'],
                 'expires_at' => $row['expires_at'],
                 'session_duration' => (int)$row['session_duration'],
                 'validated' => (bool)$row['validated'],
@@ -559,6 +468,77 @@ class Database {
             return false;
         }
         return $session['validated'];
+    }
+
+    /**
+     * Public: validate a code for a given session.
+     *
+     * @param string $sessionId Session ID
+     * @param string $code The code to validate
+     * @return bool True if code is valid and not expired, false otherwise
+     * @throws StorageException on database error
+     */
+    public function validateCode(string $sessionId, string $code): bool {
+        try {
+            $session = $this->getSessionBySessionId($sessionId);
+            if (!$session) {
+                return false;
+            }
+
+            // Check if code matches
+            if ($session['code'] !== $code) {
+                return false;
+            }
+
+            // Check if code is expired
+            $now = gmdate('c');
+            if ($session['code_valid_until'] < $now) {
+                return false;
+            }
+
+            return true;
+        } catch (PDOException $e) {
+            throw new StorageException('STORAGE_ERROR', 'Database operation failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Public: regenerate the code for an existing session.
+     * Creates a new 6-digit code and updates the validity period.
+     *
+     * @param string $sessionId
+     * @param int $codeValiditySeconds Seconds until code expires (default: 300 = 5 minutes)
+     * @return bool True if code was regenerated, false if session not found
+     * @throws StorageException on database error
+     */
+    public function regenerateSessionCode(string $sessionId, int $codeValiditySeconds = 300): ?array {
+        try {
+            // Check if session exists
+            $session = $this->getSessionBySessionId($sessionId);
+            if (!$session) {
+                return null;
+            }
+
+            // Generate new code
+            $code = $this->generateCode();
+
+            // Calculate new expiry time
+            $now = time();
+            $codeValidUntil = gmdate('c', $now + $codeValiditySeconds);
+
+            // Update session record
+            $stmt = $this->pdo->prepare('UPDATE sessions SET code = ?, code_valid_until = ? WHERE session_id = ?');
+            $stmt->execute([$code, $codeValidUntil, $sessionId]);
+
+            if ($stmt->rowCount() === 0) {
+                return null;
+            }
+
+            // Return updated session
+            return $this->getSessionBySessionId($sessionId);
+        } catch (PDOException $e) {
+            throw new StorageException('STORAGE_ERROR', 'Database operation failed: ' . $e->getMessage());
+        }
     }
     
 }

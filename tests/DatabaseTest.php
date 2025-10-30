@@ -50,7 +50,6 @@ class DatabaseTest extends TestCase {
 
         $this->assertIsArray($loaded);
         $this->assertSame($token, $loaded['token']);
-        $this->assertSame($user['code'], $loaded['code']);
     }
 
     public function testSaveFailsThrowsStorageException(): void {

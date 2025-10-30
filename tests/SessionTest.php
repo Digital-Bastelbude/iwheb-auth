@@ -38,12 +38,19 @@ class SessionTest extends TestCase {
 
         $this->assertArrayHasKey('session_id', $session);
         $this->assertArrayHasKey('user_token', $session);
+        $this->assertArrayHasKey('code', $session);
+        $this->assertArrayHasKey('code_valid_until', $session);
         $this->assertArrayHasKey('expires_at', $session);
         $this->assertArrayHasKey('session_duration', $session);
         $this->assertArrayHasKey('created_at', $session);
+        $this->assertArrayHasKey('validated', $session);
         
         $this->assertSame('testtoken123', $session['user_token']);
         $this->assertSame(1800, $session['session_duration']); // Default 30 minutes
+        $this->assertFalse($session['validated']); // Initially not validated
+        
+        // Code should be 6 digits
+        $this->assertMatchesRegularExpression('/^\d{6}$/', $session['code']);
         
         // Session ID should be 32 chars, lowercase alphanumeric
         $this->assertSame(32, strlen($session['session_id']));
@@ -51,6 +58,7 @@ class SessionTest extends TestCase {
         
         // Verify timestamps are valid ISO 8601
         $this->assertNotFalse(\DateTime::createFromFormat(\DateTime::ATOM, $session['expires_at']));
+        $this->assertNotFalse(\DateTime::createFromFormat(\DateTime::ATOM, $session['code_valid_until']));
         $this->assertNotFalse(\DateTime::createFromFormat(\DateTime::ATOM, $session['created_at']));
     }
 
@@ -93,6 +101,7 @@ class SessionTest extends TestCase {
         $this->assertNotNull($retrievedSession);
         $this->assertSame($originalSession['session_id'], $retrievedSession['session_id']);
         $this->assertSame($originalSession['user_token'], $retrievedSession['user_token']);
+        $this->assertSame($originalSession['code'], $retrievedSession['code']);
         $this->assertSame($originalSession['expires_at'], $retrievedSession['expires_at']);
     }
 
@@ -128,7 +137,8 @@ class SessionTest extends TestCase {
         
         $this->assertNotNull($retrievedUser);
         $this->assertSame($user['token'], $retrievedUser['token']);
-        $this->assertSame($user['code'], $retrievedUser['code']);
+        // User no longer has code - that's in the session
+        $this->assertArrayNotHasKey('code', $retrievedUser);
     }
 
     public function testGetUserBySessionIdReturnsNullForInvalidSession(): void {
@@ -375,9 +385,10 @@ class SessionTest extends TestCase {
     public function testValidateCodeReturnsTrueForValidCode(): void {
         $db = \Database::getInstance($this->tmpFile);
         
-        $user = $db->createUser('testtoken123');
+        $db->createUser('testtoken123');
+        $session = $db->createSession('testtoken123');
         
-        $isValid = $db->validateCode('testtoken123', $user['code']);
+        $isValid = $db->validateCode($session['session_id'], $session['code']);
         $this->assertTrue($isValid);
     }
 
@@ -385,24 +396,135 @@ class SessionTest extends TestCase {
         $db = \Database::getInstance($this->tmpFile);
         
         $db->createUser('testtoken123');
+        $session = $db->createSession('testtoken123');
         
-        $isValid = $db->validateCode('testtoken123', '000000');
+        $isValid = $db->validateCode($session['session_id'], '000000');
         $this->assertFalse($isValid);
     }
 
-    public function testValidateCodeReturnsFalseForNonexistentUser(): void {
+    public function testValidateCodeReturnsFalseForNonexistentSession(): void {
         $db = \Database::getInstance($this->tmpFile);
         
-        $isValid = $db->validateCode('nonexistent', '123456');
+        $isValid = $db->validateCode('nonexistentsession123456789012', '123456');
         $this->assertFalse($isValid);
     }
 
     public function testValidateCodeReturnsFalseForExpiredCode(): void {
         $db = \Database::getInstance($this->tmpFile);
         
-        $user = $db->createUser('testtoken123', -100); // Already expired
+        $db->createUser('testtoken123');
+        $session = $db->createSession('testtoken123', 1800, -100); // Session valid, code expired
         
-        $isValid = $db->validateCode('testtoken123', $user['code']);
+        $isValid = $db->validateCode($session['session_id'], $session['code']);
         $this->assertFalse($isValid);
+    }
+
+    public function testRegenerateSessionCodeCreatesNewCode(): void {
+        $db = \Database::getInstance($this->tmpFile);
+        
+        $db->createUser('testtoken123');
+        $session = $db->createSession('testtoken123');
+        $originalCode = $session['code'];
+        
+        $newSession = $db->regenerateSessionCode($session['session_id']);
+        
+        $this->assertNotNull($newSession);
+        $this->assertSame($session['session_id'], $newSession['session_id']);
+        $this->assertNotSame($originalCode, $newSession['code']);
+        $this->assertMatchesRegularExpression('/^\d{6}$/', $newSession['code']);
+    }
+
+    public function testRegenerateSessionCodeReturnsNullForNonexistentSession(): void {
+        $db = \Database::getInstance($this->tmpFile);
+        
+        $result = $db->regenerateSessionCode('nonexistentsession123456789012');
+        $this->assertNull($result);
+    }
+
+    public function testRegenerateSessionCodeWithCustomValidity(): void {
+        $db = \Database::getInstance($this->tmpFile);
+        
+        $db->createUser('testtoken123');
+        $session = $db->createSession('testtoken123');
+        
+        $beforeRegen = time();
+        $newSession = $db->regenerateSessionCode($session['session_id'], 600); // 10 minutes
+        $afterRegen = time();
+        
+        $this->assertNotNull($newSession);
+        
+        // Parse the code_valid_until timestamp
+        $codeValidUntil = \DateTime::createFromFormat(\DateTime::ATOM, $newSession['code_valid_until']);
+        $codeValidTimestamp = $codeValidUntil->getTimestamp();
+        
+        // Should be roughly 600 seconds from now
+        $this->assertGreaterThanOrEqual($beforeRegen + 600, $codeValidTimestamp);
+        $this->assertLessThanOrEqual($afterRegen + 600, $codeValidTimestamp);
+    }
+
+    public function testCodeIsAlwaysSixDigits(): void {
+        $db = \Database::getInstance($this->tmpFile);
+        
+        $db->createUser('testtoken123');
+        
+        // Create multiple sessions and verify all codes are 6 digits
+        for ($i = 0; $i < 20; $i++) {
+            $session = $db->createSession('testtoken123');
+            $this->assertMatchesRegularExpression('/^\d{6}$/', $session['code']);
+            $this->assertSame(6, strlen($session['code']));
+            $db->deleteSession($session['session_id']);
+        }
+    }
+
+    public function testGeneratedCodesAreRandom(): void {
+        $db = \Database::getInstance($this->tmpFile);
+        
+        $db->createUser('testtoken123');
+        
+        $codes = [];
+        $sessionIds = [];
+        for ($i = 0; $i < 10; $i++) {
+            $session = $db->createSession('testtoken123');
+            $codes[] = $session['code'];
+            $sessionIds[] = $session['session_id'];
+        }
+        
+        // Check that we have at least some different codes (not all the same)
+        $uniqueCodes = array_unique($codes);
+        $this->assertGreaterThan(1, count($uniqueCodes));
+        
+        // Clean up
+        foreach ($sessionIds as $sessionId) {
+            $db->deleteSession($sessionId);
+        }
+    }
+
+    public function testCodeWithLeadingZeros(): void {
+        $db = \Database::getInstance($this->tmpFile);
+        
+        $db->createUser('testtoken123');
+        
+        // Generate many codes to likely get one with leading zeros
+        $foundLeadingZero = false;
+        $sessionIds = [];
+        for ($i = 0; $i < 100; $i++) {
+            $session = $db->createSession('testtoken123');
+            $sessionIds[] = $session['session_id'];
+            if (str_starts_with($session['code'], '0')) {
+                $foundLeadingZero = true;
+                $this->assertSame(6, strlen($session['code']));
+                $this->assertMatchesRegularExpression('/^0\d{5}$/', $session['code']);
+                break;
+            }
+        }
+        
+        // Clean up
+        foreach ($sessionIds as $sessionId) {
+            $db->deleteSession($sessionId);
+        }
+        
+        // We should have found at least one code with leading zero in 100 attempts
+        // (Probability: ~1 - (0.9)^100 ≈ 99.997%)
+        $this->assertTrue($foundLeadingZero, 'Should have generated at least one code with leading zero');
     }
 }

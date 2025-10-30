@@ -22,9 +22,8 @@ The system implements a secure, passwordless user login with code-based two-fact
 3. If user found:
    - Webling User-ID is encrypted (UidEncryptor) → Token
    - Token is checked: does user exist in DB?
-     - **Yes**: New code is generated (`regenerateCode`)
      - **No**: New user is created (`createUser`)
-   - Session is started (`createSession`)
+   - Session is started (`createSession`), which generates a new 6-digit code
 4. If user NOT found: HTTP 404
 
 **Response (Success):**
@@ -32,7 +31,8 @@ The system implements a secure, passwordless user login with code-based two-fact
 {
   "session_id": "abc123...",
   "code": "123456",
-  "expires_at": "2025-10-30T10:15:00+00:00"
+  "code_expires_at": "2025-10-30T10:10:00+00:00",
+  "session_expires_at": "2025-10-30T10:45:00+00:00"
 }
 ```
 
@@ -59,11 +59,12 @@ The system implements a secure, passwordless user login with code-based two-fact
 **Process:**
 1. Session is loaded by `session_id`
 2. Code is validated (`validateCode`):
-   - Code must match user's code
+   - Code must match session's code
    - Code must not be expired
 3. On successful validation:
    - Session is marked as validated (`validated = true`)
-   - New session-ID is generated (`touchUser`)
+   - User's activity timestamp is updated (`touchUser`)
+   - New session-ID is generated (session rotation)
    - Used code is replaced with a new one (security)
 
 **Response (Success):**
@@ -183,8 +184,6 @@ php -r "echo 'base64:' . base64_encode(random_bytes(32)) . PHP_EOL;"
 ```sql
 CREATE TABLE users (
     token TEXT PRIMARY KEY,           -- Encrypted Webling User ID
-    code TEXT NOT NULL,                -- 6-digit verification code
-    code_valid_until TEXT NOT NULL,   -- ISO 8601 timestamp
     last_activity_at TEXT NOT NULL    -- ISO 8601 timestamp
 );
 ```
@@ -194,6 +193,8 @@ CREATE TABLE users (
 CREATE TABLE sessions (
     session_id TEXT PRIMARY KEY,          -- 32-char URL-safe random ID
     user_token TEXT NOT NULL,             -- FK to users(token)
+    code TEXT NOT NULL,                   -- 6-digit verification code
+    code_valid_until TEXT NOT NULL,       -- ISO 8601 timestamp
     expires_at TEXT NOT NULL,             -- ISO 8601 timestamp
     session_duration INTEGER DEFAULT 1800,-- Seconds (30 min)
     validated INTEGER DEFAULT 0,          -- Boolean: code validated?
@@ -253,17 +254,14 @@ CREATE TABLE sessions (
 
 ## Maintenance
 
-### Cleanup old sessions/codes:
+### Cleanup old sessions:
 
 ```php
 // In cron job or scheduled task
 $db = Database::getInstance();
 
-// Delete expired codes
-$deletedCodes = $db->deleteExpiredCodes();
-
-// Delete expired sessions
+// Delete expired sessions (and their codes)
 $deletedSessions = $db->deleteExpiredSessions();
 
-echo "Deleted: {$deletedCodes} codes, {$deletedSessions} sessions\n";
+echo "Deleted: {$deletedSessions} expired sessions\n";
 ```
