@@ -126,7 +126,7 @@ class ApiKeyManager {
         if (isset($_SERVER['HTTP_AUTHORIZATION'])) {
             $auth = $_SERVER['HTTP_AUTHORIZATION'];
             if (preg_match('/^ApiKey\s+(.+)$/i', $auth, $matches)) {
-                return $matches[1];
+                return trim($matches[1]);
             }
         }
 
@@ -137,10 +137,10 @@ class ApiKeyManager {
      * Get the name of an API key
      * 
      * @param string $apiKey The API key
-     * @return string The name or 'Unknown' if not found
+     * @return string|null The name or null if not found
      */
-    public function getApiKeyName(string $apiKey): string {
+    public function getApiKeyName(string $apiKey): ?string {
         $config = $this->getApiKeyConfig($apiKey);
-        return $config['name'] ?? 'Unknown';
+        return $config['name'] ?? null;
     }
 }

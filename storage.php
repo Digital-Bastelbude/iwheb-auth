@@ -385,8 +385,8 @@ class Database {
                 return null;
             }
 
-            // Create new session with same duration
-            $newSession = $this->createSession($session['user_token'], $session['session_duration']);
+            // Create new session with same duration and API key
+            $newSession = $this->createSession($session['user_token'], $session['api_key'], $session['session_duration']);
 
             // Delete old session
             $this->deleteSession($oldSessionId);

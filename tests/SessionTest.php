@@ -558,4 +558,159 @@ class SessionTest extends TestCase {
         $isActive = $db->isSessionActive('nonexistentsession123456789012');
         $this->assertFalse($isActive);
     }
+
+    // ========== API KEY TESTS ==========
+
+    public function testSessionStoresApiKey(): void {
+        $db = \Database::getInstance($this->tmpFile);
+        
+        $db->createUser('testtoken123');
+        $session = $db->createSession('testtoken123', $this->testApiKey);
+        
+        // Verify api_key is stored in session
+        $this->assertArrayHasKey('api_key', $session);
+        $this->assertSame($this->testApiKey, $session['api_key']);
+        
+        // Retrieve session and verify api_key is persisted
+        $retrievedSession = $db->getSessionBySessionId($session['session_id']);
+        $this->assertNotNull($retrievedSession);
+        $this->assertArrayHasKey('api_key', $retrievedSession);
+        $this->assertSame($this->testApiKey, $retrievedSession['api_key']);
+    }
+
+    public function testCheckSessionAccessWithCorrectApiKey(): void {
+        $db = \Database::getInstance($this->tmpFile);
+        
+        $db->createUser('testtoken123');
+        $session = $db->createSession('testtoken123', $this->testApiKey);
+        
+        // Same API key should have access
+        $hasAccess = $db->checkSessionAccess($session['session_id'], $this->testApiKey);
+        $this->assertTrue($hasAccess);
+    }
+
+    public function testCheckSessionAccessWithWrongApiKey(): void {
+        $db = \Database::getInstance($this->tmpFile);
+        
+        $db->createUser('testtoken123');
+        $session = $db->createSession('testtoken123', $this->testApiKey);
+        
+        // Different API key should NOT have access
+        $wrongApiKey = 'different-api-key-67890';
+        $hasAccess = $db->checkSessionAccess($session['session_id'], $wrongApiKey);
+        $this->assertFalse($hasAccess);
+    }
+
+    public function testCheckSessionAccessWithNonexistentSession(): void {
+        $db = \Database::getInstance($this->tmpFile);
+        
+        // Non-existent session should return false
+        $hasAccess = $db->checkSessionAccess('nonexistent-session-id', $this->testApiKey);
+        $this->assertFalse($hasAccess);
+    }
+
+    public function testMultipleSessionsWithDifferentApiKeys(): void {
+        $db = \Database::getInstance($this->tmpFile);
+        
+        $db->createUser('testtoken123');
+        
+        $apiKey1 = 'api-key-1';
+        $apiKey2 = 'api-key-2';
+        $apiKey3 = 'api-key-3';
+        
+        // Create sessions with different API keys
+        $session1 = $db->createSession('testtoken123', $apiKey1);
+        $session2 = $db->createSession('testtoken123', $apiKey2);
+        $session3 = $db->createSession('testtoken123', $apiKey3);
+        
+        // Each session should only be accessible with its own API key
+        $this->assertTrue($db->checkSessionAccess($session1['session_id'], $apiKey1));
+        $this->assertFalse($db->checkSessionAccess($session1['session_id'], $apiKey2));
+        $this->assertFalse($db->checkSessionAccess($session1['session_id'], $apiKey3));
+        
+        $this->assertFalse($db->checkSessionAccess($session2['session_id'], $apiKey1));
+        $this->assertTrue($db->checkSessionAccess($session2['session_id'], $apiKey2));
+        $this->assertFalse($db->checkSessionAccess($session2['session_id'], $apiKey3));
+        
+        $this->assertFalse($db->checkSessionAccess($session3['session_id'], $apiKey1));
+        $this->assertFalse($db->checkSessionAccess($session3['session_id'], $apiKey2));
+        $this->assertTrue($db->checkSessionAccess($session3['session_id'], $apiKey3));
+    }
+
+    public function testSessionIsolationBetweenApiKeys(): void {
+        $db = \Database::getInstance($this->tmpFile);
+        
+        $db->createUser('testtoken123');
+        
+        $apiKeyA = 'api-key-application-a';
+        $apiKeyB = 'api-key-application-b';
+        
+        // Application A creates a session
+        $sessionA = $db->createSession('testtoken123', $apiKeyA);
+        
+        // Application B creates a different session
+        $sessionB = $db->createSession('testtoken123', $apiKeyB);
+        
+        // Verify sessions are different
+        $this->assertNotSame($sessionA['session_id'], $sessionB['session_id']);
+        
+        // Application A can only access its own session
+        $this->assertTrue($db->checkSessionAccess($sessionA['session_id'], $apiKeyA));
+        $this->assertFalse($db->checkSessionAccess($sessionB['session_id'], $apiKeyA));
+        
+        // Application B can only access its own session
+        $this->assertTrue($db->checkSessionAccess($sessionB['session_id'], $apiKeyB));
+        $this->assertFalse($db->checkSessionAccess($sessionA['session_id'], $apiKeyB));
+    }
+
+    public function testCheckSessionAccessWithExpiredSession(): void {
+        $db = \Database::getInstance($this->tmpFile);
+        
+        $db->createUser('testtoken123');
+        
+        // Create session that's already expired
+        $session = $db->createSession('testtoken123', $this->testApiKey, -100);
+        
+        // Wait a moment to ensure it's expired
+        sleep(1);
+        
+        // Should return false for expired session
+        $hasAccess = $db->checkSessionAccess($session['session_id'], $this->testApiKey);
+        $this->assertFalse($hasAccess);
+    }
+
+    public function testApiKeyPersistsAfterSessionRotation(): void {
+        $db = \Database::getInstance($this->tmpFile);
+        
+        $db->createUser('testtoken123');
+        $originalSession = $db->createSession('testtoken123', $this->testApiKey);
+        
+        // Validate session (triggers session rotation)
+        $db->validateSession($originalSession['session_id']);
+        $newSessionId = $db->touchUser($originalSession['session_id']);
+        
+        // New session should still have the same API key
+        $newSession = $db->getSessionBySessionId($newSessionId);
+        $this->assertNotNull($newSession);
+        $this->assertSame($this->testApiKey, $newSession['api_key']);
+        
+        // Access check should still work with original API key
+        $this->assertTrue($db->checkSessionAccess($newSessionId, $this->testApiKey));
+    }
+
+    public function testEmptyApiKeyIsStored(): void {
+        $db = \Database::getInstance($this->tmpFile);
+        
+        $db->createUser('testtoken123');
+        
+        // Create session with empty API key (edge case)
+        $session = $db->createSession('testtoken123', '');
+        
+        $this->assertArrayHasKey('api_key', $session);
+        $this->assertSame('', $session['api_key']);
+        
+        // Empty API key should still work for access control
+        $this->assertTrue($db->checkSessionAccess($session['session_id'], ''));
+        $this->assertFalse($db->checkSessionAccess($session['session_id'], 'any-other-key'));
+    }
 }
