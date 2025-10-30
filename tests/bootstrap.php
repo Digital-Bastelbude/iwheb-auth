@@ -7,6 +7,7 @@ if (file_exists($autoloader)) {
 
 // Include lightweight project bootstrap for tests (Database etc.)
 require_once __DIR__ . '/../storage.php';
+require_once __DIR__ . '/../uidencryptor.php';
 
 // During tests, convert deprecations and notices to exceptions to make them visible
 // The strict test error handler is useful during development to make deprecations
