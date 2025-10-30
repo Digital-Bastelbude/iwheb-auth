@@ -22,35 +22,27 @@ try {
 
 // Define route map. Base name -> modes (noParam/withParam) -> HTTP method -> handler (callable/closure)
 $routes = [
-    'items' => [
-        'noParam' => [
-            'GET' => function($pathVars, $body) use ($dbService, $auth) {
-                $ids = $dbService->listIds();
-                $items = [];
-                foreach ($ids as $i) {
-                    $it = $dbService->getItem($i);
-                    if ($it !== null) $items[] = $it;
-                }
-                return ['data' => array_values($items), 'status' => 200, 'headers' => [], 'outcome' => 'ALLOW', 'reason' => 'OK', 'key' => $auth['key'] ?? null];
-            },
-            'POST' => function($pathVars, $body) use ($dbService, $auth) {            
-                $item = $dbService->saveItem($body);
-                return ['data' => $item, 'status' => 201, 'headers' => ['Location' => "/items/{$item['id']}"], 'outcome' => 'ALLOW', 'reason' => 'OK', 'key' => $auth['key'] ?? null];
-            }
-        ],
+    'user/info' => [
         'withParam' => [
-            'GET' => function($pathVars, $body) use ($dbService, $auth) {
-                $id = $pathVars['id'] ?? null;
-                $item = $dbService->getItem($id);
-                if (!$item) throw new \Exception('NOT_FOUND');
-                return ['data' => $item, 'status' => 200, 'headers' => [], 'outcome' => 'ALLOW', 'reason' => 'OK', 'key' => $auth['key'] ?? null];
+            'GET' => function($pathVars, $body) use ($dbService, $auth) {        
             },
-            'PUT' => function($pathVars, $body) use ($dbService, $auth) {
-                $id = $pathVars['id'] ?? null;
-                if (!json_validate($body)) throw new \Exception('INPUT_INVALID');
-                $item = $dbService->saveItem($body, $id);
-                $created = ($item['createdAt'] === $item['lastUpdatedAt']);
-                return ['data' => $item, 'status' => $created ? 201 : 200, 'headers' => $created ? ['Location' => "/items/$id"] : [], 'outcome' => 'ALLOW', 'reason' => 'OK', 'key' => $auth['key'] ?? null];
+        ]
+    ],
+    'user/touch' => [
+        'withParam' => [
+            'GET' => function($pathVars, $body) use ($dbService, $auth) {        
+            }
+        ]
+    ],
+    'user/validate' => [
+        'withParam' => [
+            'GET' => function($pathVars, $body) use ($dbService, $auth) {        
+            }
+        ]
+    ],
+    'login' => [
+        'noParam' => [
+            'POST' => function($pathVars, $body) use ($dbService, $auth) {        
             }
         ]
     ]
