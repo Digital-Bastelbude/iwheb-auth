@@ -18,7 +18,7 @@ declare(strict_types=1);
 // -------- Paths --------
 const BASE_DIR    = __DIR__ . '/..';
 const CONFIG_FILE = BASE_DIR . '/config/config.json';
-const DATA_FILE   = BASE_DIR . '/storage/data.json';
+const DATA_FILE   = BASE_DIR . '/storage/data.db';
 const RL_DIR      = BASE_DIR . '/storage/ratelimit';
 const LOG_FILE    = BASE_DIR . '/logs/api.log';
 

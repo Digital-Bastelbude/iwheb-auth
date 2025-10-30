@@ -5,35 +5,42 @@ require_once __DIR__ . '/exceptions.php';
 /**
  * Database
  *
- * Simple file-based JSON storage handler with atomic load/save using file locks.
+ * SQLite database storage handler for user authentication data.
+ * Stores user records identified by token with code and timestamps.
  * Implemented as a singleton.
  */
 class Database {
     /** @var Database|null */
     private static ?Database $instance = null;
 
+    /** @var PDO */
+    private PDO $pdo;
+
     /** @var string */
-    private string $dataFile;
+    private string $databasePath;
 
     /**
      * Private constructor.
      *
-     * @param string $dataFile
+     * @param string $databasePath
+     * @throws StorageException
      */
-    private function __construct(string $dataFile) {
-        $this->dataFile = $dataFile;
+    private function __construct(string $databasePath) {
+        $this->databasePath = $databasePath;
+        $this->initDatabase();
     }
 
     /**
      * Get the singleton instance.
      *
-     * @param string|null $dataFile Optional path used on first initialization.
+     * @param string|null $databasePath Optional path used on first initialization.
      * @return Database
+     * @throws StorageException
      */
-    public static function getInstance(?string $dataFile = null): Database {
+    public static function getInstance(?string $databasePath = null): Database {
         if (self::$instance === null) {
-            $dataFile = $dataFile ?? (defined('DATA_FILE') ? DATA_FILE : (__DIR__ . '/data.json'));
-            self::$instance = new Database($dataFile);
+            $databasePath = $databasePath ?? (defined('DATA_FILE') ? str_replace('.json', '.db', DATA_FILE) : (__DIR__ . '/data.db'));
+            self::$instance = new Database($databasePath);
         }
         return self::$instance;
     }
@@ -46,140 +53,214 @@ class Database {
     }
 
     /**
-      * Load data from the JSON storage file.
-      * (now private - storage internal)
-      *
-      * @return array ['items'=>array]
-     * @throws StorageException on I/O error
+     * Initialize the SQLite database and create table if it doesn't exist.
+     *
+     * @throws StorageException
      */
-    private function load(): array {
-        if (!file_exists($this->dataFile)) return ['items' => []];
-
-        $fp = fopen($this->dataFile, 'r');
-        if (!$fp) throw new StorageException('STORAGE_ERROR', 'Failed to open storage file for reading');
-
-        flock($fp, LOCK_SH);
-            // If the storage path points at a directory, treat it as an explicit storage error
-            if (is_dir($this->dataFile)) {
-                throw new StorageException('STORAGE_ERROR', 'Storage path is a directory');
+    private function initDatabase(): void {
+        try {
+            // Create directory if it doesn't exist
+            $dir = dirname($this->databasePath);
+            if (!is_dir($dir)) {
+                if (!@mkdir($dir, 0775, true)) {
+                    throw new StorageException('STORAGE_ERROR', 'Failed to create database directory');
+                }
             }
 
-            // Suppress warnings from fopen/stream_get_contents and handle failures explicitly
-            $fp = @fopen($this->dataFile, 'r');
-            if (!$fp) throw new StorageException('STORAGE_ERROR', 'Failed to open storage file for reading');
-
-            flock($fp, LOCK_SH);
-            $json = @stream_get_contents($fp);
-            $json = $json ?: '';
-        flock($fp, LOCK_UN);
-        fclose($fp);
-
-        $data = json_decode($json, true);
-        if (is_array($data) && isset($data['items']) && is_array($data['items'])) {
-            return ['items' => $data['items']];
+            // Connect to SQLite database
+            $this->pdo = new PDO('sqlite:' . $this->databasePath);
+            $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            
+            // Enable foreign keys and WAL mode for better performance
+            $this->pdo->exec('PRAGMA foreign_keys = ON');
+            $this->pdo->exec('PRAGMA journal_mode = WAL');
+            
+            // Create users table if it doesn't exist
+            $sql = "
+                CREATE TABLE IF NOT EXISTS users (
+                    token TEXT PRIMARY KEY,
+                    code TEXT NOT NULL,
+                    code_valid_until TEXT NOT NULL,
+                    last_activity_at TEXT NOT NULL
+                )
+            ";
+            $this->pdo->exec($sql);
+            
+        } catch (PDOException $e) {
+            throw new StorageException('STORAGE_ERROR', 'Database initialization failed: ' . $e->getMessage());
         }
-
-        return ['items' => []];
     }
 
     /**
-     * Save data to storage atomically.
-     * (private - internal)
+     * Generate a random 6-digit numeric code.
      *
-     * @param array $data
-     * @throws StorageException on I/O error
+     * @return string
      */
-    private function save(array $data): void {
-        $dir = dirname($this->dataFile);
-        if (!is_dir($dir)) @mkdir($dir, 0775, true);
-
-        // If the target path is an existing directory, treat it as a storage error
-        if (is_dir($this->dataFile)) {
-            throw new StorageException('STORAGE_ERROR', 'Storage path is a directory');
-        }
-
-        // Suppress warnings from fopen and handle failures explicitly so PHPUnit sees the exception
-        $fp = @fopen($this->dataFile, 'c+');
-        if (!$fp) {
-            throw new StorageException('STORAGE_ERROR', 'Failed to open storage file for writing');
-        }
-
-        flock($fp, LOCK_EX);
-        ftruncate($fp, 0);
-        fwrite($fp, json_encode($data, JSON_UNESCAPED_UNICODE));
-        fflush($fp);
-        flock($fp, LOCK_UN);
-        fclose($fp);
+    private function generateCode(): string {
+        return str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
     }
 
     /**
-     * Public: retrieve a single item by id. Returns null if not found.
+     * Public: retrieve a user record by token. Returns null if not found.
      *
-     * @param int $id
+     * @param string $token
      * @return array|null
-     * @throws StorageException on I/O error
+     * @throws StorageException on database error
      */
-    public function getItem(int $id): ?array {
-        $db = $this->load();
-        return $db['items'][(string)$id] ?? null;
-    }
-
-    /**
-     * Public: save an item. If $id is null, a new id is assigned. Otherwise item is created/updated.
-     * Storage decides whether it's a create or update and handles timestamps.
-     * Returns the saved item.
-     *
-     * @param array $userData
-     * @param int|null $id
-     * @return array
-     * @throws StorageException on I/O error
-     */
-    public function saveItem(array $userData, ?int $id = null): array {
-        $db = $this->load();
-        $now = gmdate('c');
-
-        if ($id === null) {
-            $id = $this->getNextId();
-            $created = $now;
-        } else {
-            $key = (string)$id;
-            $created = isset($db['items'][$key]['createdAt']) ? $db['items'][$key]['createdAt'] : $now;
+    public function getUserByToken(string $token): ?array {
+        try {
+            $stmt = $this->pdo->prepare('SELECT token, code, code_valid_until, last_activity_at FROM users WHERE token = ?');
+            $stmt->execute([$token]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$row) {
+                return null;
+            }
+            
+            return [
+                'token' => $row['token'],
+                'code' => $row['code'],
+                'code_valid_until' => $row['code_valid_until'],
+                'last_activity_at' => $row['last_activity_at']
+            ];
+        } catch (PDOException $e) {
+            throw new StorageException('STORAGE_ERROR', 'Database query failed: ' . $e->getMessage());
         }
-
-        $item = $userData;
-        $item['id'] = $id;
-        $item['createdAt'] = $created;
-        $item['lastUpdatedAt'] = $now;
-
-        $db['items'][(string)$id] = $item;
-        $this->save($db);
-        return $item;
     }
 
     /**
-     * Public: return a list of available ids (as ints)
+     * Public: create a new user record with auto-generated code.
+     * Generates a random 6-digit code and sets validity period.
      *
-     * @return int[]
-     * @throws StorageException on I/O error
+     * @param string $token
+     * @param int $codeValiditySeconds Seconds until code expires (default: 300 = 5 minutes)
+     * @return array The created user record with generated code
+     * @throws StorageException on database error or invalid parameters
      */
-    public function listIds(): array {
-        $db = $this->load();
-        $keys = array_keys($db['items']);
-        sort($keys, SORT_NUMERIC);
-        return array_map('intval', $keys);
+    public function createUser(string $token, int $codeValiditySeconds = 300): array {
+        try {
+            // Validate token is not empty
+            if (empty($token)) {
+                throw new StorageException('STORAGE_ERROR', 'Token cannot be empty');
+            }
+            
+            // Generate 6-digit code
+            $code = $this->generateCode();
+            
+            // Calculate expiry time
+            $now = time();
+            $codeValidUntil = gmdate('c', $now + $codeValiditySeconds);
+            $lastActivityAt = gmdate('c', $now);
+            
+            // Insert user record
+            $stmt = $this->pdo->prepare('INSERT INTO users (token, code, code_valid_until, last_activity_at) VALUES (?, ?, ?, ?)');
+            $stmt->execute([$token, $code, $codeValidUntil, $lastActivityAt]);
+            
+            return [
+                'token' => $token,
+                'code' => $code,
+                'code_valid_until' => $codeValidUntil,
+                'last_activity_at' => $lastActivityAt
+            ];
+        } catch (PDOException $e) {
+            // Check if it's a duplicate key error
+            if ($e->getCode() == '23000') {
+                throw new StorageException('STORAGE_ERROR', 'User with this token already exists');
+            }
+            throw new StorageException('STORAGE_ERROR', 'Database operation failed: ' . $e->getMessage());
+        }
     }
 
     /**
-     * Public: compute the next id based on existing ids (highest + 1).
-     * Returns 1 when no ids exist.
+     * Public: regenerate the code for an existing user.
+     * Creates a new 6-digit code and updates the validity period.
      *
-     * @return int
-     * @throws StorageException on I/O error
+     * @param string $token
+     * @param int $codeValiditySeconds Seconds until code expires (default: 300 = 5 minutes)
+     * @return array|null The updated user record or null if token not found
+     * @throws StorageException on database error
      */
-    public function getNextId(): int {
-        $ids = $this->listIds();
-        if (empty($ids)) return 1;
-        return max($ids) + 1;
+    public function regenerateCode(string $token, int $codeValiditySeconds = 300): ?array {
+        try {
+            // Check if user exists
+            $existing = $this->getUserByToken($token);
+            if (!$existing) {
+                return null;
+            }
+            
+            // Generate new code
+            $code = $this->generateCode();
+            
+            // Calculate new expiry time
+            $now = time();
+            $codeValidUntil = gmdate('c', $now + $codeValiditySeconds);
+            
+            // Update user record
+            $stmt = $this->pdo->prepare('UPDATE users SET code = ?, code_valid_until = ? WHERE token = ?');
+            $stmt->execute([$code, $codeValidUntil, $token]);
+            
+            return [
+                'token' => $token,
+                'code' => $code,
+                'code_valid_until' => $codeValidUntil,
+                'last_activity_at' => $existing['last_activity_at']
+            ];
+        } catch (PDOException $e) {
+            throw new StorageException('STORAGE_ERROR', 'Database operation failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Public: delete a user record by token.
+     *
+     * @param string $token
+     * @return bool True if a record was deleted, false if token didn't exist
+     * @throws StorageException on database error
+     */
+    public function deleteUser(string $token): bool {
+        try {
+            $stmt = $this->pdo->prepare('DELETE FROM users WHERE token = ?');
+            $stmt->execute([$token]);
+            return $stmt->rowCount() > 0;
+        } catch (PDOException $e) {
+            throw new StorageException('STORAGE_ERROR', 'Database operation failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Public: update last_activity_at timestamp for a user to current time.
+     *
+     * @param string $token
+     * @return bool True if record was updated, false if token doesn't exist
+     * @throws StorageException on database error
+     */
+    public function touchUser(string $token): bool {
+        try {
+            $now = gmdate('c');
+            $stmt = $this->pdo->prepare('UPDATE users SET last_activity_at = ? WHERE token = ?');
+            $stmt->execute([$now, $token]);
+            return $stmt->rowCount() > 0;
+        } catch (PDOException $e) {
+            throw new StorageException('STORAGE_ERROR', 'Database operation failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Public: delete all users where code_valid_until is before the given timestamp.
+     *
+     * @param string|null $beforeTimestamp ISO 8601 timestamp (defaults to now if null)
+     * @return int Number of deleted records
+     * @throws StorageException on database error
+     */
+    public function deleteExpiredCodes(?string $beforeTimestamp = null): int {
+        try {
+            $beforeTimestamp = $beforeTimestamp ?? gmdate('c');
+            $stmt = $this->pdo->prepare('DELETE FROM users WHERE code_valid_until < ?');
+            $stmt->execute([$beforeTimestamp]);
+            return $stmt->rowCount();
+        } catch (PDOException $e) {
+            throw new StorageException('STORAGE_ERROR', 'Database operation failed: ' . $e->getMessage());
+        }
     }
     
 }

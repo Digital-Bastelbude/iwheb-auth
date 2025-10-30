@@ -8,45 +8,53 @@ class DatabaseTest extends TestCase {
 
     protected function setUp(): void {
         \Database::resetInstance();
-        $this->tmpFile = sys_get_temp_dir() . '/php_rest_logging_test_' . bin2hex(random_bytes(6)) . '.json';
+        $this->tmpFile = sys_get_temp_dir() . '/php_rest_logging_test_' . bin2hex(random_bytes(6)) . '.db';
         if (file_exists($this->tmpFile)) @unlink($this->tmpFile);
+        // Also clean up SQLite auxiliary files
+        $walFile = $this->tmpFile . '-wal';
+        $shmFile = $this->tmpFile . '-shm';
+        if (file_exists($walFile)) @unlink($walFile);
+        if (file_exists($shmFile)) @unlink($shmFile);
     }
 
     protected function tearDown(): void {
         \Database::resetInstance();
         if (file_exists($this->tmpFile) && is_file($this->tmpFile)) @unlink($this->tmpFile);
+        // Also clean up SQLite auxiliary files
+        $walFile = $this->tmpFile . '-wal';
+        $shmFile = $this->tmpFile . '-shm';
+        if (file_exists($walFile)) @unlink($walFile);
+        if (file_exists($shmFile)) @unlink($shmFile);
     }
 
     public function testLoadWhenFileMissingReturnsDefault(): void {
         if (file_exists($this->tmpFile)) @unlink($this->tmpFile);
         $db = \Database::getInstance($this->tmpFile);
 
-        // When file is missing, listing ids returns empty and next id will be assigned on save
-        $ids = $db->listIds();
-        $this->assertIsArray($ids);
-        $this->assertSame([], $ids);
+        // When file is missing, no users should exist
+        $this->assertNull($db->getUserByToken('anytoken'));
     }
 
     public function testSaveAndLoadRoundtrip(): void {
         $db = \Database::getInstance($this->tmpFile);
 
-        // Save an item using the public API
-        $item = $db->saveItem(['value' => 'x']);
-        $this->assertArrayHasKey('id', $item);
-        $id = $item['id'];
+        // Create a user using the public API
+        $user = $db->createUser('token123');
+        $this->assertArrayHasKey('token', $user);
+        $token = $user['token'];
 
         // Reset instance to force re-read from file
         \Database::resetInstance();
         $db2 = \Database::getInstance($this->tmpFile);
-        $loaded = $db2->getItem($id);
+        $loaded = $db2->getUserByToken($token);
 
         $this->assertIsArray($loaded);
-        $this->assertSame($id, $loaded['id']);
-        $this->assertSame('x', $loaded['value']);
+        $this->assertSame($token, $loaded['token']);
+        $this->assertSame($user['code'], $loaded['code']);
     }
 
     public function testSaveFailsThrowsStorageException(): void {
-        // Use a path that is a directory to force fopen failure when trying to open it as a file
+        // Use a path that is a directory to force database initialization failure
         $dirPath = sys_get_temp_dir() . '/php_rest_logging_test_dir_' . bin2hex(random_bytes(6));
         mkdir($dirPath, 0775);
 
@@ -54,53 +62,58 @@ class DatabaseTest extends TestCase {
 
         // Initialize Database with the path that points to a directory
         $db = \Database::getInstance($dirPath);
-        // Attempting to save an item should throw StorageException because path is a directory
-        $db->saveItem(['value' => 'y']);
+        // Attempting to create a user should throw StorageException
+        $db->createUser('token123');
 
         // cleanup
         if (is_dir($dirPath)) @rmdir($dirPath);
     }
 
-    public function testLoadWithCorruptJsonReturnsEmpty(): void {
-        // create a corrupt json file
-        file_put_contents($this->tmpFile, "{ this is not: json,,}\n");
+    public function testLoadWithCorruptDatabaseThrowsException(): void {
+        // create a corrupt database file (not a valid SQLite database)
+        file_put_contents($this->tmpFile, "this is not a database file");
 
+        $this->expectException(\StorageException::class);
+        $this->expectExceptionMessage('Database initialization failed');
+        
         $db = \Database::getInstance($this->tmpFile);
-
-        // load should treat corrupt JSON as empty storage per implementation
-        $ids = $db->listIds();
-        $this->assertIsArray($ids);
-        $this->assertSame([], $ids);
+        // Any operation should trigger the database initialization and throw an exception
+        $db->getUserByToken('anytoken');
     }
 
-    public function testLegacyNextIdInFileIsIgnored(): void {
-        // create a legacy-style file that contains a nextId along with items
-        $payload = [
-            'nextId' => 123,
-            'items' => [
-                '1' => ['id' => 1, 'name' => 'legacy']
-            ]
-        ];
-        file_put_contents($this->tmpFile, json_encode($payload));
-
+    public function testPersistenceAcrossMultipleOperations(): void {
         $db = \Database::getInstance($this->tmpFile);
 
-        // getNextId should compute based on existing ids, not use persisted nextId
-        $this->assertSame(2, $db->getNextId());
+        // Create multiple users
+        $db->createUser('token1');
+        $db->createUser('token2');
+        
+        // Reset and verify
+        \Database::resetInstance();
+        $db2 = \Database::getInstance($this->tmpFile);
+        
+        $this->assertNotNull($db2->getUserByToken('token1'));
+        $this->assertNotNull($db2->getUserByToken('token2'));
     }
 
-    public function testSaveWithZeroOrNegativeIdUsesProvidedId(): void {
-        $db = \Database::getInstance($this->tmpFile);
-
-        $itemZero = $db->saveItem(['name' => 'zero'], 0);
-        $this->assertSame(0, $itemZero['id']);
-        $this->assertSame('zero', $db->getItem(0)['name']);
-
-        $itemNeg = $db->saveItem(['name' => 'neg'], -5);
-        $this->assertSame(-5, $itemNeg['id']);
-        $this->assertSame('neg', $db->getItem(-5)['name']);
-
-        // getNextId should still compute max + 1 (max of -5,0 is 0 -> next is 1)
-        $this->assertSame(1, $db->getNextId());
+    public function testDatabaseCreatesDirectoryIfNotExists(): void {
+        $nestedPath = sys_get_temp_dir() . '/php_test_' . bin2hex(random_bytes(6)) . '/nested/data.db';
+        
+        $this->assertFalse(file_exists(dirname($nestedPath)));
+        
+        $db = \Database::getInstance($nestedPath);
+        $db->createUser('token123');
+        
+        $this->assertTrue(file_exists($nestedPath));
+        
+        // Cleanup
+        \Database::resetInstance();
+        unlink($nestedPath);
+        $walFile = $nestedPath . '-wal';
+        $shmFile = $nestedPath . '-shm';
+        if (file_exists($walFile)) @unlink($walFile);
+        if (file_exists($shmFile)) @unlink($shmFile);
+        rmdir(dirname($nestedPath));
+        rmdir(dirname(dirname($nestedPath)));
     }
 }
