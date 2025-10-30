@@ -2,7 +2,7 @@
 
 ## Overview
 
-The application now uses a `.secrets.php` file for secure management of sensitive configuration data. This file sets environment variables at runtime and is **not** committed to the Git repository.
+The application now uses a `config/.secrets.php` file for secure management of sensitive configuration data. This file sets environment variables at runtime and is **not** committed to the Git repository.
 
 The application also uses an API key-based access control system to manage permissions for different applications accessing the authentication API.
 
@@ -11,7 +11,7 @@ The application also uses an API key-based access control system to manage permi
 ### 1. Create secrets file
 
 ```bash
-cp .secrets.php.example .secrets.php
+cp config/secrets.php.example config/.secrets.php
 ```
 
 ### 2. Generate encryption key
@@ -34,7 +34,7 @@ Run this command multiple times to generate different keys for different applica
 
 ### 4. Fill in secrets file
 
-Open `.secrets.php` and replace the placeholders:
+Open `config/.secrets.php` and replace the placeholders:
 
 ```php
 // Set the generated encryption key from step 2
@@ -62,7 +62,7 @@ $API_KEYS = [
 ### 5. Set file permissions (recommended)
 
 ```bash
-chmod 600 .secrets.php
+chmod 600 config/.secrets.php
 ```
 
 ## Environment Variables
@@ -155,24 +155,24 @@ curl -X POST https://your-domain.com/login \
 
 ## Security Notes
 
-- ✅ `.secrets.php` is in `.gitignore` and will **not** be committed
+- ✅ `config/.secrets.php` is in `.gitignore` and will **not** be committed
 - ✅ The file is loaded early in the bootstrap process (`public/index.php`)
 - ✅ Missing or invalid secrets result in meaningful error messages
-- ✅ `.secrets.php.example` can be safely committed (contains only placeholders)
-- ⚠️ **Never** add real secrets to `.secrets.php.example`
-- ⚠️ File permissions should be restrictive (`chmod 600`)
+- ✅ `config/secrets.php.example` can be safely committed (contains only placeholders)
+- ⚠️ **Never** add real secrets to `config/secrets.php.example`
+- ⚠️ File permissions should be restrictive (`chmod 600 config/.secrets.php`)
 
 ## Code Changes
 
 ### 1. `public/index.php`
-Loads `.secrets.php` before all other modules:
+Loads `config/.secrets.php` before all other modules:
 
 ```php
-// Load environment variables from .secrets.php before anything else
-$secretsFile = BASE_DIR . '/.secrets.php';
+// Load environment variables from config/.secrets.php before anything else
+$secretsFile = BASE_DIR . '/config/.secrets.php';
 if (!file_exists($secretsFile)) {
     http_response_code(500);
-    echo json_encode(['error' => 'Configuration error: .secrets.php file not found']);
+    echo json_encode(['error' => 'Configuration error: config/.secrets.php file not found']);
     exit;
 }
 require_once $secretsFile;
