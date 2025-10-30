@@ -127,5 +127,3 @@ function run_routes(array $routes, string $path, string $method, $response): arr
     // If handler returned something unexpected, signal not found to caller
     throw new \Exception('NOT_FOUND');
 }
-
-
