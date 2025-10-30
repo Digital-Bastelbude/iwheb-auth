@@ -1,89 +1,48 @@
 # API Key Generator
 
-This utility generates secure, URL-safe alphanumeric API keys for the authentication system.
+Generate secure, URL-safe API keys.
 
 ## Usage
 
-### Generate a single API key (32 characters)
-
 ```bash
+# Single key (32 chars)
 php -r "require 'keygenerator.php'; echo generateApiKey(32) . PHP_EOL;"
-```
 
-Example output:
-```
-k3Jx9mP2QwR5tY8vN6bH7zL4cF1aD0sA
-```
-
-### Generate a single API key (custom length)
-
-```bash
+# Custom length
 php -r "require 'keygenerator.php'; echo generateApiKey(64) . PHP_EOL;"
-```
 
-### Generate multiple API keys
-
-```bash
-php -r "require 'keygenerator.php'; foreach (generateApiKeys(5, 32) as \$key) echo \$key . PHP_EOL;"
+# Multiple keys
+php -r "require 'keygenerator.php'; foreach (generateApiKeys(5, 32) as \$k) echo \$k . PHP_EOL;"
 ```
 
 ## Functions
 
-### `generateApiKey(int $length = 32): string`
+**`generateApiKey(int $length = 32): string`**  
+Returns URL-safe key. Min: 16, recommended: 32+. Throws `InvalidArgumentException` if < 16.
 
-Generates a single secure, URL-safe alphanumeric API key.
+**`generateApiKeys(int $count, int $length = 32): array`**  
+Returns array of unique keys.
 
-- **Parameters:**
-  - `$length`: The length of the key (minimum: 16, recommended: 32 or more)
-- **Returns:** A URL-safe alphanumeric string
-- **Throws:** `InvalidArgumentException` if length < 16
+**`isValidApiKeyFormat(string $key): bool`**  
+Validates format (alphanumeric + `-_`, length ≥ 16).
 
-### `generateApiKeys(int $count, int $length = 32): array`
+## Security
 
-Generates multiple unique API keys.
-
-- **Parameters:**
-  - `$count`: Number of keys to generate
-  - `$length`: Length of each key
-- **Returns:** Array of unique API keys
-
-### `isValidApiKeyFormat(string $key): bool`
-
-Validates that a key contains only URL-safe characters (alphanumeric, -, _).
-
-- **Parameters:**
-  - `$key`: The key to validate
-- **Returns:** `true` if valid, `false` otherwise
-
-## Character Set
-
-Generated keys use URL-safe characters:
-- Lowercase letters: `a-z`
-- Uppercase letters: `A-Z`
-- Numbers: `0-9`
-- Special characters: `-`, `_`
-
-**No padding or special characters that need URL encoding!**
-
-## Security Notes
-
-- Keys are generated using `random_bytes()` which provides cryptographically secure randomness
-- Minimum recommended length is 32 characters
-- Keys should be stored securely in `.secrets.php`
-- Never commit actual API keys to version control
-- Use `.secrets.php.example` with placeholders for sharing configuration templates
+- `random_bytes()` cryptographic security
+- URL-safe: `a-z A-Z 0-9 - _`
+- Unique per generation
 
 ## Integration
 
-API keys generated with this tool can be added to `.secrets.php`:
+Add to `config/.secrets.php`:
 
 ```php
 $API_KEYS = [
     'k3Jx9mP2QwR5tY8vN6bH7zL4cF1aD0sA' => [
-        'name' => 'Main Application',
+        'name' => 'My App',
         'permissions' => ['user_info', 'user_token']
-    ],
+    ]
 ];
 ```
 
-See [SECRETS-SETUP.md](SECRETS-SETUP.md) for complete configuration instructions.
+See [SECRETS-SETUP.md](SECRETS-SETUP.md).
