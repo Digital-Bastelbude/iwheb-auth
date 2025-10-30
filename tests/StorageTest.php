@@ -168,45 +168,8 @@ class StorageTest extends TestCase {
         $this->assertFalse($deleted);
     }
 
-    public function testTouchUserUpdatesTimestamp(): void {
-        $db = \Database::getInstance($this->tmpFile);
-        
-        $user = $db->createUser('token123');
-        $firstActivity = $user['last_activity_at'];
-
-        sleep(1);
-        $updated = $db->touchUser('token123');
-        
-        $this->assertTrue($updated);
-        $user2 = $db->getUserByToken('token123');
-        $this->assertNotSame($firstActivity, $user2['last_activity_at']);
-        
-        // Verify new timestamp is more recent
-        $time1 = \DateTime::createFromFormat(\DateTime::ATOM, $firstActivity);
-        $time2 = \DateTime::createFromFormat(\DateTime::ATOM, $user2['last_activity_at']);
-        $this->assertGreaterThan($time1->getTimestamp(), $time2->getTimestamp());
-    }
-
-    public function testTouchUserReturnsFalseWhenTokenNotFound(): void {
-        $db = \Database::getInstance($this->tmpFile);
-        $updated = $db->touchUser('nonexistent');
-        $this->assertFalse($updated);
-    }
-
-    public function testTouchUserUsesCurrentTime(): void {
-        $db = \Database::getInstance($this->tmpFile);
-        
-        $db->createUser('token123');
-        sleep(1);
-        
-        $beforeTouch = gmdate('c');
-        $db->touchUser('token123');
-        $afterTouch = gmdate('c');
-        
-        $user = $db->getUserByToken('token123');
-        $this->assertGreaterThanOrEqual($beforeTouch, $user['last_activity_at']);
-        $this->assertLessThanOrEqual($afterTouch, $user['last_activity_at']);
-    }
+    // touchUser tests removed - touchUser now only works with session IDs
+    // See SessionTest.php for session-based touchUser tests
 
     public function testDeleteExpiredCodesRemovesExpiredRecords(): void {
         $db = \Database::getInstance($this->tmpFile);
@@ -272,10 +235,6 @@ class StorageTest extends TestCase {
         // Regenerate some codes
         $db->regenerateCode('token5');
         $db->regenerateCode('token7');
-        
-        // Touch some users
-        $db->touchUser('token2');
-        $db->touchUser('token9');
         
         // Delete some
         $db->deleteUser('token3');
