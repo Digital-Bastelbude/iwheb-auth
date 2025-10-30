@@ -199,6 +199,51 @@ $routes = [
             }
         ]
     ],
+    // POST /user/{session_id}/token
+    [
+        'pattern' => '#^/user/([a-z0-9]+)/token$#',
+        'pathVars' => ['session_id'],
+        'methods' => [
+            'POST' => function($pathVars, $body) use ($dbService, $auth) {
+                // Get session_id from path
+                $sessionId = $pathVars['session_id'];
+                
+                // Get session
+                $session = $dbService->getSessionBySessionId($sessionId);
+                
+                if (!$session) {
+                    throw new InvalidSessionException();
+                }
+                
+                // Check if session is validated
+                if (!$session['validated']) {
+                    throw new InvalidSessionException();
+                }
+
+                // Get user
+                $user = $dbService->getUserBySessionId($sessionId);
+                
+                if (!$user) {
+                    throw new UserNotFoundException();
+                }
+
+                // Touch session to extend expiry
+                $newSessionId = $dbService->touchUser($sessionId);
+                
+                if (!$newSessionId) {
+                    throw new StorageException('STORAGE_ERROR', 'Failed to refresh session');
+                }
+
+                return [
+                    'data' => [
+                        'session_id' => $newSessionId,
+                        'token' => $user['uid']
+                    ],
+                    'status' => 200
+                ];
+            }
+        ]
+    ],
     // POST /session/touch/{session_id}
     [
         'pattern' => '#^/session/touch/([a-z0-9]+)$#',
