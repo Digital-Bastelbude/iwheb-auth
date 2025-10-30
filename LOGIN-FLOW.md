@@ -87,7 +87,7 @@ The system implements a secure, passwordless user login with code-based two-fact
 
 ---
 
-### 3. Get User Info (`POST /user/info/{session_id}`)
+### 3. Get User Info (`POST /user/{session_id}`)
 
 **Request:**
 ```json
@@ -95,7 +95,7 @@ The system implements a secure, passwordless user login with code-based two-fact
 ```
 *Note: `session_id` is passed as URL parameter, body can be empty*
 
-**Example URL:** `POST /user/info/xyz789...`
+**Example URL:** `POST /user/xyz789...`
 
 **Process:**
 1. Session is checked for validity (`isSessionActive`)

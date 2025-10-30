@@ -143,7 +143,7 @@ $routes = [
             }
         ]
     ],
-    'user/info' => [
+    'user' => [
         'withParam' => [
             'POST' => function($pathVars, $body) use ($dbService, $weblingClient, $uidEncryptor, $auth) {
                 // Session ID comes from URL parameter
