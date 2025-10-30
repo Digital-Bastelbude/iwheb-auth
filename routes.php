@@ -38,10 +38,12 @@ try {
     Response::getInstance()->notFound($e->key ?? null, $e->reason);
 }
 
-// Define route map. Base name -> modes (noParam/withParam) -> HTTP method -> handler (callable/closure)
+// Define routes using pattern-based format for flexible paths
 $routes = [
-    'login' => [
-        'noParam' => [
+    // POST /login
+    [
+        'pattern' => '#^/login$#',
+        'methods' => [
             'POST' => function($pathVars, $body) use ($dbService, $weblingClient, $uidEncryptor, $auth) {
                 // Validate input
                 if (!isset($body['email'])) {
@@ -89,15 +91,14 @@ $routes = [
             }
         ]
     ],
-    'validate' => [
-        'withParam' => [
+    // POST /validate/{session_id}
+    [
+        'pattern' => '#^/validate/([a-z0-9]+)$#',
+        'pathVars' => ['session_id'],
+        'methods' => [
             'POST' => function($pathVars, $body) use ($dbService, $auth) {
                 // Session ID comes from URL parameter
-                $sessionId = $pathVars['id'] ?? null;
-                
-                if (!$sessionId) {
-                    throw new InvalidInputException('INVALID_INPUT', 'session_id required in URL');
-                }
+                $sessionId = $pathVars['session_id'];
                 
                 // Validate input - code must be in body
                 if (!isset($body['code'])) {
@@ -136,7 +137,6 @@ $routes = [
                 return [
                     'data' => [
                         'session_id' => $newSessionId,
-                        'session_expires_at' => $session['expires_at'],
                         'validated' => true
                     ],
                     'status' => 200
@@ -144,57 +144,54 @@ $routes = [
             }
         ]
     ],
-    'user' => [
-        'withParam' => [
+    // POST /user/{session_id}/info
+    [
+        'pattern' => '#^/user/([a-z0-9]+)/info$#',
+        'pathVars' => ['session_id'],
+        'methods' => [
             'POST' => function($pathVars, $body) use ($dbService, $weblingClient, $uidEncryptor, $auth) {
-                // Session ID comes from URL parameter
-                $sessionId = $pathVars['id'] ?? null;
+                // Get session_id from path
+                $sessionId = $pathVars['session_id'];
                 
-                if (!$sessionId) {
-                    throw new InvalidInputException('INVALID_INPUT', 'session_id required in URL');
-                }
-
-                // Check if session is active (not expired)
-                if (!$dbService->isSessionActive($sessionId)) {
-                    throw new InvalidSessionException();
-                }
-
-                // Get session to retrieve user token
+                // Get session
                 $session = $dbService->getSessionBySessionId($sessionId);
                 
                 if (!$session) {
-                    throw new InvalidSessionException('Session not found');
+                    throw new InvalidSessionException();
+                }
+                
+                // Check if session is validated
+                if (!$session['validated']) {
+                    throw new InvalidSessionException();
                 }
 
-                // Decrypt user token to get Webling user ID
-                try {
-                    $weblingUserId = $uidEncryptor->decrypt($session['user_token']);
-                } catch (\Exception $e) {
-                    throw new StorageException('DECRYPTION_ERROR', 'Failed to decrypt user token');
-                }
+                // Get user
+                $user = $dbService->getUserBySessionId($sessionId);
                 
-                // Fetch user data from Webling
-                try {
-                    $weblingUser = $weblingClient->getUserDataById((int)$weblingUserId);
-                } catch (WeblingException $e) {
-                    throw new UserNotFoundException('Webling API error: ' . $e->getMessage());
-                }
-                
-                if ($weblingUser === null) {
+                if (!$user) {
                     throw new UserNotFoundException();
                 }
 
-                // Touch user to refresh session and update last activity
+                // Touch session to extend expiry
                 $newSessionId = $dbService->touchUser($sessionId);
-
+                
                 if (!$newSessionId) {
                     throw new StorageException('STORAGE_ERROR', 'Failed to refresh session');
+                }
+
+                // Get weblingId (decrypt uid)
+                $weblingId = $uidEncryptor->decrypt($user['uid']);
+
+                // Fetch user data from Webling
+                $weblingUser = $weblingClient->fetchMember($weblingId);
+
+                if (!$weblingUser) {
+                    throw new StorageException('WEBLING_ERROR', 'Failed to fetch user from Webling');
                 }
 
                 return [
                     'data' => [
                         'session_id' => $newSessionId,
-                        'session_expires_at' => $session['expires_at'],
                         'user' => $weblingUser
                     ],
                     'status' => 200
@@ -202,19 +199,18 @@ $routes = [
             }
         ]
     ],
-    'session/touch' => [
-        'withParam' => [
-            'POST' => function($pathVars, $body) use ($dbService, $auth) {
+    // POST /session/touch/{session_id}
+    [
+        'pattern' => '#^/session/touch/([a-z0-9]+)$#',
+        'pathVars' => ['session_id'],
+        'methods' => [
+            'POST' => function($pathVars, $body) use ($dbService) {
                 // Session ID comes from URL parameter
-                $sessionId = $pathVars['id'] ?? null;
-                
-                if (!$sessionId) {
-                    throw new InvalidInputException('INVALID_INPUT', 'session_id required in URL');
-                }
+                $sessionId = $pathVars['session_id'];
 
                 // Check if session is active (not expired)
                 if (!$dbService->isSessionActive($sessionId)) {
-                    throw new InvalidSessionException('Session invalid or expired');
+                    throw new InvalidSessionException();
                 }
 
                 // Touch user to refresh session and update last activity
@@ -241,21 +237,20 @@ $routes = [
             }
         ]
     ],
-    'session/logout' => [
-        'withParam' => [
-            'POST' => function($pathVars, $body) use ($dbService, $auth) {
+    // POST /session/logout/{session_id}
+    [
+        'pattern' => '#^/session/logout/([a-z0-9]+)$#',
+        'pathVars' => ['session_id'],
+        'methods' => [
+            'POST' => function($pathVars, $body) use ($dbService) {
                 // Session ID comes from URL parameter
-                $sessionId = $pathVars['id'] ?? null;
-                
-                if (!$sessionId) {
-                    throw new InvalidInputException('INVALID_INPUT', 'session_id required in URL');
-                }
+                $sessionId = $pathVars['session_id'];
 
                 // Delete the session
                 $deleted = $dbService->deleteSession($sessionId);
                 
                 if (!$deleted) {
-                    throw new InvalidSessionException('Session not found');
+                    throw new InvalidSessionException();
                 }
 
                 return [
