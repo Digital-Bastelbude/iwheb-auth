@@ -137,7 +137,8 @@ $routes = [
                 return [
                     'data' => [
                         'session_id' => $newSessionId,
-                        'validated' => true
+                        'validated' => true,
+                        'session_expires_at' => $session['expires_at']
                     ],
                     'status' => 200
                 ];
@@ -192,7 +193,8 @@ $routes = [
                 return [
                     'data' => [
                         'session_id' => $newSessionId,
-                        'user' => $weblingUser
+                        'user' => $weblingUser,
+                        'session_expires_at' => $session['expires_at']
                     ],
                     'status' => 200
                 ];
@@ -237,7 +239,8 @@ $routes = [
                 return [
                     'data' => [
                         'session_id' => $newSessionId,
-                        'token' => $user['uid']
+                        'token' => $user['uid'],
+                        'session_expires_at' => $session['expires_at']
                     ],
                     'status' => 200
                 ];
