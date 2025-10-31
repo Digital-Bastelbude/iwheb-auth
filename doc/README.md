@@ -10,7 +10,7 @@ Secure PHP authentication with Webling integration, session management, and API 
 - 🔑 API key permissions
 - 🛡️ Session isolation per key
 - 🔒 XChaCha20-Poly1305 encryption
-- ✅ 158 tests
+- ✅ 162 tests, 578 assertions
 
 ## Quick Setup
 
@@ -50,15 +50,20 @@ See [LOGIN-FLOW.md](LOGIN-FLOW.md) for details.
 
 ```
 ├── config/
-│   ├── .secrets.php       # Credentials (NOT in Git)
-│   └── secrets.php.example
-├── public/index.php       # Entry point
-├── storage/               # SQLite DB
-├── tests/                 # PHPUnit
-└── *.php                  # Core modules
+│   ├── .secrets.php          # Credentials (NOT in Git)
+│   ├── config.json           # Email templates, rate limits
+│   └── config-userauth.php   # Config loader
+├── public/index.php          # Entry point
+├── src/UserAuth/
+│   ├── Auth/                 # Authorization logic
+│   ├── Database/             # Storage + Repositories
+│   ├── Http/                 # Routes, Controllers, SMTP
+│   └── Exception/            # Custom exceptions
+├── storage/                  # SQLite DB
+└── tests/                    # PHPUnit tests
 ```
 
-**Modules:** `routes.php`, `storage.php`, `weblingclient.php`, `uidencryptor.php`, `apikeymanager.php`, `keygenerator.php`
+**Architecture:** MVC with Repository pattern, PSR-4 autoloading.
 
 ## Security
 
@@ -76,17 +81,25 @@ $API_KEYS = [
 
 ## Development
 
-**Add Route:**
+**Add Controller Method:**
 ```php
-if (preg_match('#^/myroute/(\d+)$#', $PATH, $m)) {
-    if (!$apiKeyManager->hasPermission($apiKey, 'my_perm')) {
-        Response::getInstance()->notFound($apiKey, 'FORBIDDEN');
-    }
-    $response->sendJson(['data' => (int)$m[1]], 200);
+// In src/UserAuth/Http/Controllers/MyController.php
+public function myAction(array $pathVars, array $body): array {
+    $this->requirePermission('my_perm');
+    return $this->success(['data' => $pathVars['id']]);
 }
 ```
 
-**Add Permission:** Add to `config/.secrets.php` permissions array, check in route.
+**Add Route:** Edit `src/UserAuth/Http/routes.php`
+```php
+$routes[] = [
+    'pattern' => '#^/myroute/([a-z0-9]+)$#',
+    'pathVars' => ['id'],
+    'methods' => ['POST' => [$myController, 'myAction']]
+];
+```
+
+**Add Permission:** Add to `config/.secrets.php` permissions array.
 
 ## Testing
 

@@ -9,7 +9,7 @@ Secure PHP-based authentication with Webling integration, session management, an
 - 🔑 API key authorization with granular permissions
 - 🛡️ Session isolation per API key
 - 🔒 UID encryption (XChaCha20-Poly1305)
-- ✅ Comprehensive tests (153 tests, 554 assertions)
+- ✅ Comprehensive tests (162 tests, 578 assertions)
 
 ## Quick Start
 

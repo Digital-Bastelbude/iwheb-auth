@@ -43,16 +43,17 @@ deployment-package/
 ├── .htaccess                    # Security: Deny root access
 ├── config/
 │   ├── config.json
+│   ├── config-userauth.php
 │   └── .secrets.php.example     # Template (rename on server)
 ├── logs/                        # Empty directory (will be created)
 ├── public/                      # ⚠️ IMPORTANT: DocumentRoot must point here
 │   ├── .htaccess
 │   └── index.php
-├── src/                         # Application source code
+├── src/UserAuth/                # Application source code (PSR-4)
 │   ├── Auth/
 │   ├── Database/
 │   ├── Http/
-│   ├── exceptions.php
+│   ├── Exception/
 │   └── logging.php
 ├── storage/                     # Empty directory (will be created)
 │   └── ratelimit/               # Empty directory (will be created)
