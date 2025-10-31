@@ -44,7 +44,7 @@ $METHOD = $_SERVER['REQUEST_METHOD'];
 $PATH   = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
 // -------- Config --------
-require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/../config/config-userauth.php';
 $CONFIG = load_config();
 
 // Load Composer autoloader (includes PSR-4 namespaces, classmap, and files)
