@@ -9,8 +9,9 @@ Secure PHP authentication with Webling integration, session management, and API 
 - 🔢 6-digit code sessions (30min)
 - 🔑 API key permissions
 - 🛡️ Session isolation per key
-- 🔒 XChaCha20-Poly1305 encryption
-- ✅ 162 tests, 578 assertions
+- � Delegated cross-app sessions
+- �🔒 XChaCha20-Poly1305 encryption
+- ✅ 170 tests, 615 assertions
 
 ## Quick Setup
 
@@ -38,6 +39,7 @@ See [SECRETS-SETUP.md](SECRETS-SETUP.md) for configuration details.
 | POST | `/validate/{id}` | - | Validate code |
 | GET | `/session/check/{id}` | - | Check status |
 | POST | `/session/touch/{id}` | - | Refresh |
+| POST | `/session/delegate/{id}` | `delegate_session` | Delegate session |
 | POST | `/session/logout/{id}` | - | Logout |
 | GET | `/user/{id}/info` | `user_info` | User info |
 | GET | `/user/{id}/token` | `user_token` | User token |

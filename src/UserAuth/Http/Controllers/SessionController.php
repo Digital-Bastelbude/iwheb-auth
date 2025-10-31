@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace IwhebAPI\UserAuth\Http\Controllers;
 
 use IwhebAPI\UserAuth\Exception\InvalidSessionException;
+use IwhebAPI\UserAuth\Exception\Http\InvalidInputException;
 use IwhebAPI\UserAuth\Exception\Database\StorageException;
 
 /**
@@ -79,6 +80,57 @@ class SessionController extends BaseController {
         return $this->success([
             'session_id' => $newSessionId,
             'expires_at' => $newSession['expires_at']
+        ]);
+    }
+    
+    /**
+     * POST /session/delegate/{session_id}
+     * 
+     * Create a delegated session for another API key based on a parent session.
+     * The delegated session is immediately validated and bound to the parent session's lifecycle.
+     * Requires 'delegate_session' permission.
+     * 
+     * @param array $pathVars ['session_id' => string]
+     * @param array $body ['target_api_key' => string]
+     * @return array Response with new delegated session_id
+     * @throws InvalidInputException if target_api_key is missing or invalid
+     * @throws InvalidSessionException if parent session not found, not validated, or access denied
+     * @throws StorageException if delegated session creation fails
+     */
+    public function createDelegated(array $pathVars, array $body): array {
+        $parentSessionId = $pathVars['session_id'];
+        
+        // Validate input
+        if (!isset($body['target_api_key']) || empty($body['target_api_key'])) {
+            throw new InvalidInputException('INVALID_INPUT', 'target_api_key required');
+        }
+        
+        $targetApiKey = $body['target_api_key'];
+        
+        // Get parent session with access check
+        $parentSession = $this->getSessionWithAccess($parentSessionId);
+        
+        // Check if parent session is validated and active
+        if (!$parentSession['validated'] || !$this->db->isSessionActive($parentSessionId)) {
+            throw new InvalidSessionException();
+        }
+        
+        // Require 'delegate_session' permission
+        $this->requirePermission('delegate_session');
+        
+        // Validate that target_api_key exists
+        if (!$this->apiKeyManager->isValidApiKey($targetApiKey)) {
+            throw new InvalidInputException('INVALID_API_KEY', 'Target API key does not exist');
+        }
+        
+        // Create delegated session
+        $delegatedSession = $this->db->createDelegatedSession($parentSessionId, $targetApiKey);
+        
+        return $this->success([
+            'session_id' => $delegatedSession['session_id'],
+            'expires_at' => $delegatedSession['expires_at'],
+            'validated' => true,
+            'api_key' => $targetApiKey
         ]);
     }
 }

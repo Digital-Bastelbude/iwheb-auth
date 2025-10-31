@@ -826,4 +826,179 @@ class SessionTest extends TestCase {
         // Only third session should exist
         $this->assertNotNull($db->getSessionBySessionId($session3['session_id']));
     }
+
+    public function testCreateDelegatedSessionSuccess(): void {
+        $db = Database::getInstance($this->tmpFile);
+        
+        // Create user and parent session
+        $db->createUser('testtoken123');
+        $parentSession = $db->createSession('testtoken123', 'api-key-1');
+        $db->validateSession($parentSession['session_id']);
+        
+        $targetApiKey = 'api-key-2';
+        
+        // Create delegated session
+        $delegatedSession = $db->createDelegatedSession($parentSession['session_id'], $targetApiKey);
+        
+        $this->assertArrayHasKey('session_id', $delegatedSession);
+        $this->assertArrayHasKey('user_token', $delegatedSession);
+        $this->assertArrayHasKey('api_key', $delegatedSession);
+        $this->assertArrayHasKey('parent_session_id', $delegatedSession);
+        $this->assertArrayHasKey('validated', $delegatedSession);
+        
+        // Check that delegated session is immediately validated
+        $this->assertTrue($delegatedSession['validated']);
+        
+        // Check that it has the correct API key
+        $this->assertEquals($targetApiKey, $delegatedSession['api_key']);
+        
+        // Check that parent_session_id is set correctly
+        $this->assertEquals($parentSession['session_id'], $delegatedSession['parent_session_id']);
+        
+        // Check that user_token matches parent
+        $this->assertEquals($parentSession['user_token'], $delegatedSession['user_token']);
+    }
+
+    public function testCreateDelegatedSessionParentNotFound(): void {
+        $db = Database::getInstance($this->tmpFile);
+        
+        $this->expectException(StorageException::class);
+        $this->expectExceptionMessage('Parent session not found or expired');
+        
+        $db->createDelegatedSession('nonexistent-session-id', 'api-key-2');
+    }
+
+    public function testCreateDelegatedSessionParentNotValidated(): void {
+        $db = Database::getInstance($this->tmpFile);
+        
+        // Create user and parent session (not validated)
+        $db->createUser('testtoken123');
+        $parentSession = $db->createSession('testtoken123', 'api-key-1');
+        
+        $this->expectException(StorageException::class);
+        $this->expectExceptionMessage('Parent session must be validated');
+        
+        $db->createDelegatedSession($parentSession['session_id'], 'api-key-2');
+    }
+
+    public function testDelegatedSessionDeletedWhenParentDeleted(): void {
+        $db = Database::getInstance($this->tmpFile);
+        
+        // Create user and parent session
+        $db->createUser('testtoken123');
+        $parentSession = $db->createSession('testtoken123', 'api-key-1');
+        $db->validateSession($parentSession['session_id']);
+        
+        // Create delegated session
+        $delegatedSession = $db->createDelegatedSession($parentSession['session_id'], 'api-key-2');
+        
+        // Both sessions should exist
+        $this->assertNotNull($db->getSessionBySessionId($parentSession['session_id']));
+        $this->assertNotNull($db->getSessionBySessionId($delegatedSession['session_id']));
+        
+        // Delete parent session
+        $db->deleteSession($parentSession['session_id']);
+        
+        // Both parent and delegated session should be deleted
+        $this->assertNull($db->getSessionBySessionId($parentSession['session_id']));
+        $this->assertNull($db->getSessionBySessionId($delegatedSession['session_id']));
+    }
+
+    public function testDelegatedSessionInvalidWhenParentExpires(): void {
+        $db = Database::getInstance($this->tmpFile);
+        
+        // Create user and parent session with short duration
+        $db->createUser('testtoken123');
+        $parentSession = $db->createSession('testtoken123', 'api-key-1', 1); // 1 second
+        $db->validateSession($parentSession['session_id']);
+        
+        // Create delegated session with longer duration
+        $delegatedSession = $db->createDelegatedSession($parentSession['session_id'], 'api-key-2', 3600);
+        
+        // Both sessions should exist
+        $this->assertNotNull($db->getSessionBySessionId($delegatedSession['session_id']));
+        
+        // Wait for parent to expire
+        sleep(2);
+        
+        // Delegated session should become invalid when parent expires
+        $this->assertNull($db->getSessionBySessionId($delegatedSession['session_id']));
+    }
+
+    public function testMultipleDelegatedSessionsFromSameParent(): void {
+        $db = Database::getInstance($this->tmpFile);
+        
+        // Create user and parent session
+        $db->createUser('testtoken123');
+        $parentSession = $db->createSession('testtoken123', 'api-key-1');
+        $db->validateSession($parentSession['session_id']);
+        
+        // Create multiple delegated sessions
+        $delegatedSession1 = $db->createDelegatedSession($parentSession['session_id'], 'api-key-2');
+        $delegatedSession2 = $db->createDelegatedSession($parentSession['session_id'], 'api-key-3');
+        $delegatedSession3 = $db->createDelegatedSession($parentSession['session_id'], 'api-key-4');
+        
+        // All sessions should exist
+        $this->assertNotNull($db->getSessionBySessionId($parentSession['session_id']));
+        $this->assertNotNull($db->getSessionBySessionId($delegatedSession1['session_id']));
+        $this->assertNotNull($db->getSessionBySessionId($delegatedSession2['session_id']));
+        $this->assertNotNull($db->getSessionBySessionId($delegatedSession3['session_id']));
+        
+        // Delete parent
+        $db->deleteSession($parentSession['session_id']);
+        
+        // All should be deleted
+        $this->assertNull($db->getSessionBySessionId($parentSession['session_id']));
+        $this->assertNull($db->getSessionBySessionId($delegatedSession1['session_id']));
+        $this->assertNull($db->getSessionBySessionId($delegatedSession2['session_id']));
+        $this->assertNull($db->getSessionBySessionId($delegatedSession3['session_id']));
+    }
+
+    public function testNestedDelegatedSessions(): void {
+        $db = Database::getInstance($this->tmpFile);
+        
+        // Create user and parent session
+        $db->createUser('testtoken123');
+        $parentSession = $db->createSession('testtoken123', 'api-key-1');
+        $db->validateSession($parentSession['session_id']);
+        
+        // Create first-level delegated session
+        $delegatedSession1 = $db->createDelegatedSession($parentSession['session_id'], 'api-key-2');
+        
+        // Create second-level delegated session (delegated from delegated)
+        $delegatedSession2 = $db->createDelegatedSession($delegatedSession1['session_id'], 'api-key-3');
+        
+        // All three sessions should exist
+        $this->assertNotNull($db->getSessionBySessionId($parentSession['session_id']));
+        $this->assertNotNull($db->getSessionBySessionId($delegatedSession1['session_id']));
+        $this->assertNotNull($db->getSessionBySessionId($delegatedSession2['session_id']));
+        
+        // Delete parent (top-level)
+        $db->deleteSession($parentSession['session_id']);
+        
+        // All sessions should be deleted recursively
+        $this->assertNull($db->getSessionBySessionId($parentSession['session_id']));
+        $this->assertNull($db->getSessionBySessionId($delegatedSession1['session_id']));
+        $this->assertNull($db->getSessionBySessionId($delegatedSession2['session_id']));
+    }
+
+    public function testDelegatedSessionIsolationByApiKey(): void {
+        $db = Database::getInstance($this->tmpFile);
+        
+        // Create user and parent session
+        $db->createUser('testtoken123');
+        $parentSession = $db->createSession('testtoken123', 'api-key-1');
+        $db->validateSession($parentSession['session_id']);
+        
+        // Create delegated session with different API key
+        $delegatedSession = $db->createDelegatedSession($parentSession['session_id'], 'api-key-2');
+        
+        // Check access with correct API keys
+        $this->assertTrue($db->checkSessionAccess($parentSession['session_id'], 'api-key-1'));
+        $this->assertTrue($db->checkSessionAccess($delegatedSession['session_id'], 'api-key-2'));
+        
+        // Check access with wrong API keys
+        $this->assertFalse($db->checkSessionAccess($parentSession['session_id'], 'api-key-2'));
+        $this->assertFalse($db->checkSessionAccess($delegatedSession['session_id'], 'api-key-1'));
+    }
 }

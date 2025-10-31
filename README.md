@@ -8,8 +8,9 @@ Secure PHP-based authentication with Webling integration, session management, an
 - 🎫 Session management with 6-digit verification codes
 - 🔑 API key authorization with granular permissions
 - 🛡️ Session isolation per API key
-- 🔒 UID encryption (XChaCha20-Poly1305)
-- ✅ Comprehensive tests (162 tests, 578 assertions)
+- � Delegated sessions for cross-app authentication
+- �🔒 UID encryption (XChaCha20-Poly1305)
+- ✅ Comprehensive tests (170 tests, 615 assertions)
 
 ## Quick Start
 
@@ -36,6 +37,7 @@ Complete documentation is located in the `doc/` directory:
 - **[📖 Main Documentation](doc/README.md)** - Complete overview, features and usage
 - **[🔐 Secrets Setup](doc/SECRETS-SETUP.md)** - Configure API keys and credentials
 - **[🔑 Login Flow](doc/LOGIN-FLOW.md)** - Authentication process details
+- **[🔀 Delegated Sessions](doc/DELEGATED-SESSIONS.md)** - Cross-app authentication
 - **[🎫 Key Generator](doc/KEYGENERATOR.md)** - Generate and manage API keys
 - **[🚀 Deployment](doc/DEPLOYMENT.md)** - Deploy to shared hosting (Strato/Ionos)
 

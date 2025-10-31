@@ -125,6 +125,13 @@ class Database {
                 // Column already exists, ignore error
             }
             
+            // Migration: Add parent_session_id column if it doesn't exist (for delegated sessions)
+            try {
+                $this->pdo->exec("ALTER TABLE sessions ADD COLUMN parent_session_id TEXT DEFAULT NULL");
+            } catch (PDOException $e) {
+                // Column already exists, ignore error
+            }
+            
         } catch (PDOException $e) {
             throw new StorageException('STORAGE_ERROR', 'Database initialization failed: ' . $e->getMessage());
         }
@@ -209,6 +216,19 @@ class Database {
         }
 
         return $this->sessionRepository->createSession($userToken, $apiKey, $sessionDurationSeconds, $codeValiditySeconds);
+    }
+
+    /**
+     * Create a delegated session for another API key based on a parent session.
+     *
+     * @param string $parentSessionId The parent session ID
+     * @param string $targetApiKey The API key for the delegated session
+     * @param int $sessionDurationSeconds Duration in seconds (default: 300 = 5 minutes)
+     * @return array The created delegated session record
+     * @throws StorageException on database error or if parent session invalid
+     */
+    public function createDelegatedSession(string $parentSessionId, string $targetApiKey, int $sessionDurationSeconds = 300): array {
+        return $this->sessionRepository->createDelegatedSession($parentSessionId, $targetApiKey, $sessionDurationSeconds);
     }
 
     /**

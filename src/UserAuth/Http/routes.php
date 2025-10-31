@@ -120,6 +120,14 @@ $routes = [
             'POST' => [$sessionController, 'touch']
         ]
     ],
+    // POST /session/delegate/{session_id}
+    [
+        'pattern' => '#^/session/delegate/([a-zA-Z0-9]+)$#',
+        'pathVars' => ['session_id'],
+        'methods' => [
+            'POST' => [$sessionController, 'createDelegated']
+        ]
+    ],
     // POST /session/logout/{session_id}
     [
         'pattern' => '#^/session/logout/([a-z0-9]+)$#',
