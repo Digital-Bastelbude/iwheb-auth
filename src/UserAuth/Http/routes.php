@@ -111,38 +111,32 @@ $routes = [
                 $session = $dbService->createSession($token, $apiKey);
 
                 // Send authentication code via email
-                try {
-                    $mailer = SmtpMailer::fromEnv();
-                    
-                    // Get email configuration from config
-                    $emailConfig = $CONFIG['email']['login_code'] ?? [];
-                    $subject = $emailConfig['subject'] ?? 'Your Authentication Code';
-                    $message = $emailConfig['message'] ?? 'Your authentication code is: ###CODE###';
-                    $linkBlock = $emailConfig['link_block'] ?? null;
-                    
-                    // Only send link block if it's configured and not empty
-                    if ($linkBlock && strlen(trim($linkBlock)) === 0) {
-                        $linkBlock = null;
-                    }
-                    
-                    $mailer->sendAuthCode(
-                        $email,
-                        $subject,
-                        $message,
-                        $session['code'],
-                        $session['session_id'],
-                        $linkBlock
-                    );
-                } catch (\Exception $e) {
-                    // Log error but don't fail the request
-                    // The code is still returned in the response for fallback
-                    error_log("Failed to send authentication email: " . $e->getMessage());
+                // If email sending fails, throw exception (no fallback to response)
+                $mailer = SmtpMailer::fromEnv();
+                
+                // Get email configuration from config
+                $emailConfig = $CONFIG['email']['login_code'] ?? [];
+                $subject = $emailConfig['subject'] ?? 'Your Authentication Code';
+                $message = $emailConfig['message'] ?? 'Your authentication code is: ###CODE###';
+                $linkBlock = $emailConfig['link_block'] ?? null;
+                
+                // Only send link block if it's configured and not empty
+                if ($linkBlock && strlen(trim($linkBlock)) === 0) {
+                    $linkBlock = null;
                 }
+                
+                $mailer->sendAuthCode(
+                    $email,
+                    $subject,
+                    $message,
+                    $session['code'],
+                    $session['session_id'],
+                    $linkBlock
+                );
 
                 return [
                     'data' => [
                         'session_id' => $session['session_id'],
-                        'code' => $session['code'],
                         'code_expires_at' => $session['code_valid_until'],
                         'session_expires_at' => $session['expires_at']
                     ],

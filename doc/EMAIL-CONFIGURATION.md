@@ -169,11 +169,20 @@ Result: Email contains the code and a clickable auto-login link.
 
 ## Error Handling
 
-The email sending is designed to be non-blocking:
+**IMPORTANT:** Email delivery is **required** for authentication:
 
-- If email sending fails, the error is logged but the API request succeeds
-- The authentication code is always returned in the API response as a fallback
-- Users can still authenticate even if email delivery fails
+- If email sending fails, the API request will fail with an error
+- The authentication code is **NOT** included in the API response
+- Users can **only** authenticate via the email code (no fallback)
+- This ensures codes are only delivered through secure email channels
+
+**API Error Response on Email Failure:**
+```json
+{
+  "error": "Failed to send email: SMTP Error: ...",
+  "status": 500
+}
+```
 
 Check error logs for SMTP issues:
 ```bash
@@ -181,6 +190,8 @@ tail -f logs/api.log
 # or PHP error log
 tail -f /var/log/php/error.log
 ```
+
+**Important:** Ensure SMTP configuration is working before deploying to production!
 
 ## Testing
 
@@ -259,13 +270,12 @@ Check that:
 
 ## API Response
 
-Even with email enabled, the API still returns the code for backwards compatibility:
+**Success Response (email sent):**
 
 ```json
 {
   "data": {
     "session_id": "abc123def456",
-    "code": "123456",
     "code_expires_at": "2025-10-31T12:45:00Z",
     "session_expires_at": "2025-10-31T13:00:00Z"
   },
@@ -273,7 +283,15 @@ Even with email enabled, the API still returns the code for backwards compatibil
 }
 ```
 
-This allows clients to:
-- Display the code directly (fallback)
-- Implement their own email logic
-- Support both email and non-email workflows
+**Note:** The authentication code is **NOT** included in the response. Users must retrieve it from their email.
+
+**Error Response (email failed):**
+
+```json
+{
+  "error": "Failed to send email: SMTP Error: Connection refused",
+  "status": 500
+}
+```
+
+This ensures that authentication codes are only delivered through the secure email channel.
