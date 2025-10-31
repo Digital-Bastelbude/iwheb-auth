@@ -3,7 +3,12 @@ declare(strict_types=1);
 
 namespace IwhebAPI\UserAuth\Database;
 
-use IwhebAPI\UserAuth\Database\Repository\{UserRepository, SessionRepository};
+use IwhebAPI\UserAuth\Database\Repository\{
+    UserRepository, 
+    SessionCrudRepository, 
+    SessionValidationRepository, 
+    SessionDelegationRepository
+};
 use IwhebAPI\UserAuth\Exception\Database\StorageException;
 use PDO;
 use PDOException;
@@ -26,17 +31,13 @@ class Database {
     /** @var string */
     private string $databasePath;
     
-    /** @var UserRepository */
     private UserRepository $userRepository;
-    
-    /** @var SessionRepository */
-    private SessionRepository $sessionRepository;
+    private SessionCrudRepository $sessionCrud;
+    private SessionValidationRepository $sessionValidation;
+    private SessionDelegationRepository $sessionDelegation;
 
     /**
      * Private constructor.
-     *
-     * @param string $databasePath
-     * @throws StorageException
      */
     private function __construct(string $databasePath) {
         $this->databasePath = $databasePath;
@@ -44,7 +45,9 @@ class Database {
         
         // Initialize repositories
         $this->userRepository = new UserRepository($this->pdo);
-        $this->sessionRepository = new SessionRepository($this->pdo);
+        $this->sessionCrud = new SessionCrudRepository($this->pdo);
+        $this->sessionValidation = new SessionValidationRepository($this->pdo, $this->sessionCrud);
+        $this->sessionDelegation = new SessionDelegationRepository($this->pdo, $this->sessionCrud);
     }
 
     /**
@@ -172,193 +175,72 @@ class Database {
         return $this->userRepository->deleteUser($token);
     }
 
-    /**
-     * Update last_activity_at for a user via session ID and refresh the session.
-     * This renews the session by creating a new session ID and deleting the old one.
-     *
-     * @param string $sessionId Session ID
-     * @return string|null The new session ID or null if session not found/expired
-     * @throws StorageException on database error
-     */
-    public function touchUser(string $sessionId): ?string {
-        // Get session to find user
-        $session = $this->sessionRepository->getSessionBySessionId($sessionId);
-        if (!$session) {
-            return null;
-        }
+    // ========== SESSION MANAGEMENT ==========
 
-        // Update user's last_activity_at
-        $this->userRepository->touchUser($session['user_token']);
-
-        // Refresh the session (creates new session ID, extends expiry)
-        $newSession = $this->sessionRepository->touchSession($sessionId, $session['user_token'], $session['api_key']);
-        
-        return $newSession ? $newSession['session_id'] : null;
-    }
-
-    // ========== SESSION MANAGEMENT (delegated to SessionRepository) ==========
-
-    /**
-     * Create a new session for a user with auto-generated code.
-     *
-     * @param string $userToken The user token to create a session for
-     * @param string $apiKey The API key used to create this session
-     * @param int $sessionDurationSeconds Duration in seconds (default: 1800 = 30 minutes)
-     * @param int $codeValiditySeconds Seconds until code expires (default: 300 = 5 minutes)
-     * @return array The created session record with code
-     * @throws StorageException on database error or if user doesn't exist
-     */
     public function createSession(string $userToken, string $apiKey, int $sessionDurationSeconds = 1800, int $codeValiditySeconds = 300): array {
-        // Verify user exists
         $user = $this->userRepository->getUserByToken($userToken);
         if (!$user) {
             throw new StorageException('STORAGE_ERROR', 'User not found');
         }
-
-        return $this->sessionRepository->createSession($userToken, $apiKey, $sessionDurationSeconds, $codeValiditySeconds);
+        return $this->sessionCrud->createSession($userToken, $apiKey, $sessionDurationSeconds, $codeValiditySeconds);
     }
 
-    /**
-     * Create a delegated session for another API key based on a parent session.
-     *
-     * @param string $parentSessionId The parent session ID
-     * @param string $targetApiKey The API key for the delegated session
-     * @param int $sessionDurationSeconds Duration in seconds (default: 300 = 5 minutes)
-     * @return array The created delegated session record
-     * @throws StorageException on database error or if parent session invalid
-     */
-    public function createDelegatedSession(string $parentSessionId, string $targetApiKey, int $sessionDurationSeconds = 300): array {
-        return $this->sessionRepository->createDelegatedSession($parentSessionId, $targetApiKey, $sessionDurationSeconds);
+    public function createDelegatedSession(string $parentSessionId, string $targetApiKey, int $sessionDurationSeconds = 1800): array {
+        return $this->sessionDelegation->createDelegatedSession($parentSessionId, $targetApiKey, $sessionDurationSeconds);
     }
 
-    /**
-     * Retrieve a session record by session ID. Returns null if not found or expired.
-     *
-     * @param string $sessionId
-     * @return array|null
-     * @throws StorageException on database error
-     */
     public function getSessionBySessionId(string $sessionId): ?array {
-        return $this->sessionRepository->getSessionBySessionId($sessionId);
+        return $this->sessionCrud->getSessionBySessionId($sessionId);
     }
 
-    /**
-     * Get user data by session ID. Returns null if session not found or expired.
-     *
-     * @param string $sessionId
-     * @return array|null User data or null if session invalid
-     * @throws StorageException on database error
-     */
     public function getUserBySessionId(string $sessionId): ?array {
-        $session = $this->sessionRepository->getSessionBySessionId($sessionId);
+        $session = $this->sessionCrud->getSessionBySessionId($sessionId);
+        return $session ? $this->userRepository->getUserByToken($session['user_token']) : null;
+    }
+
+    public function deleteSession(string $sessionId): bool {
+        return $this->sessionCrud->deleteSession($sessionId);
+    }
+
+    public function deleteUserSessions(string $userToken): int {
+        return $this->sessionCrud->deleteUserSessions($userToken);
+    }
+
+    public function deleteExpiredSessions(?string $beforeTimestamp = null): int {
+        return $this->sessionCrud->deleteExpiredSessions($beforeTimestamp);
+    }
+
+    public function validateSession(string $sessionId): bool {
+        return $this->sessionValidation->validateSession($sessionId);
+    }
+
+    public function isSessionValidated(string $sessionId): bool {
+        return $this->sessionValidation->isSessionValidated($sessionId);
+    }
+
+    public function isSessionActive(string $sessionId): bool {
+        return $this->sessionValidation->isSessionActive($sessionId);
+    }
+
+    public function validateCode(string $sessionId, string $code): bool {
+        return $this->sessionValidation->validateCode($sessionId, $code);
+    }
+
+    public function regenerateSessionCode(string $sessionId, int $codeValiditySeconds = 300): ?array {
+        return $this->sessionValidation->regenerateSessionCode($sessionId, $codeValiditySeconds);
+    }
+
+    public function checkSessionAccess(string $sessionId, string $apiKey): bool {
+        return $this->sessionValidation->checkSessionAccess($sessionId, $apiKey);
+    }
+
+    public function touchUser(string $sessionId): ?string {
+        $session = $this->sessionCrud->getSessionBySessionId($sessionId);
         if (!$session) {
             return null;
         }
-
-        return $this->userRepository->getUserByToken($session['user_token']);
-    }
-
-    /**
-     * Delete a session by session ID.
-     *
-     * @param string $sessionId
-     * @return bool True if a session was deleted, false if not found
-     * @throws StorageException on database error
-     */
-    public function deleteSession(string $sessionId): bool {
-        return $this->sessionRepository->deleteSession($sessionId);
-    }
-
-    /**
-     * Delete all sessions for a specific user.
-     *
-     * @param string $userToken
-     * @return int Number of deleted sessions
-     * @throws StorageException on database error
-     */
-    public function deleteUserSessions(string $userToken): int {
-        return $this->sessionRepository->deleteUserSessions($userToken);
-    }
-
-    /**
-     * Delete all expired sessions.
-     *
-     * @param string|null $beforeTimestamp ISO 8601 timestamp (defaults to now if null)
-     * @return int Number of deleted sessions
-     * @throws StorageException on database error
-     */
-    public function deleteExpiredSessions(?string $beforeTimestamp = null): int {
-        return $this->sessionRepository->deleteExpiredSessions($beforeTimestamp);
-    }
-
-    /**
-     * Mark a session as validated.
-     *
-     * @param string $sessionId
-     * @return bool True if session was validated, false if not found
-     * @throws StorageException on database error
-     */
-    public function validateSession(string $sessionId): bool {
-        return $this->sessionRepository->validateSession($sessionId);
-    }
-
-    /**
-     * Check if a session is validated.
-     *
-     * @param string $sessionId
-     * @return bool True if session exists and is validated, false otherwise
-     * @throws StorageException on database error
-     */
-    public function isSessionValidated(string $sessionId): bool {
-        return $this->sessionRepository->isSessionValidated($sessionId);
-    }
-
-    /**
-     * Check if a session is active (exists and not expired).
-     *
-     * @param string $sessionId Session ID to check
-     * @return bool True if session exists and is not expired, false otherwise
-     * @throws StorageException on database error
-     */
-    public function isSessionActive(string $sessionId): bool {
-        return $this->sessionRepository->isSessionActive($sessionId);
-    }
-
-    /**
-     * Validate a code for a given session.
-     *
-     * @param string $sessionId Session ID
-     * @param string $code The code to validate
-     * @return bool True if code is valid and not expired, false otherwise
-     * @throws StorageException on database error
-     */
-    public function validateCode(string $sessionId, string $code): bool {
-        return $this->sessionRepository->validateCode($sessionId, $code);
-    }
-
-    /**
-     * Regenerate the code for an existing session.
-     * Creates a new 6-digit code and updates the validity period.
-     *
-     * @param string $sessionId
-     * @param int $codeValiditySeconds Seconds until code expires (default: 300 = 5 minutes)
-     * @return array|null Updated session or null if session not found
-     * @throws StorageException on database error
-     */
-    public function regenerateSessionCode(string $sessionId, int $codeValiditySeconds = 300): ?array {
-        return $this->sessionRepository->regenerateSessionCode($sessionId, $codeValiditySeconds);
-    }
-
-    /**
-     * Check if the given API key has access to the session.
-     * Sessions can only be accessed by the same API key that created them.
-     *
-     * @param string $sessionId
-     * @param string $apiKey
-     * @return bool True if access is granted, false otherwise
-     * @throws StorageException on database error
-     */
-    public function checkSessionAccess(string $sessionId, string $apiKey): bool {
-        return $this->sessionRepository->checkSessionAccess($sessionId, $apiKey);
+        $this->userRepository->touchUser($session['user_token']);
+        $newSession = $this->sessionCrud->touchSession($sessionId, $session['user_token'], $session['api_key']);
+        return $newSession ? $newSession['session_id'] : null;
     }
 }
