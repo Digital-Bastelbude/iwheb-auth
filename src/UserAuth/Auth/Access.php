@@ -1,5 +1,9 @@
 <?php
-require_once __DIR__ . '/response.php';
+declare(strict_types=1);
+
+namespace IwhebAPI\UserAuth\Auth;
+
+use IwhebAPI\UserAuth\Http\Response;
 
 /**
  * ApiKeyHelper

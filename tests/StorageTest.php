@@ -1,5 +1,7 @@
 <?php
 use PHPUnit\Framework\TestCase;
+use IwhebAPI\UserAuth\Database\Database;
+use IwhebAPI\UserAuth\Exception\Database\StorageException;
 
 require_once __DIR__ . '/bootstrap.php';
 
@@ -7,7 +9,7 @@ class StorageTest extends TestCase {
     private string $tmpFile;
 
     protected function setUp(): void {
-        \Database::resetInstance();
+        Database::resetInstance();
         $this->tmpFile = sys_get_temp_dir() . '/php_rest_storage_test_' . bin2hex(random_bytes(6)) . '.db';
         if (file_exists($this->tmpFile)) @unlink($this->tmpFile);
         // Also clean up SQLite auxiliary files
@@ -18,7 +20,7 @@ class StorageTest extends TestCase {
     }
 
     protected function tearDown(): void {
-        \Database::resetInstance();
+        Database::resetInstance();
         if (file_exists($this->tmpFile) && is_file($this->tmpFile)) @unlink($this->tmpFile);
         // Also clean up SQLite auxiliary files
         $walFile = $this->tmpFile . '-wal';
@@ -28,7 +30,7 @@ class StorageTest extends TestCase {
     }
 
     public function testCreateUserGeneratesTimestamp(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $user = $db->createUser('token123');
 
@@ -40,29 +42,29 @@ class StorageTest extends TestCase {
         $this->assertNotFalse(\DateTime::createFromFormat(\DateTime::ATOM, $user['last_activity_at']));
 
         // persisted
-        \Database::resetInstance();
-        $db2 = \Database::getInstance($this->tmpFile);
+        Database::resetInstance();
+        $db2 = Database::getInstance($this->tmpFile);
         $fetched = $db2->getUserByToken('token123');
         $this->assertSame('token123', $fetched['token']);
     }
 
     public function testCreateUserWithDuplicateTokenThrowsException(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $db->createUser('token123');
         
-        $this->expectException(\StorageException::class);
+        $this->expectException(StorageException::class);
         $this->expectExceptionMessage('User with this token already exists');
         $db->createUser('token123'); // Should throw
     }
 
     public function testGetUserByTokenReturnsNullWhenNotFound(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         $this->assertNull($db->getUserByToken('nonexistent'));
     }
 
     public function testMultipleUsersCanBeCreated(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $db->createUser('token1');
         $db->createUser('token2');
@@ -75,14 +77,14 @@ class StorageTest extends TestCase {
     }
 
     public function testGetUserByTokenReturnsNullForNonexistentUser(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         // Verify no users exist
         $this->assertNull($db->getUserByToken('nonexistent'));
     }
 
     public function testDeleteUserRemovesRecord(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $db->createUser('token123');
         $this->assertNotNull($db->getUserByToken('token123'));
@@ -93,7 +95,7 @@ class StorageTest extends TestCase {
     }
 
     public function testDeleteUserReturnsFalseWhenTokenNotFound(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         $deleted = $db->deleteUser('nonexistent');
         $this->assertFalse($deleted);
     }
@@ -102,7 +104,7 @@ class StorageTest extends TestCase {
     // See SessionTest.php for session-based touchUser tests
 
     public function testMultipleConcurrentOperations(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         // Create multiple users
         for ($i = 1; $i <= 10; $i++) {
@@ -125,7 +127,7 @@ class StorageTest extends TestCase {
     }
 
     public function testTokensCanBeRetrievedAlphabetically(): void {
-        $db = \Database::getInstance($this->tmpFile);
+        $db = Database::getInstance($this->tmpFile);
         
         $db->createUser('zebra');
         $db->createUser('alpha');
@@ -141,8 +143,8 @@ class StorageTest extends TestCase {
         $dirPath = sys_get_temp_dir() . '/php_rest_storage_test_dir_' . bin2hex(random_bytes(6));
         mkdir($dirPath, 0775);
 
-        $this->expectException(\StorageException::class);
-        $db = \Database::getInstance($dirPath);
+        $this->expectException(StorageException::class);
+        $db = Database::getInstance($dirPath);
         $db->createUser('token123');
 
         if (is_dir($dirPath)) @rmdir($dirPath);

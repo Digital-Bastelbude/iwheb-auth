@@ -22,6 +22,16 @@ const DATA_FILE   = BASE_DIR . '/storage/data.db';
 const RL_DIR      = BASE_DIR . '/storage/ratelimit';
 const LOG_FILE    = BASE_DIR . '/logs/api.log';
 
+// -------- Load Secrets --------
+// Load environment variables from config/.secrets.php before anything else
+$secretsFile = BASE_DIR . '/config/.secrets.php';
+if (!file_exists($secretsFile)) {
+    http_response_code(500);
+    echo json_encode(['error' => 'Configuration error: File not found']);
+    exit;
+}
+require_once $secretsFile;
+
 // -------- CORS --------
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-API-Key');
@@ -34,15 +44,11 @@ $METHOD = $_SERVER['REQUEST_METHOD'];
 $PATH   = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
 // -------- Config --------
-// Load application config and make it available to routes/bootstrap
-require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/../config/config-userauth.php';
 $CONFIG = load_config();
 
-// Require core modules (they are lightweight and idempotent)
-require_once __DIR__ . '/../logging.php';
-require_once __DIR__ . '/../response.php';
-require_once __DIR__ . '/../storage.php';
-require_once __DIR__ . '/../access.php';
+// Load Composer autoloader (includes PSR-4 namespaces, classmap, and files)
+require_once __DIR__ . '/../vendor/autoload.php';
 
-// Finally dispatch routes (routes.php uses $CONFIG, $METHOD, $PATH variables)
-require_once __DIR__ . '/../routes.php';
+// Dispatch routes
+require_once __DIR__ . '/../src/UserAuth/Http/routes.php';

@@ -1,0 +1,3 @@
+# Deny all access to this directory
+# Only /public should be accessible from the web
+Require all denied

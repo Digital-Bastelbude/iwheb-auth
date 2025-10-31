@@ -1,6 +1,7 @@
 <?php
-require_once __DIR__ . '/response.php';
-require_once __DIR__ . '/exceptions.php';
+declare(strict_types=1);
+
+use IwhebAPI\UserAuth\Exception\Http\InvalidInputException;
 
 /**
  * Dispatcher: given the routes dictionary, the current path and method,
@@ -127,5 +128,3 @@ function run_routes(array $routes, string $path, string $method, $response): arr
     // If handler returned something unexpected, signal not found to caller
     throw new \Exception('NOT_FOUND');
 }
-
-

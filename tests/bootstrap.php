@@ -5,9 +5,8 @@ if (file_exists($autoloader)) {
 	require_once $autoloader;
 }
 
-// Include lightweight project bootstrap for tests (Database etc.)
-require_once __DIR__ . '/../storage.php';
-require_once __DIR__ . '/../uidencryptor.php';
+// Global classes (exceptions, logging) are auto-loaded via Composer's "files" directive
+// Namespaced classes are auto-loaded via Composer PSR-4 and classmap
 
 // During tests, convert deprecations and notices to exceptions to make them visible
 // The strict test error handler is useful during development to make deprecations
