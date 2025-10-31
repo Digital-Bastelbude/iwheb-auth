@@ -6,11 +6,9 @@ namespace IwhebAPI\UserAuth\Http\Controllers;
 use IwhebAPI\UserAuth\Database\{Database, UidEncryptor};
 use IwhebAPI\UserAuth\Auth\{Authorizer, ApiKeyManager};
 use IwhebAPI\UserAuth\Http\{Response, SmtpMailer, WeblingClient};
-use InvalidInputException;
-use UserNotFoundException;
-use InvalidSessionException;
-use InvalidCodeException;
-use StorageException;
+use IwhebAPI\UserAuth\Exception\Http\InvalidInputException;
+use IwhebAPI\UserAuth\Exception\{UserNotFoundException, InvalidSessionException, InvalidCodeException};
+use IwhebAPI\UserAuth\Exception\Database\StorageException;
 
 /**
  * AuthController

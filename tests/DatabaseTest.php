@@ -1,6 +1,7 @@
 <?php
 use PHPUnit\Framework\TestCase;
 use IwhebAPI\UserAuth\Database\Database;
+use IwhebAPI\UserAuth\Exception\Database\StorageException;
 
 require_once __DIR__ . '/bootstrap.php';
 
@@ -58,7 +59,7 @@ class DatabaseTest extends TestCase {
         $dirPath = sys_get_temp_dir() . '/php_rest_logging_test_dir_' . bin2hex(random_bytes(6));
         mkdir($dirPath, 0775);
 
-        $this->expectException(\StorageException::class);
+        $this->expectException(StorageException::class);
 
         // Initialize Database with the path that points to a directory
         $db = Database::getInstance($dirPath);
@@ -73,7 +74,7 @@ class DatabaseTest extends TestCase {
         // create a corrupt database file (not a valid SQLite database)
         file_put_contents($this->tmpFile, "this is not a database file");
 
-        $this->expectException(\StorageException::class);
+        $this->expectException(StorageException::class);
         $this->expectExceptionMessage('Database initialization failed');
         
         $db = Database::getInstance($this->tmpFile);

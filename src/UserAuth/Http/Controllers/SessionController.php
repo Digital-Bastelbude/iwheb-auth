@@ -3,8 +3,8 @@ declare(strict_types=1);
 
 namespace IwhebAPI\UserAuth\Http\Controllers;
 
-use InvalidSessionException;
-use StorageException;
+use IwhebAPI\UserAuth\Exception\InvalidSessionException;
+use IwhebAPI\UserAuth\Exception\Database\StorageException;
 
 /**
  * SessionController

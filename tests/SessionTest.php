@@ -1,6 +1,7 @@
 <?php
 use PHPUnit\Framework\TestCase;
 use IwhebAPI\UserAuth\Database\Database;
+use IwhebAPI\UserAuth\Exception\Database\StorageException;
 
 require_once __DIR__ . '/bootstrap.php';
 
@@ -87,7 +88,7 @@ class SessionTest extends TestCase {
     public function testCreateSessionForNonexistentUserThrowsException(): void {
         $db = Database::getInstance($this->tmpFile);
         
-        $this->expectException(\StorageException::class);
+        $this->expectException(StorageException::class);
         $this->expectExceptionMessage('User not found');
         $db->createSession('nonexistent', $this->testApiKey);
     }

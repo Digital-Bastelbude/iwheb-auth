@@ -6,6 +6,7 @@ namespace IwhebAPI\UserAuth\Http\Controllers;
 use IwhebAPI\UserAuth\Database\Database;
 use IwhebAPI\UserAuth\Auth\{Authorizer, ApiKeyManager};
 use IwhebAPI\UserAuth\Http\Response;
+use IwhebAPI\UserAuth\Exception\InvalidSessionException;
 
 /**
  * BaseController
@@ -46,14 +47,14 @@ abstract class BaseController {
     protected function getSessionWithAccess(string $sessionId): ?array {
         // Check if API key has access to this session
         if (!$this->db->checkSessionAccess($sessionId, $this->apiKey)) {
-            throw new \InvalidSessionException();
+            throw new InvalidSessionException();
         }
         
         // Get session
         $session = $this->db->getSessionBySessionId($sessionId);
         
         if (!$session) {
-            throw new \InvalidSessionException();
+            throw new InvalidSessionException();
         }
         
         return $session;

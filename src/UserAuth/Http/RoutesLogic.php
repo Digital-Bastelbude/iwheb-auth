@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+use IwhebAPI\UserAuth\Exception\Http\InvalidInputException;
+
 /**
  * Dispatcher: given the routes dictionary, the current path and method,
  * call the matching handler and send the response (or map errors to notFound).

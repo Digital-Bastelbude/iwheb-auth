@@ -6,9 +6,9 @@ namespace IwhebAPI\UserAuth\Http;
 use IwhebAPI\UserAuth\Database\{Database, UidEncryptor};
 use IwhebAPI\UserAuth\Auth\{Authorizer, ApiKeyManager, AuthorizationException};
 use IwhebAPI\UserAuth\Http\Controllers\{AuthController, SessionController, UserController};
-use InvalidInputException;
-use StorageException;
-use NotFoundException;
+use IwhebAPI\UserAuth\Exception\Http\InvalidInputException;
+use IwhebAPI\UserAuth\Exception\Database\StorageException;
+use IwhebAPI\UserAuth\Exception\NotFoundException;
 
 // -------- Routes --------
 // Instantiate helpers / services (assumes $CONFIG exists in bootstrap)

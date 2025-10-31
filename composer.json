@@ -18,7 +18,6 @@
       "IwhebAPI\\UserAuth\\": "src/UserAuth/"
     },
     "files": [
-      "src/UserAuth/exceptions.php",
       "src/UserAuth/logging.php"
     ],
     "classmap": [

@@ -1,5 +1,6 @@
 <?php
 use PHPUnit\Framework\TestCase;
+use IwhebAPI\UserAuth\Exception\Http\InvalidInputException;
 
 require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/../src/UserAuth/Http/RoutesLogic.php';

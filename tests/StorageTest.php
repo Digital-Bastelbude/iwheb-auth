@@ -1,6 +1,7 @@
 <?php
 use PHPUnit\Framework\TestCase;
 use IwhebAPI\UserAuth\Database\Database;
+use IwhebAPI\UserAuth\Exception\Database\StorageException;
 
 require_once __DIR__ . '/bootstrap.php';
 
@@ -52,7 +53,7 @@ class StorageTest extends TestCase {
         
         $db->createUser('token123');
         
-        $this->expectException(\StorageException::class);
+        $this->expectException(StorageException::class);
         $this->expectExceptionMessage('User with this token already exists');
         $db->createUser('token123'); // Should throw
     }
@@ -142,7 +143,7 @@ class StorageTest extends TestCase {
         $dirPath = sys_get_temp_dir() . '/php_rest_storage_test_dir_' . bin2hex(random_bytes(6));
         mkdir($dirPath, 0775);
 
-        $this->expectException(\StorageException::class);
+        $this->expectException(StorageException::class);
         $db = Database::getInstance($dirPath);
         $db->createUser('token123');
 
