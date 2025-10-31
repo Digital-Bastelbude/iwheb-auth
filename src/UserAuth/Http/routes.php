@@ -5,16 +5,13 @@ namespace IwhebAPI\UserAuth\Http;
 
 use IwhebAPI\UserAuth\Database\{Database, UidEncryptor};
 use IwhebAPI\UserAuth\Auth\{Authorizer, ApiKeyManager, AuthorizationException};
-use IwhebAPI\UserAuth\Http\SmtpMailer;
+use IwhebAPI\UserAuth\Http\Controllers\{AuthController, SessionController, UserController};
 use InvalidInputException;
-use UserNotFoundException;
-use InvalidSessionException;
-use InvalidCodeException;
 use StorageException;
 use NotFoundException;
 
 // -------- Routes --------
-// instantiate helpers / services (assumes $CONFIG exists in bootstrap)
+// Instantiate helpers / services (assumes $CONFIG exists in bootstrap)
 $authorizer = new Authorizer($CONFIG ?? []);
 $dbService  = Database::getInstance();
 $response   = Response::getInstance();
@@ -69,80 +66,18 @@ try {
     Response::getInstance()->notFound($e->key ?? null, $e->reason);
 }
 
+// Instantiate controllers
+$authController = new AuthController($dbService, $response, $authorizer, $apiKeyManager, $CONFIG, $apiKey, $weblingClient, $uidEncryptor);
+$sessionController = new SessionController($dbService, $response, $authorizer, $apiKeyManager, $CONFIG, $apiKey);
+$userController = new UserController($dbService, $response, $authorizer, $apiKeyManager, $CONFIG, $apiKey, $weblingClient, $uidEncryptor);
+
 // Define routes using pattern-based format for flexible paths
 $routes = [
     // POST /login
     [
         'pattern' => '#^/login$#',
         'methods' => [
-            'POST' => function($pathVars, $body) use ($dbService, $weblingClient, $uidEncryptor, $auth, $apiKey) {
-                // Validate input
-                if (!isset($body['email'])) {
-                    throw new InvalidInputException('INVALID_INPUT', 'Email required');
-                }
-
-                // Decode base64 URL-safe encoded email
-                $encodedEmail = $body['email'];
-                $email = base64_decode(strtr($encodedEmail, '-_', '+/'), true);
-                
-                if ($email === false || empty($email)) {
-                    throw new InvalidInputException('INVALID_INPUT', 'Invalid email encoding');
-                }
-
-                // Check if user exists in Webling
-                $weblingUserId = $weblingClient->getUserIdByEmail($email);
-                
-                if ($weblingUserId === null) {
-                    throw new UserNotFoundException();
-                }
-
-                // Generate token from Webling user ID
-                $token = $uidEncryptor->encrypt((string)$weblingUserId);
-
-                // Check if user already exists in database
-                $existingUser = $dbService->getUserByToken($token);
-                
-                if (!$existingUser) {
-                    // Create new user (without code - code is in session now)
-                    $dbService->createUser($token);
-                }
-
-                // Create session for user with API key (generates code automatically)
-                $session = $dbService->createSession($token, $apiKey);
-
-                // Send authentication code via email
-                // If email sending fails, throw exception (no fallback to response)
-                $mailer = SmtpMailer::fromEnv();
-                
-                // Get email configuration from config
-                $emailConfig = $CONFIG['email']['login_code'] ?? [];
-                $subject = $emailConfig['subject'] ?? 'Your Authentication Code';
-                $message = $emailConfig['message'] ?? 'Your authentication code is: ###CODE###';
-                $linkBlock = $emailConfig['link_block'] ?? null;
-                
-                // Only send link block if it's configured and not empty
-                if ($linkBlock && strlen(trim($linkBlock)) === 0) {
-                    $linkBlock = null;
-                }
-                
-                $mailer->sendAuthCode(
-                    $email,
-                    $subject,
-                    $message,
-                    $session['code'],
-                    $session['session_id'],
-                    $linkBlock
-                );
-
-                return [
-                    'data' => [
-                        'session_id' => $session['session_id'],
-                        'code_expires_at' => $session['code_valid_until'],
-                        'session_expires_at' => $session['expires_at']
-                    ],
-                    'status' => 200
-                ];
-            }
+            'POST' => [$authController, 'login']
         ]
     ],
     // POST /validate/{session_id}
@@ -150,58 +85,7 @@ $routes = [
         'pattern' => '#^/validate/([a-z0-9]+)$#',
         'pathVars' => ['session_id'],
         'methods' => [
-            'POST' => function($pathVars, $body) use ($dbService, $auth, $apiKey) {
-                // Session ID comes from URL parameter
-                $sessionId = $pathVars['session_id'];
-                
-                // Check if API key has access to this session
-                if (!$dbService->checkSessionAccess($sessionId, $apiKey)) {
-                    throw new InvalidSessionException();
-                }
-                
-                // Validate input - code must be in body
-                if (!isset($body['code'])) {
-                    throw new InvalidInputException('INVALID_INPUT', 'code required');
-                }
-
-                $code = $body['code'];
-
-                // Get session
-                $session = $dbService->getSessionBySessionId($sessionId);
-                
-                if (!$session) {
-                    throw new InvalidSessionException();
-                }
-
-                // Validate code for the session
-                $isValidCode = $dbService->validateCode($sessionId, $code);
-                
-                if (!$isValidCode) {
-                    throw new InvalidCodeException();
-                }
-
-                // Mark session as validated
-                $dbService->validateSession($sessionId);
-
-                // Touch user to generate new session ID
-                $newSessionId = $dbService->touchUser($sessionId);
-
-                if (!$newSessionId) {
-                    throw new StorageException('STORAGE_ERROR', 'Failed to refresh session');
-                }
-
-                // Regenerate code for security (so old code can't be reused)
-                $dbService->regenerateSessionCode($newSessionId);
-
-                return [
-                    'data' => [
-                        'session_id' => $newSessionId,
-                        'validated' => true,
-                        'session_expires_at' => $session['expires_at']
-                    ],
-                    'status' => 200
-                ];
-            }
+            'POST' => [$authController, 'validate']
         ]
     ],
     // POST /user/{session_id}/info
@@ -209,60 +93,7 @@ $routes = [
         'pattern' => '#^/user/([a-z0-9]+)/info$#',
         'pathVars' => ['session_id'],
         'methods' => [
-            'POST' => function($pathVars, $body) use ($dbService, $weblingClient, $uidEncryptor, $auth, $apiKey) {
-                // Get session_id from path
-                $sessionId = $pathVars['session_id'];
-                
-                // Check if API key has access to this session
-                if (!$dbService->checkSessionAccess($sessionId, $apiKey)) {
-                    throw new InvalidSessionException();
-                }
-                
-                // Get session
-                $session = $dbService->getSessionBySessionId($sessionId);
-                
-                if (!$session) {
-                    throw new InvalidSessionException();
-                }
-                
-                // Check if session is validated
-                if (!$session['validated']) {
-                    throw new InvalidSessionException();
-                }
-
-                // Get user
-                $user = $dbService->getUserBySessionId($sessionId);
-                
-                if (!$user) {
-                    throw new UserNotFoundException();
-                }
-
-                // Touch session to extend expiry
-                $newSessionId = $dbService->touchUser($sessionId);
-                
-                if (!$newSessionId) {
-                    throw new StorageException('STORAGE_ERROR', 'Failed to refresh session');
-                }
-
-                // Get weblingId (decrypt uid)
-                $weblingId = $uidEncryptor->decrypt($user['uid']);
-
-                // Fetch user data from Webling
-                $weblingUser = $weblingClient->getUserDataById((int)$weblingId);
-
-                if (!$weblingUser) {
-                    throw new StorageException('WEBLING_ERROR', 'Failed to fetch user from Webling');
-                }
-
-                return [
-                    'data' => [
-                        'session_id' => $newSessionId,
-                        'user' => $weblingUser,
-                        'session_expires_at' => $session['expires_at']
-                    ],
-                    'status' => 200
-                ];
-            }
+            'POST' => [$userController, 'getInfo']
         ]
     ],
     // POST /user/{session_id}/token
@@ -270,50 +101,7 @@ $routes = [
         'pattern' => '#^/user/([a-z0-9]+)/token$#',
         'pathVars' => ['session_id'],
         'methods' => [
-            'POST' => function($pathVars, $body) use ($dbService, $auth, $apiKey) {
-                // Get session_id from path
-                $sessionId = $pathVars['session_id'];
-                
-                // Check if API key has access to this session
-                if (!$dbService->checkSessionAccess($sessionId, $apiKey)) {
-                    throw new InvalidSessionException();
-                }
-                
-                // Get session
-                $session = $dbService->getSessionBySessionId($sessionId);
-                
-                if (!$session) {
-                    throw new InvalidSessionException();
-                }
-                
-                // Check if session is validated
-                if (!$session['validated']) {
-                    throw new InvalidSessionException();
-                }
-
-                // Get user
-                $user = $dbService->getUserBySessionId($sessionId);
-                
-                if (!$user) {
-                    throw new UserNotFoundException();
-                }
-
-                // Touch session to extend expiry
-                $newSessionId = $dbService->touchUser($sessionId);
-                
-                if (!$newSessionId) {
-                    throw new StorageException('STORAGE_ERROR', 'Failed to refresh session');
-                }
-
-                return [
-                    'data' => [
-                        'session_id' => $newSessionId,
-                        'token' => $user['uid'],
-                        'session_expires_at' => $session['expires_at']
-                    ],
-                    'status' => 200
-                ];
-            }
+            'POST' => [$userController, 'getToken']
         ]
     ],
     // GET /session/check/{session_id}
@@ -321,36 +109,7 @@ $routes = [
         'pattern' => '#^/session/check/([a-z0-9]+)$#',
         'pathVars' => ['session_id'],
         'methods' => [
-            'GET' => function($pathVars, $body) use ($dbService, $apiKey) {
-                // Session ID comes from URL parameter
-                $sessionId = $pathVars['session_id'];
-
-                // Check if API key has access to this session
-                if (!$dbService->checkSessionAccess($sessionId, $apiKey)) {
-                    throw new InvalidSessionException();
-                }
-
-                // Get session
-                $session = $dbService->getSessionBySessionId($sessionId);
-                
-                if (!$session) {
-                    throw new InvalidSessionException();
-                }
-
-                // Check if session is validated and not expired
-                if (!$session['validated'] || !$dbService->isSessionActive($sessionId)) {
-                    throw new InvalidSessionException();
-                }
-
-                return [
-                    'data' => [
-                        'session_id' => $sessionId,
-                        'expires_at' => $session['expires_at'],
-                        'active' => true
-                    ],
-                    'status' => 200
-                ];
-            }
+            'GET' => [$sessionController, 'check']
         ]
     ],
     // POST /session/touch/{session_id}
@@ -358,42 +117,7 @@ $routes = [
         'pattern' => '#^/session/touch/([a-z0-9]+)$#',
         'pathVars' => ['session_id'],
         'methods' => [
-            'POST' => function($pathVars, $body) use ($dbService, $apiKey) {
-                // Session ID comes from URL parameter
-                $sessionId = $pathVars['session_id'];
-
-                // Check if API key has access to this session
-                if (!$dbService->checkSessionAccess($sessionId, $apiKey)) {
-                    throw new InvalidSessionException();
-                }
-
-                // Check if session is active (not expired)
-                if (!$dbService->isSessionActive($sessionId)) {
-                    throw new InvalidSessionException();
-                }
-
-                // Touch user to refresh session and update last activity
-                $newSessionId = $dbService->touchUser($sessionId);
-
-                if (!$newSessionId) {
-                    throw new StorageException('STORAGE_ERROR', 'Failed to refresh session');
-                }
-
-                // Get the new session to retrieve expires_at
-                $newSession = $dbService->getSessionBySessionId($newSessionId);
-                
-                if (!$newSession) {
-                    throw new StorageException('STORAGE_ERROR', 'Failed to retrieve new session');
-                }
-
-                return [
-                    'data' => [
-                        'session_id' => $newSessionId,
-                        'expires_at' => $newSession['expires_at']
-                    ],
-                    'status' => 200
-                ];
-            }
+            'POST' => [$sessionController, 'touch']
         ]
     ],
     // POST /session/logout/{session_id}
@@ -401,27 +125,7 @@ $routes = [
         'pattern' => '#^/session/logout/([a-z0-9]+)$#',
         'pathVars' => ['session_id'],
         'methods' => [
-            'POST' => function($pathVars, $body) use ($dbService, $apiKey) {
-                // Session ID comes from URL parameter
-                $sessionId = $pathVars['session_id'];
-
-                // Check if API key has access to this session
-                if (!$dbService->checkSessionAccess($sessionId, $apiKey)) {
-                    throw new InvalidSessionException();
-                }
-
-                // Delete the session
-                $deleted = $dbService->deleteSession($sessionId);
-                
-                if (!$deleted) {
-                    throw new InvalidSessionException();
-                }
-
-                return [
-                    'data' => [],
-                    'status' => 204  // No Content
-                ];
-            }
+            'POST' => [$authController, 'logout']
         ]
     ]
 ];
