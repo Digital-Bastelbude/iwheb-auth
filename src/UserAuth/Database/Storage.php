@@ -281,6 +281,11 @@ class Database {
                 throw new StorageException('STORAGE_ERROR', 'User not found');
             }
 
+            // Delete any existing unvalidated sessions for this user with the same API key
+            // This ensures only one active login attempt per user per API key
+            $stmt = $this->pdo->prepare('DELETE FROM sessions WHERE user_token = ? AND api_key = ? AND validated = 0');
+            $stmt->execute([$userToken, $apiKey]);
+
             // Generate unique session ID
             do {
                 $sessionId = $this->generateSessionId();
