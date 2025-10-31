@@ -38,6 +38,7 @@ Complete documentation is located in the `doc/` directory:
 - **[🔐 Secrets Setup](doc/SECRETS-SETUP.md)** - Configure API keys and credentials
 - **[🔑 Login Flow](doc/LOGIN-FLOW.md)** - Authentication process details
 - **[🔀 Delegated Sessions](doc/DELEGATED-SESSIONS.md)** - Cross-app authentication
+- **[📡 API Reference](doc/openapi.yaml)** - OpenAPI 3.0 specification
 - **[🎫 Key Generator](doc/KEYGENERATOR.md)** - Generate and manage API keys
 - **[🚀 Deployment](doc/DEPLOYMENT.md)** - Deploy to shared hosting (Strato/Ionos)
 
