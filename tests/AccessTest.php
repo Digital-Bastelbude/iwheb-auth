@@ -1,6 +1,6 @@
 <?php
 use PHPUnit\Framework\TestCase;
-use IWebAuth\Auth\{ApiKeyHelper, RateLimiter, Authorizer, AuthorizationException};
+use IwhebAPI\UserAuth\Auth\{ApiKeyHelper, RateLimiter, Authorizer, AuthorizationException};
 
 require_once __DIR__ . '/bootstrap.php';
 

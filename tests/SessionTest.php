@@ -1,6 +1,6 @@
 <?php
 use PHPUnit\Framework\TestCase;
-use IWebAuth\Database\Database;
+use IwhebAPI\UserAuth\Database\Database;
 
 require_once __DIR__ . '/bootstrap.php';
 

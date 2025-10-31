@@ -15,16 +15,16 @@
   },
   "autoload": {
     "psr-4": { 
-      "IWebAuth\\": "src/"
+      "IwhebAPI\\UserAuth\\": "src/UserAuth/"
     },
     "files": [
-      "src/exceptions.php",
-      "src/logging.php"
+      "src/UserAuth/exceptions.php",
+      "src/UserAuth/logging.php"
     ],
     "classmap": [
-      "src/Auth/",
-      "src/Database/",
-      "src/Http/"
+      "src/UserAuth/Auth/",
+      "src/UserAuth/Database/",
+      "src/UserAuth/Http/"
     ]
   }
 }

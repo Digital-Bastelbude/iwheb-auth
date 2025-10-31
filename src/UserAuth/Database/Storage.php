@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace IWebAuth\Database;
+namespace IwhebAPI\UserAuth\Database;
 
 use StorageException;
 use PDO;

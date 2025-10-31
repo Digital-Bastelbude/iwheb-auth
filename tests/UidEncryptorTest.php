@@ -1,6 +1,6 @@
 <?php
 use PHPUnit\Framework\TestCase;
-use IWebAuth\Database\UidEncryptor;
+use IwhebAPI\UserAuth\Database\UidEncryptor;
 
 require_once __DIR__ . '/bootstrap.php';
 

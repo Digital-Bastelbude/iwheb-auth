@@ -2,7 +2,7 @@
 use PHPUnit\Framework\TestCase;
 
 require_once __DIR__ . '/bootstrap.php';
-require_once __DIR__ . '/../src/Http/RoutesLogic.php';
+require_once __DIR__ . '/../src/UserAuth/Http/RoutesLogic.php';
 
 class RoutesLogicTest extends TestCase {
     

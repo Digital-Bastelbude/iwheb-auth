@@ -1,9 +1,9 @@
 <?php
 declare(strict_types=1);
 
-namespace IWebAuth\Auth;
+namespace IwhebAPI\UserAuth\Auth;
 
-use IWebAuth\Http\Response;
+use IwhebAPI\UserAuth\Http\Response;
 
 /**
  * ApiKeyHelper

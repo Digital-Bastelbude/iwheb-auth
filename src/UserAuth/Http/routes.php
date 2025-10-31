@@ -1,10 +1,10 @@
 <?php
 declare(strict_types=1);
 
-namespace IWebAuth\Http;
+namespace IwhebAPI\UserAuth\Http;
 
-use IWebAuth\Database\{Database, UidEncryptor};
-use IWebAuth\Auth\{Authorizer, ApiKeyManager, AuthorizationException};
+use IwhebAPI\UserAuth\Database\{Database, UidEncryptor};
+use IwhebAPI\UserAuth\Auth\{Authorizer, ApiKeyManager, AuthorizationException};
 use InvalidInputException;
 use UserNotFoundException;
 use InvalidSessionException;

@@ -51,4 +51,4 @@ $CONFIG = load_config();
 require_once __DIR__ . '/../vendor/autoload.php';
 
 // Dispatch routes
-require_once __DIR__ . '/../src/Http/routes.php';
+require_once __DIR__ . '/../src/UserAuth/Http/routes.php';

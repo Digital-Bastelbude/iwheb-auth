@@ -1,6 +1,6 @@
 <?php
 use PHPUnit\Framework\TestCase;
-use IWebAuth\Auth\ApiKeyManager;
+use IwhebAPI\UserAuth\Auth\ApiKeyManager;
 
 require_once __DIR__ . '/bootstrap.php';
 

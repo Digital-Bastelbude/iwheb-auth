@@ -1,9 +1,8 @@
 <?php
 declare(strict_types=1);
 
-namespace IWebAuth\Http;
+namespace IwhebAPI\UserAuth\Http;
 
-use WeblingApiException;
 use WeblingException;
 
 /**
