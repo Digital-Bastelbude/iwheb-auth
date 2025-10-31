@@ -5,11 +5,12 @@ Secure PHP authentication with Webling integration, session management, and API 
 ## Features
 
 - 🔐 Webling API authentication
-- �� 6-digit code sessions (30min)
+- 📧 Email code delivery via SMTP
+- 🔢 6-digit code sessions (30min)
 - 🔑 API key permissions
 - 🛡️ Session isolation per key
 - 🔒 XChaCha20-Poly1305 encryption
-- ✅ 153 tests
+- ✅ 158 tests
 
 ## Quick Setup
 
@@ -120,6 +121,8 @@ vendor/bin/phpunit tests/SessionTest.php    # Specific
 
 - [SECRETS-SETUP.md](SECRETS-SETUP.md) - Configuration
 - [LOGIN-FLOW.md](LOGIN-FLOW.md) - Auth flow
+- [EMAIL-CONFIGURATION.md](EMAIL-CONFIGURATION.md) - SMTP email setup
+- [DEPLOYMENT.md](DEPLOYMENT.md) - Production deployment
 - [KEYGENERATOR.md](KEYGENERATOR.md) - Key generation
 
 **Requirements:** PHP 8.1+ with libsodium, sqlite3, json, curl | Composer | Webling account

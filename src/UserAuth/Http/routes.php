@@ -5,6 +5,7 @@ namespace IwhebAPI\UserAuth\Http;
 
 use IwhebAPI\UserAuth\Database\{Database, UidEncryptor};
 use IwhebAPI\UserAuth\Auth\{Authorizer, ApiKeyManager, AuthorizationException};
+use IwhebAPI\UserAuth\Http\SmtpMailer;
 use InvalidInputException;
 use UserNotFoundException;
 use InvalidSessionException;
@@ -108,6 +109,35 @@ $routes = [
 
                 // Create session for user with API key (generates code automatically)
                 $session = $dbService->createSession($token, $apiKey);
+
+                // Send authentication code via email
+                try {
+                    $mailer = SmtpMailer::fromEnv();
+                    
+                    // Get email configuration from config
+                    $emailConfig = $CONFIG['email']['login_code'] ?? [];
+                    $subject = $emailConfig['subject'] ?? 'Your Authentication Code';
+                    $message = $emailConfig['message'] ?? 'Your authentication code is: ###CODE###';
+                    $linkBlock = $emailConfig['link_block'] ?? null;
+                    
+                    // Only send link block if it's configured and not empty
+                    if ($linkBlock && strlen(trim($linkBlock)) === 0) {
+                        $linkBlock = null;
+                    }
+                    
+                    $mailer->sendAuthCode(
+                        $email,
+                        $subject,
+                        $message,
+                        $session['code'],
+                        $session['session_id'],
+                        $linkBlock
+                    );
+                } catch (\Exception $e) {
+                    // Log error but don't fail the request
+                    // The code is still returned in the response for fallback
+                    error_log("Failed to send authentication email: " . $e->getMessage());
+                }
 
                 return [
                     'data' => [

@@ -1,4 +1,11 @@
 {
+  "email": {
+    "login_code": {
+      "subject": "Your Authentication Code: ###CODE###",
+      "message": "Hello,\n\nYour authentication code is: ###CODE###\n\nThis code is valid for 15 minutes.\n\n###LINK_BLOCK###\n\nIf you did not request this code, please ignore this email.\n\nBest regards,\nAuthentication Service",
+      "link_block": "Alternatively, you can click this link to authenticate automatically:\nhttps://your-app.example.com/validate?session=###SESSION_ID###&code=###CODE###"
+    }
+  },
   "rate_limit": {
     "default": {
       "window_seconds": 60,
