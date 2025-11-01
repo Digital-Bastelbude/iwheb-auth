@@ -19,3 +19,4 @@ config/.secrets.php
 # phpUnit Cache
 .phpunit*/*
 .phpunit.result.cache
+storage/data.db

@@ -51,7 +51,7 @@ function generateBothKeys(): void {
     echo "Add to config/.secrets.php \$API_KEYS array:\n";
     echo "    '$apiKey' => [\n";
     echo "        'name' => 'Your App Name',\n";
-    echo "        'permissions' => ['user_info', 'user_token']\n";
+    echo "        'permissions' => ['user_info', 'user_token', 'delegate']\n";
     echo "    ],\n\n";
     
     echo "=== SETUP COMPLETE ===\n";
@@ -86,7 +86,7 @@ if (basename(__FILE__) === basename($_SERVER['SCRIPT_NAME'] ?? '')) {
             echo "Add to config/.secrets.php \$API_KEYS array:\n";
             echo "    '$key' => [\n";
             echo "        'name' => 'Your App Name',\n";
-            echo "        'permissions' => ['user_info', 'user_token']\n";
+            echo "        'permissions' => ['user_info', 'user_token', 'delegate']\n";
             echo "    ],\n";
             break;
             
