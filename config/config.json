@@ -13,30 +13,5 @@
     }
   },
   "keys": {
-    "demo-key-123": {
-      "routes": [
-        "GET:/items",
-        "GET:/items/{id}",
-        "POST:/items",
-        "PUT:/items/{id}"
-      ],
-      "scopes": [
-        "read",
-        "write"
-      ],
-      "rate_limit": {
-        "window_seconds": 60,
-        "max_requests": 10
-      }
-    },
-    "readonly-abc": {
-      "routes": [
-        "GET:/items",
-        "GET:/items/{id}"
-      ],
-      "scopes": [
-        "read"
-      ]
-    }
   }
 }
