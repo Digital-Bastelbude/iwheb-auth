@@ -22,19 +22,44 @@ function generateEncryptionKey(): string {
 function showHelp(): void {
     echo "Key Generator - Generate secure keys for authentication\n\n";
     echo "Usage:\n";
-    echo "  php keygenerator.php                    # Generate API key (32 chars)\n";
+    echo "  php keygenerator.php                    # Generate both encryption and API key\n";
     echo "  php keygenerator.php api [length]       # Generate API key with optional length\n";
-    echo "  php keygenerator.php encryption         # Generate encryption key\n";
+    echo "  php keygenerator.php encryption         # Generate encryption key only\n";
     echo "  php keygenerator.php help               # Show this help\n\n";
     echo "Examples:\n";
-    echo "  php keygenerator.php                    # API key: abc123...\n";
+    echo "  php keygenerator.php                    # Both keys for complete setup\n";
     echo "  php keygenerator.php api 64             # 64-char API key\n";
     echo "  php keygenerator.php encryption         # Encryption key: base64:...\n";
 }
 
+/**
+ * Generate both encryption and API key for complete setup
+ */
+function generateBothKeys(): void {
+    $encryptionKey = generateEncryptionKey();
+    $apiKey = generateApiKey(32);
+    
+    echo "=== COMPLETE KEY SETUP ===\n\n";
+    
+    echo "1. Encryption Key (for config/.secrets.php ENCRYPTION_KEY):\n";
+    echo $encryptionKey . "\n\n";
+    echo "Add to config/.secrets.php:\n";
+    echo "putenv('ENCRYPTION_KEY=$encryptionKey');\n\n";
+    
+    echo "2. API Key (for config/.secrets.php \$API_KEYS array):\n";
+    echo $apiKey . "\n\n";
+    echo "Add to config/.secrets.php \$API_KEYS array:\n";
+    echo "    '$apiKey' => [\n";
+    echo "        'name' => 'Your App Name',\n";
+    echo "        'permissions' => ['user_info', 'user_token']\n";
+    echo "    ],\n\n";
+    
+    echo "=== SETUP COMPLETE ===\n";
+}
+
 // If called directly from command line
 if (basename(__FILE__) === basename($_SERVER['SCRIPT_NAME'] ?? '')) {
-    $type = $argv[1] ?? 'api';
+    $type = $argv[1] ?? 'both';
     
     switch ($type) {
         case 'help':
@@ -52,18 +77,22 @@ if (basename(__FILE__) === basename($_SERVER['SCRIPT_NAME'] ?? '')) {
             break;
             
         case 'api':
-        default:
             $length = isset($argv[2]) ? (int)$argv[2] : 32;
             if ($length < 16) $length = 32;
             
             $key = generateApiKey($length);
-            echo "API Key (for .secrets.php \$API_KEYS array):\n";
+            echo "API Key (for config/.secrets.php \$API_KEYS array):\n";
             echo $key . "\n\n";
             echo "Add to config/.secrets.php \$API_KEYS array:\n";
             echo "    '$key' => [\n";
             echo "        'name' => 'Your App Name',\n";
             echo "        'permissions' => ['user_info', 'user_token']\n";
             echo "    ],\n";
+            break;
+            
+        case 'both':
+        default:
+            generateBothKeys();
             break;
     }
 }
