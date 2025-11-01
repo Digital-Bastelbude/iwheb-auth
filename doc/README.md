@@ -20,11 +20,10 @@ composer install
 cp config/secrets.php.example config/.secrets.php
 chmod 600 config/.secrets.php
 
-# Generate keys
-php -r "echo 'base64:' . base64_encode(random_bytes(32)) . PHP_EOL;"
-php -r "require 'keygenerator.php'; echo generateApiKey(32) . PHP_EOL;"
+# Generate keys (creates both encryption key and API key)
+php keygenerator.php
 
-# Edit config/.secrets.php, then:
+# Edit config/.secrets.php with your settings, then:
 php -S localhost:8080 -t public
 vendor/bin/phpunit --testdox
 ```

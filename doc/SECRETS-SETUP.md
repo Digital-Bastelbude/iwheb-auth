@@ -1,36 +1,90 @@
 # Secrets Configuration
 
-## Setup
+## Quick Setup
+
+```bash
+cp config/secrets.php.example config/.secrets.php
+php keygenerator.php                    # Generates both encryption key and API key
+nano config/.secrets.php                # Fill in your values
+chmod 600 config/.secrets.php
+```
+
+## Manual Setup
 
 ```bash
 cp config/secrets.php.example config/.secrets.php
 php -r "echo 'base64:' . base64_encode(random_bytes(32)) . PHP_EOL;"  # Encryption key
-php -r "require 'keygenerator.php'; echo generateApiKey(32) . PHP_EOL;"  # API key (repeat for more)
+php keygenerator.php encryption          # Encryption key only
+php keygenerator.php api                 # API key only
 nano config/.secrets.php
 chmod 600 config/.secrets.php
 ```
 
-## Configuration
+## API Key Configuration
+
+API keys are configured exclusively in `config/.secrets.php` with full access control:
 
 ```php
-putenv('ENCRYPTION_KEY=base64:YourGeneratedKeyHere...');
-putenv('WEBLING_DOMAIN=your-company');  // without .webling.ch
-putenv('WEBLING_API_KEY=your-api-key');
-
 $API_KEYS = [
-    'generated-key-1' => ['name' => 'Main App', 'permissions' => ['user_info', 'user_token']],
-    'generated-key-2' => ['name' => 'Limited', 'permissions' => []],  // Only default routes
+    'your-generated-key' => [
+        'name' => 'Main Application',           // Descriptive name
+        'permissions' => ['user_info', 'user_token', 'delegate'],  // Legacy permissions
+        'routes' => [                           // Specific allowed routes
+            'POST:/login',
+            'POST:/validate/{session_id}',
+            'GET:/session/check/{session_id}',
+            'POST:/session/touch/{session_id}',
+            'POST:/session/logout/{session_id}',
+            'POST:/session/delegate/{session_id}',
+            'POST:/user/{session_id}/info',
+            'POST:/user/{session_id}/token'
+        ],
+        'scopes' => ['read', 'write'],          // Access scopes
+        'rate_limit' => [                       // Custom rate limiting
+            'window_seconds' => 60,
+            'max_requests' => 100
+        ]
+    ]
 ];
 ```
 
-## Permissions
+## Access Control Options
 
-| Permission | Route |
-|------------|-------|
-| `user_info` | `POST /user/{session_id}/info` |
-| `user_token` | `POST /user/{session_id}/token` |
+### Routes
+Specific endpoints the API key can access:
+```php
+'routes' => [
+    'POST:/login',                          // Authentication
+    'POST:/validate/{session_id}',          // Code validation
+    'GET:/session/check/{session_id}',      // Session status
+    'POST:/session/touch/{session_id}',     // Session renewal
+    'POST:/session/logout/{session_id}',    // Session termination
+    'POST:/session/delegate/{session_id}',  // Session delegation
+    'POST:/user/{session_id}/info',         // User information
+    'POST:/user/{session_id}/token'         // User token generation
+]
+```
 
-**Default routes** (always allowed): `/login`, `/validate/{id}`, `/session/check/{id}`, `/session/touch/{id}`, `/session/logout/{id}`
+### Scopes
+Broader access control:
+- `read`: Safe operations (GET, HEAD, OPTIONS)
+- `write`: Modifying operations (POST, PUT, DELETE)
+
+### Legacy Permissions
+Backward compatibility with simple permission system:
+- `user_info`: Access to `/user/{session_id}/info`
+- `user_token`: Access to `/user/{session_id}/token` 
+- `delegate`: Access to `/session/delegate/{session_id}`
+
+### Rate Limiting
+Per-key rate limiting:
+```php
+'rate_limit' => [
+    'window_seconds' => 60,     // Time window
+    'max_requests' => 100       // Max requests per window
+]
+// Omit for default rate limits from config.json
+```
 
 ## Session Isolation
 

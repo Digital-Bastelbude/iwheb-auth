@@ -8,10 +8,25 @@ info:
     - Webling API authentication
     - Email code delivery via SMTP
     - 6-digit code sessions (30min default)
-    - API key permissions
+    - API key permissions with routes, scopes, and rate limits
     - Session isolation per key
     - Delegated cross-app sessions
     - XChaCha20-Poly1305 encryption
+    
+    ## API Key Configuration
+    
+    API keys are configured exclusively in `config/.secrets.php` with comprehensive access control:
+    
+    ```php
+    $API_KEYS = [
+        'your-api-key' => [
+            'name' => 'Application Name',
+            'routes' => ['POST:/login', 'POST:/validate/{session_id}', ...],
+            'scopes' => ['read', 'write'],
+            'rate_limit' => ['window_seconds' => 60, 'max_requests' => 100]
+        ]
+    ];
+    ```
   version: 1.0.0
   contact:
     name: Digital Bastelbude
