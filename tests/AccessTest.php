@@ -60,44 +60,41 @@ class AccessTest extends TestCase {
         $auth = new Authorizer($cfg);
         $this->expectException(AuthorizationException::class);
         $this->expectExceptionMessage('NO_KEY');
-        $auth->authorize('GET', '/items');
+        $auth->authorize('GET', '/items', '');
     }
 
     public function testAuthorizerInvalidKeyThrows(): void {
-        // set a key in headers
-        $_SERVER['HTTP_X_API_KEY'] = 'unknown-key';
         $cfg = ['keys' => []];
         $auth = new Authorizer($cfg);
         $this->expectException(AuthorizationException::class);
         $this->expectExceptionMessage('INVALID_KEY');
-        try {
-            $auth->authorize('GET', '/items');
-        } finally {
-            unset($_SERVER['HTTP_X_API_KEY']);
-        }
+        $auth->authorize('GET', '/items', 'unknown-key');
     }
 
     public function testAuthorizerNoPermissionThrows(): void {
-        $_SERVER['HTTP_X_API_KEY'] = 'k';
         $cfg = ['keys' => ['k' => ['routes' => [], 'scopes' => []], 'rate_limit' => ['default' => ['window_seconds' => 60, 'max_requests' => 100]]]];
         $auth = new Authorizer($cfg);
         $this->expectException(AuthorizationException::class);
         $this->expectExceptionMessage('NO_PERMISSION');
-        try { $auth->authorize('GET', '/items'); } finally { unset($_SERVER['HTTP_X_API_KEY']); }
+        $auth->authorize('GET', '/items', 'k');
     }
 
     public function testAuthorizerRateLimitThrows(): void {
-        $_SERVER['HTTP_X_API_KEY'] = 'rlkey';
         $dir = sys_get_temp_dir() . '/rl_test_' . bin2hex(random_bytes(4));
         $cfg = ['keys' => ['rlkey' => ['routes' => ['GET:/foo'], 'scopes' => ['read'], 'rate_limit' => ['window_seconds' => 60, 'max_requests' => 1]]], 'rate_limit' => ['default' => ['window_seconds' => 60, 'max_requests' => 10]]];
         $rl = new RateLimiter($dir);
         $auth = new Authorizer($cfg, new ApiKeyHelper(), $rl);
         // first call allowed
-        $res = $auth->authorize('GET', '/foo');
+        $res = $auth->authorize('GET', '/foo', 'rlkey');
         $this->assertSame('rlkey', $res['key']);
         // second call should throw rate limit
         $this->expectException(AuthorizationException::class);
         $this->expectExceptionMessage('RATE_LIMIT');
-        try { $auth->authorize('GET', '/foo'); } finally { unset($_SERVER['HTTP_X_API_KEY']); array_map('unlink', glob($dir . '/*.json') ?: []); @rmdir($dir); }
+        try { 
+            $auth->authorize('GET', '/foo', 'rlkey'); 
+        } finally { 
+            array_map('unlink', glob($dir . '/*.json') ?: []); 
+            @rmdir($dir); 
+        }
     }
 }

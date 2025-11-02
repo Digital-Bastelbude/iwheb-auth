@@ -57,10 +57,10 @@ if (!$apiKeyManager->canAccessRoute($apiKey, $PATH)) {
 }
 
 // Authorize once for the current request and path. Authorizer will call
-// Response::notFound() and exit on failure, so below we only run routes when
-// authorization succeeded and returned an auth array.
+// API key validation and route access is already handled above
+// Pass the API key to the authorize method for rate limiting and additional checks
 try {
-    $auth = $authorizer->authorize($METHOD, $PATH);
+    $auth = $authorizer->authorize($METHOD, $PATH, $apiKey);
 } catch (AuthorizationException $e) {
     // Convert authorization failure to the existing response/logging behaviour
     Response::getInstance()->notFound($e->key ?? null, $e->reason);

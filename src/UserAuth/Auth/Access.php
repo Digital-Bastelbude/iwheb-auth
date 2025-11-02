@@ -217,11 +217,13 @@ class Authorizer {
      *
      * @param string $method HTTP method of the request.
      * @param string $path Request path.
+     * @param string $method HTTP method (GET, POST, etc.)
+     * @param string $path Request path
+     * @param string $key API key to authorize
      * @return array ['key' => string, 'def' => array] on success.
      */
-    public function authorize(string $method, string $path): array {
+    public function authorize(string $method, string $path, string $key): array {
         $cfg = $this->config;
-        $key = $this->keyHelper->getApiKey();
         if (!$key) throw new AuthorizationException(null, 'NO_KEY');
 
         $kdef = $cfg['keys'][$key] ?? null;
