@@ -45,7 +45,9 @@ See [SECRETS-SETUP.md](SECRETS-SETUP.md) for configuration details.
 
 **Auth:** `X-API-Key: your-key` or `Authorization: ApiKey your-key`
 
-See [LOGIN-FLOW.md](LOGIN-FLOW.md) for details.
+**Quick Reference:**
+- 📋 [API-CHEATSHEET.md](API-CHEATSHEET.md) - curl examples for all endpoints
+- 📄 [LOGIN-FLOW.md](LOGIN-FLOW.md) - authentication flow details
 
 ## Structure
 

@@ -28,6 +28,9 @@ php -S localhost:8080 -t public
 
 # Run tests
 vendor/bin/phpunit --colors=always --testdox
+
+# Test API endpoints interactively
+tests/test-api.sh
 ```
 
 ## Documentation
@@ -35,6 +38,7 @@ vendor/bin/phpunit --colors=always --testdox
 Complete documentation is located in the `doc/` directory:
 
 - **[📖 Main Documentation](doc/README.md)** - Complete overview, features and usage
+- **[⚡ API Cheatsheet](doc/API-CHEATSHEET.md)** - Quick curl examples for all endpoints
 - **[🔐 Secrets Setup](doc/SECRETS-SETUP.md)** - Configure API keys and credentials
 - **[🔑 Login Flow](doc/LOGIN-FLOW.md)** - Authentication process details
 - **[🔀 Delegated Sessions](doc/DELEGATED-SESSIONS.md)** - Cross-app authentication
