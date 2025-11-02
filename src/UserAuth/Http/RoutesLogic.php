@@ -72,6 +72,8 @@ function run_routes(array $routes, string $path, string $method, $response): arr
                     }
                 }
             }
+
+            error_log("DEBUG: path vars: " . json_encode($pathVars));
             
             $result = call_user_func($handler, $pathVars, $body);
             
