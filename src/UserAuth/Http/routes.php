@@ -66,6 +66,8 @@ try {
     Response::getInstance()->notFound($e->key ?? null, $e->reason);
 }
 
+\error_log("DEBUG: authorized, key: {$auth['key']}");
+
 // Instantiate controllers
 $authController = new AuthController($dbService, $response, $authorizer, $apiKeyManager, $CONFIG, $apiKey, $weblingClient, $uidEncryptor);
 $sessionController = new SessionController($dbService, $response, $authorizer, $apiKeyManager, $CONFIG, $apiKey);

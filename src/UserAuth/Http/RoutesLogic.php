@@ -4,28 +4,18 @@ declare(strict_types=1);
 use IwhebAPI\UserAuth\Exception\Http\InvalidInputException;
 
 /**
- * Dispatcher: given the routes dictionary, the current path and method,
+ * Dispatcher: given the pattern-based routes array, the current path and method,
  * call the matching handler and send the response (or map errors to notFound).
  *
- * Routes format supports two structures:
- * 
- * 1. Legacy format (simple paths):
- * [
- *   'items' => [
- *     'noParam' => ['GET' => 'items_list', 'POST' => 'items_create'],
- *     'withParam' => ['GET' => 'items_get', 'PUT' => 'items_put']
- *   ]
- * ]
- * 
- * 2. Pattern-based format (flexible paths):
+ * Routes format (pattern-based only):
  * [
  *   [
  *     'pattern' => '#^/api/v1/items$#',
- *     'methods' => ['GET' => function($matches, $body) { ... }]
+ *     'methods' => ['GET' => function($pathVars, $body) { ... }]
  *   ],
  *   [
  *     'pattern' => '#^/api/v1/items/(\d+)$#',
- *     'methods' => ['GET' => function($matches, $body) { ... }],
+ *     'methods' => ['GET' => function($pathVars, $body) { ... }],
  *     'pathVars' => ['id'] // Optional: name for captured groups
  *   ]
  * ]
@@ -45,92 +35,55 @@ function run_routes(array $routes, string $path, string $method, $response): arr
         throw new InvalidInputException('INVALID_INPUT');
     }
 
-    // Check if routes use pattern-based format (array of arrays with 'pattern' key)
-    $isPatternBased = isset($routes[0]) && is_array($routes[0]) && isset($routes[0]['pattern']);
-    
-    if ($isPatternBased) {
-        // Pattern-based routing
-        foreach ($routes as $route) {
-            if (!isset($route['pattern']) || !isset($route['methods'])) {
-                continue;
-            }
-            
-            if (preg_match($route['pattern'], $path, $matches)) {
-                $handler = $route['methods'][$method] ?? null;
-                
-                if (!$handler || !is_callable($handler)) {
-                    throw new \Exception('METHOD_NOT_ALLOWED');
-                }
-                
-                // Build pathVars from captured groups
-                $pathVars = [];
-                if (isset($route['pathVars']) && is_array($route['pathVars'])) {
-                    // Named path variables
-                    foreach ($route['pathVars'] as $index => $name) {
-                        if (isset($matches[$index + 1])) {
-                            $pathVars[$name] = $matches[$index + 1];
-                            // Convert to int if it's numeric
-                            if (ctype_digit($pathVars[$name])) {
-                                $pathVars[$name] = (int)$pathVars[$name];
-                            }
-                        }
-                    }
-                } else {
-                    // Unnamed: just pass numeric indexes (backward compatible)
-                    for ($i = 1; $i < count($matches); $i++) {
-                        $pathVars[$i - 1] = $matches[$i];
-                        if (ctype_digit($pathVars[$i - 1])) {
-                            $pathVars[$i - 1] = (int)$pathVars[$i - 1];
-                        }
-                    }
-                }
-                
-                $result = call_user_func($handler, $pathVars, $body);
-                
-                if (is_array($result) && array_key_exists('data', $result)) {
-                    return $result;
-                }
-                
-                throw new \Exception('INVALID_HANDLER_RESPONSE');
-            }
+    error_log("DEBUG: run_routes called with PATH: {$path}, METHOD: {$method}, BODY: " . json_encode($body), 0);
+
+    // Process pattern-based routes
+    foreach ($routes as $route) {
+        if (!isset($route['pattern']) || !isset($route['methods'])) {
+            continue;
         }
         
-        throw new \Exception('NOT_FOUND');
+        if (preg_match($route['pattern'], $path, $matches)) {
+            $handler = $route['methods'][$method] ?? null;
+            
+            if (!$handler || !is_callable($handler)) {
+                throw new \Exception('METHOD_NOT_ALLOWED');
+            }
+            
+            // Build pathVars from captured groups
+            $pathVars = [];
+            if (isset($route['pathVars']) && is_array($route['pathVars'])) {
+                // Named path variables
+                foreach ($route['pathVars'] as $index => $name) {
+                    if (isset($matches[$index + 1])) {
+                        $pathVars[$name] = $matches[$index + 1];
+                        // Convert to int if it's numeric
+                        if (ctype_digit($pathVars[$name])) {
+                            $pathVars[$name] = (int)$pathVars[$name];
+                        }
+                    }
+                }
+            } else {
+                // Unnamed: just pass numeric indexes (backward compatible)
+                for ($i = 1; $i < count($matches); $i++) {
+                    $pathVars[$i - 1] = $matches[$i];
+                    if (ctype_digit($pathVars[$i - 1])) {
+                        $pathVars[$i - 1] = (int)$pathVars[$i - 1];
+                    }
+                }
+            }
+            
+            $result = call_user_func($handler, $pathVars, $body);
+            
+            if (is_array($result) && array_key_exists('data', $result)) {
+                return $result;
+            }
+            
+            throw new \Exception('INVALID_HANDLER_RESPONSE');
+        } else {
+            error_log("DEBUG: no mathing route found");
+        }
     }
     
-    // Legacy routing (backward compatible)
-    $pathVars = [];
-    if (preg_match('#^/([^/]+)/(\d+)$#', $path, $m)) {
-        $base = $m[1];
-        $pathVars['id'] = (int)$m[2];
-        $mode = 'withParam';
-    } elseif (preg_match('#^/([^/]+)$#', $path, $m)) {
-        $base = $m[1];
-        $mode = 'noParam';
-    } else {
-        throw new \Exception('NOT_FOUND');
-    }
-
-    if (!isset($routes[$base])) {
-        throw new \Exception('NOT_FOUND');
-    }
-
-    $mapping = $routes[$base];
-    if (!isset($mapping[$mode]) || !is_array($mapping[$mode])) {
-        throw new \Exception('NOT_FOUND');
-    }
-
-    $handler = $mapping[$mode][$method] ?? null;
-    // handler must be a callable (closure or function name)
-    if (!$handler || !is_callable($handler)) {
-        throw new \Exception('NOT_FOUND');
-    }
-
-    $result = call_user_func($handler, $pathVars, $body);
-
-    if (is_array($result) && array_key_exists('data', $result)) {
-        return $result;
-    }
-    // If handler returned something unexpected, signal not found to caller
     throw new \Exception('NOT_FOUND');
 }

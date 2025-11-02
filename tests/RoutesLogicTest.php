@@ -7,16 +7,19 @@ require_once __DIR__ . '/../src/UserAuth/Http/RoutesLogic.php';
 
 class RoutesLogicTest extends TestCase {
     
-    // ================== Legacy Format Tests ==================
+    // ================== Pattern-Based Format Tests ==================
 
     public function testRunRoutesNoParamCallsHandler(): void {
         $called = [];
         $routes = [
-            'items' => [
-                'noParam' => ['GET' => function($vars, $body) use (&$called) {
-                    $called = ['vars' => $vars, 'body' => $body];
-                    return ['data' => ['list' => []]];
-                }]
+            [
+                'pattern' => '#^/items$#',
+                'methods' => [
+                    'GET' => function($vars, $body) use (&$called) {
+                        $called = ['vars' => $vars, 'body' => $body];
+                        return ['data' => ['list' => []]];
+                    }
+                ]
             ]
         ];
 
@@ -34,11 +37,15 @@ class RoutesLogicTest extends TestCase {
     public function testRunRoutesWithParamCallsHandler(): void {
         $captured = [];
         $routes = [
-            'widgets' => [
-                'withParam' => ['GET' => function($vars, $body) use (&$captured) {
-                    $captured = ['vars' => $vars, 'body' => $body];
-                    return ['data' => ['item' => ['id' => $vars['id']]]];
-                }]
+            [
+                'pattern' => '#^/widgets/(\d+)$#',
+                'pathVars' => ['id'],
+                'methods' => [
+                    'GET' => function($vars, $body) use (&$captured) {
+                        $captured = ['vars' => $vars, 'body' => $body];
+                        return ['data' => ['item' => ['id' => $vars['id']]]];
+                    }
+                ]
             ]
         ];
 
@@ -358,8 +365,9 @@ class RoutesLogicTest extends TestCase {
         $this->expectExceptionMessage('INVALID_INPUT');
         
         $routes = [
-            'items' => [
-                'noParam' => [
+            [
+                'pattern' => '#^/items$#',
+                'methods' => [
                     'POST' => function($pathVars, $body) {
                         return ['data' => [], 'status' => 200];
                     }
@@ -379,8 +387,9 @@ class RoutesLogicTest extends TestCase {
         $capturedBody = null;
         
         $routes = [
-            'items' => [
-                'noParam' => [
+            [
+                'pattern' => '#^/items$#',
+                'methods' => [
                     'POST' => function($pathVars, $body) use (&$capturedBody) {
                         $capturedBody = $body;
                         return ['data' => $body, 'status' => 201];
