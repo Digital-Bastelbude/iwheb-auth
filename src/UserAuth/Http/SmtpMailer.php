@@ -17,16 +17,18 @@ class SmtpMailer {
     private string $fromEmail;
     private string $fromName;
     private bool $useTls;
+    private bool $useSsl;
     private $socket = null;
     
     /**
      * @param string $host SMTP server hostname
-     * @param int $port SMTP server port (usually 587 for TLS, 465 for SSL, 25 for plain)
+     * @param int $port SMTP server port (465 for SSL, 587 for TLS, 25 for plain)
      * @param string $username SMTP username
      * @param string $password SMTP password
      * @param string $fromEmail Sender email address
      * @param string $fromName Sender name
      * @param bool $useTls Use TLS encryption (STARTTLS)
+     * @param bool $useSsl Use SSL encryption (direct SSL connection)
      */
     public function __construct(
         string $host,
@@ -35,7 +37,8 @@ class SmtpMailer {
         string $password,
         string $fromEmail,
         string $fromName = '',
-        bool $useTls = true
+        bool $useTls = true,
+        bool $useSsl = false
     ) {
         $this->host = $host;
         $this->port = $port;
@@ -44,6 +47,20 @@ class SmtpMailer {
         $this->fromEmail = $fromEmail;
         $this->fromName = $fromName ?: $fromEmail;
         $this->useTls = $useTls;
+        $this->useSsl = $useSsl;
+        
+        // SSL and TLS are mutually exclusive
+        if ($this->useSsl && $this->useTls) {
+            $this->useTls = false; // SSL takes precedence
+        }
+        
+        // Auto-detect common port configurations
+        if ($port === 465 && !$useSsl) {
+            $this->useSsl = true;
+            $this->useTls = false;
+        } elseif ($port === 587 && !$useTls && !$useSsl) {
+            $this->useTls = true;
+        }
     }
     
     /**
@@ -57,6 +74,7 @@ class SmtpMailer {
      * - SMTP_FROM_EMAIL
      * - SMTP_FROM_NAME (optional)
      * - SMTP_USE_TLS (optional, default true)
+     * - SMTP_USE_SSL (optional, default false, takes precedence over TLS)
      */
     public static function fromEnv(): self {
         $host = $_ENV['SMTP_HOST'] ?? getenv('SMTP_HOST');
@@ -69,12 +87,16 @@ class SmtpMailer {
             $_ENV['SMTP_USE_TLS'] ?? getenv('SMTP_USE_TLS') ?? 'true',
             FILTER_VALIDATE_BOOLEAN
         );
+        $useSsl = filter_var(
+            $_ENV['SMTP_USE_SSL'] ?? getenv('SMTP_USE_SSL') ?? 'false',
+            FILTER_VALIDATE_BOOLEAN
+        );
         
         if (!$host || !$username || !$password || !$fromEmail) {
             throw new \RuntimeException('SMTP configuration incomplete in environment variables');
         }
         
-        return new self($host, $port, $username, $password, $fromEmail, $fromName, $useTls);
+        return new self($host, $port, $username, $password, $fromEmail, $fromName, $useTls, $useSsl);
     }
     
     /**
@@ -141,7 +163,27 @@ class SmtpMailer {
     }
     
     private function connect(): void {
-        $this->socket = @fsockopen($this->host, $this->port, $errno, $errstr, 10);
+        // For SSL, use direct encrypted connection
+        if ($this->useSsl) {
+            $this->socket = @stream_socket_client(
+                "ssl://{$this->host}:{$this->port}",
+                $errno,
+                $errstr,
+                10,
+                STREAM_CLIENT_CONNECT,
+                stream_context_create([
+                    'ssl' => [
+                        'verify_peer' => false,
+                        'verify_peer_name' => false,
+                        'allow_self_signed' => true
+                    ]
+                ])
+            );
+        } else {
+            // Plain connection for TLS or no encryption
+            $this->socket = @fsockopen($this->host, $this->port, $errno, $errstr, 10);
+        }
+        
         if (!$this->socket) {
             throw new \RuntimeException("Cannot connect to SMTP server: $errstr ($errno)");
         }
@@ -152,8 +194,8 @@ class SmtpMailer {
         // Send EHLO
         $this->sendCommand("EHLO {$this->host}");
         
-        // Start TLS if enabled
-        if ($this->useTls) {
+        // Start TLS if enabled (only for non-SSL connections)
+        if ($this->useTls && !$this->useSsl) {
             $this->sendCommand("STARTTLS");
             if (!stream_socket_enable_crypto($this->socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT)) {
                 throw new \RuntimeException("Failed to enable TLS encryption");
