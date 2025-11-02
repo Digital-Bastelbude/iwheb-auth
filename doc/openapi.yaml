@@ -244,7 +244,7 @@ paths:
           $ref: '#/components/responses/NotFound'
 
   /user/{session_id}/info:
-    post:
+    get:
       tags:
         - User
       summary: Get user information
@@ -269,7 +269,7 @@ paths:
           $ref: '#/components/responses/NotFound'
 
   /user/{session_id}/token:
-    post:
+    get:
       tags:
         - User
       summary: Get user token

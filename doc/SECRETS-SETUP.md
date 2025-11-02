@@ -36,8 +36,8 @@ $API_KEYS = [
             'POST:/session/touch/{session_id}',
             'POST:/session/logout/{session_id}',
             'POST:/session/delegate/{session_id}',
-            'POST:/user/{session_id}/info',
-            'POST:/user/{session_id}/token'
+            'GET:/user/{session_id}/info',
+            'GET:/user/{session_id}/token'
         ],
         'scopes' => ['read', 'write'],          // Access scopes
         'rate_limit' => [                       // Custom rate limiting
@@ -60,8 +60,8 @@ Specific endpoints the API key can access:
     'POST:/session/touch/{session_id}',     // Session renewal
     'POST:/session/logout/{session_id}',    // Session termination
     'POST:/session/delegate/{session_id}',  // Session delegation
-    'POST:/user/{session_id}/info',         // User information
-    'POST:/user/{session_id}/token'         // User token generation
+    'GET:/user/{session_id}/info',          // User information
+    'GET:/user/{session_id}/token'          // User token generation
 ]
 ```
 

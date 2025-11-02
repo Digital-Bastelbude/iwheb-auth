@@ -24,19 +24,6 @@ function run_routes(array $routes, string $path, string $method, $response): arr
     // read request body once and pass to handlers
     $body = $response->readJsonBody();
 
-    // For methods that typically don't have a body (GET, HEAD, OPTIONS), 
-    // an empty body is valid
-    $bodylessMethodsPattern = '/^(GET|HEAD|OPTIONS)$/i';
-    $isBodylessMethod = preg_match($bodylessMethodsPattern, $method);
-    
-    // If the body is an empty array, treat this as invalid input for handlers
-    // EXCEPT for GET/HEAD/OPTIONS requests where empty body is normal
-    if (is_array($body) && count($body) === 0 && !$isBodylessMethod) {
-        throw new InvalidInputException('INVALID_INPUT');
-    }
-
-    error_log("DEBUG: run_routes called with PATH: {$path}, METHOD: {$method}, BODY: " . json_encode($body), 0);
-
     // Process pattern-based routes
     foreach ($routes as $route) {
         if (!isset($route['pattern']) || !isset($route['methods'])) {
@@ -72,8 +59,6 @@ function run_routes(array $routes, string $path, string $method, $response): arr
                     }
                 }
             }
-
-            error_log("DEBUG: path vars: " . json_encode($pathVars));
             
             $result = call_user_func($handler, $pathVars, $body);
             
@@ -82,10 +67,9 @@ function run_routes(array $routes, string $path, string $method, $response): arr
             }
             
             throw new \Exception('INVALID_HANDLER_RESPONSE');
-        } else {
-            error_log("DEBUG: no mathing route found");
         }
     }
-    
+
+    error_log("DEBUG: no mathing route found");    
     throw new \Exception('NOT_FOUND');
 }

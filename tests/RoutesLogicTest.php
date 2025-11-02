@@ -360,28 +360,6 @@ class RoutesLogicTest extends TestCase {
         run_routes($routes, '/api/broken', 'GET', $response);
     }
     
-    public function testEmptyArrayBodyThrowsInvalidInput(): void {
-        $this->expectException(InvalidInputException::class);
-        $this->expectExceptionMessage('INVALID_INPUT');
-        
-        $routes = [
-            [
-                'pattern' => '#^/items$#',
-                'methods' => [
-                    'POST' => function($pathVars, $body) {
-                        return ['data' => [], 'status' => 200];
-                    }
-                ]
-            ]
-        ];
-        
-        $response = new class {
-            public function readJsonBody() { return []; }
-        };
-        
-        run_routes($routes, '/items', 'POST', $response);
-    }
-    
     public function testValidJsonBodyIsPassed(): void {
         $requestData = ['name' => 'Test Item', 'quantity' => 5];
         $capturedBody = null;

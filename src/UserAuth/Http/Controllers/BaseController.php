@@ -49,7 +49,7 @@ abstract class BaseController {
         if (!$this->db->checkSessionAccess($sessionId, $this->apiKey)) {
             throw new InvalidSessionException();
         }
-        
+
         // Get session
         $session = $this->db->getSessionBySessionId($sessionId);
         

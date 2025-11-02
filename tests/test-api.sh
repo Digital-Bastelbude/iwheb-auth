@@ -109,8 +109,8 @@ while true; do
     echo "4. POST /session/touch/{session_id} - Extend session"
     echo "5. POST /session/delegate/{session_id} - Create delegated session"
     echo "6. POST /session/logout/{session_id} - Logout session"
-    echo "7. POST /user/{session_id}/info - Get user info"
-    echo "8. POST /user/{session_id}/token - Get user token"
+    echo "7. GET /user/{session_id}/info - Get user info"
+    echo "8. GET /user/{session_id}/token - Get user token"
     echo "9. Full Authentication Flow"
     echo "0. Exit"
     echo
@@ -200,19 +200,19 @@ while true; do
             ;;
             
         7)
-            print_header "POST /user/{session_id}/info"
+            print_header "GET /user/{session_id}/info"
             print_info "This retrieves user information from Webling."
             
             session_id=$(ask_input "Session ID" "${LAST_SESSION_ID}")
-            make_request "POST" "/user/$session_id/info" "{}" "Get user info"
+            make_request "GET" "/user/$session_id/info" "" "Get user info"
             ;;
             
         8)
-            print_header "POST /user/{session_id}/token"
+            print_header "GET /user/{session_id}/token"
             print_info "This retrieves an encrypted user token."
             
             session_id=$(ask_input "Session ID" "${LAST_SESSION_ID}")
-            make_request "POST" "/user/$session_id/token" "{}" "Get user token"
+            make_request "GET" "/user/$session_id/token" "" "Get user token"
             ;;
             
         9)
@@ -256,7 +256,7 @@ while true; do
             
             # Step 4: Get user info
             echo -e "\n${YELLOW}Step 4: Get User Info${NC}"
-            make_request "POST" "/user/$SESSION_ID/info" "{}" "Get user info"
+            make_request "GET" "/user/$SESSION_ID/info" "" "Get user info"
             
             # Step 5: Touch session
             echo -e "\n${YELLOW}Step 5: Touch Session${NC}"
@@ -264,7 +264,7 @@ while true; do
             
             # Step 6: Get user token
             echo -e "\n${YELLOW}Step 6: Get User Token${NC}"
-            make_request "POST" "/user/$SESSION_ID/token" "{}" "Get user token"
+            make_request "GET" "/user/$SESSION_ID/token" "" "Get user token"
             
             # Step 7: Optional logout
             echo -e "\n${YELLOW}Step 7: Logout (Optional)${NC}"

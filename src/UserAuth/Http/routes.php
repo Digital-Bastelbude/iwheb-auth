@@ -90,20 +90,20 @@ $routes = [
             'POST' => [$authController, 'validate']
         ]
     ],
-    // POST /user/{session_id}/info
+    // GET /user/{session_id}/info
     [
         'pattern' => '#^/user/([a-z0-9]+)/info$#',
         'pathVars' => ['session_id'],
         'methods' => [
-            'POST' => [$userController, 'getInfo']
+            'GET' => [$userController, 'getInfo']
         ]
     ],
-    // POST /user/{session_id}/token
+    // GET /user/{session_id}/token
     [
         'pattern' => '#^/user/([a-z0-9]+)/token$#',
         'pathVars' => ['session_id'],
         'methods' => [
-            'POST' => [$userController, 'getToken']
+            'GET' => [$userController, 'getToken']
         ]
     ],
     // GET /session/check/{session_id}

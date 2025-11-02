@@ -25,6 +25,7 @@ class SessionController extends BaseController {
      */
     public function check(array $pathVars, array $body): array {
         $sessionId = $pathVars['session_id'];
+
         
         // Get session with access check
         $session = $this->getSessionWithAccess($sessionId);

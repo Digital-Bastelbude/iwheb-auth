@@ -34,7 +34,7 @@ class UserController extends BaseController {
     }
     
     /**
-     * POST /user/{session_id}/info
+     * GET /user/{session_id}/info
      * 
      * Get user information from Webling. Requires 'user_info' permission.
      * 
@@ -91,7 +91,7 @@ class UserController extends BaseController {
     }
     
     /**
-     * POST /user/{session_id}/token
+     * GET /user/{session_id}/token
      * 
      * Get encrypted user token. Requires 'user_token' permission.
      * 

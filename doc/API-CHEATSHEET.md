@@ -166,10 +166,8 @@ curl -X POST "http://localhost:8080/session/logout/abc123def456" \
 Retrieve user information from Webling.
 
 ```bash
-curl -X POST "http://localhost:8080/user/abc123def456/info" \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: YOUR_API_KEY" \
-  -d '{}'
+curl -X GET "http://localhost:8080/user/abc123def456/info" \
+  -H "X-API-Key: YOUR_API_KEY"
 ```
 
 **Response:**
@@ -187,10 +185,8 @@ curl -X POST "http://localhost:8080/user/abc123def456/info" \
 Retrieve encrypted user token for external use.
 
 ```bash
-curl -X POST "http://localhost:8080/user/abc123def456/token" \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: YOUR_API_KEY" \
-  -d '{}'
+curl -X GET "http://localhost:8080/user/abc123def456/token" \
+  -H "X-API-Key: YOUR_API_KEY"
 ```
 
 **Response:**
@@ -249,10 +245,8 @@ curl -X GET "http://localhost:8080/session/check/$SESSION_ID" \
   -H "X-API-Key: YOUR_API_KEY"
 
 # 5. Get user info
-curl -X POST "http://localhost:8080/user/$SESSION_ID/info" \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: YOUR_API_KEY" \
-  -d '{}'
+curl -X GET "http://localhost:8080/user/$SESSION_ID/info" \
+  -H "X-API-Key: YOUR_API_KEY"
 
 # 6. Logout when done
 curl -X POST "http://localhost:8080/session/logout/$SESSION_ID" \

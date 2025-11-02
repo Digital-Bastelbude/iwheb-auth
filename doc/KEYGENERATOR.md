@@ -89,8 +89,8 @@ $API_KEYS = [
             'POST:/session/touch/{session_id}',
             'POST:/session/logout/{session_id}',
             'POST:/session/delegate/{session_id}',
-            'POST:/user/{session_id}/info',
-            'POST:/user/{session_id}/token'
+            'GET:/user/{session_id}/info',
+            'GET:/user/{session_id}/token'
         ],
         'scopes' => ['read', 'write'],
         'rate_limit' => [
