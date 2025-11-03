@@ -145,7 +145,7 @@ final class UidEncryptor
      */
     private static function base64urlEncode(string $data): string
     {
-        return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
+        return str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($data));
     }
 
     /**
@@ -153,12 +153,14 @@ final class UidEncryptor
      */
     private static function base64urlDecode(string $data): ?string
     {
-        $b64 = strtr($data, '-_', '+/');
-        $pad = 4 - (strlen($b64) % 4);
-        if ($pad !== 4) {
-            $b64 .= str_repeat('=', $pad);
+        // Add padding if needed
+        $padLen = strlen($data) % 4;
+        if ($padLen) {
+            $data .= str_repeat('=', 4 - $padLen);
         }
-        $decoded = base64_decode($b64, true);
+        
+        // Decode from standard base64
+        $decoded = base64_decode(str_replace(['-', '_'], ['+', '/'], $data), true);
         return $decoded === false ? null : $decoded;
     }
 }
