@@ -55,7 +55,7 @@ final class UidEncryptor
      */
     public function encrypt(string $uid): string
     {
-        // Generate a fresh random nonce for each encryption.
+        // Generate random nonce for each encryption
         $nonce = random_bytes(SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_NPUBBYTES);
 
         // AEAD encrypt (ciphertext includes auth tag).

@@ -73,8 +73,8 @@ class UserController extends BaseController {
             throw new StorageException('STORAGE_ERROR', 'Failed to refresh session');
         }
 
-        // Get weblingId (decrypt uid)
-        $weblingId = $this->uidEncryptor->decrypt($user['uid']);
+        // Get weblingId (decrypt token)
+        $weblingId = $this->uidEncryptor->decrypt($user['token']);
 
         // Fetch user data from Webling
         $weblingUser = $this->weblingClient->getUserDataById((int)$weblingId);
@@ -132,7 +132,7 @@ class UserController extends BaseController {
 
         return $this->success([
             'session_id' => $newSessionId,
-            'token' => $user['uid'],
+            'token' => $user['token'],
             'session_expires_at' => $session['expires_at']
         ]);
     }
