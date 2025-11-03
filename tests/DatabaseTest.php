@@ -9,7 +9,6 @@ class DatabaseTest extends TestCase {
     private string $tmpFile;
 
     protected function setUp(): void {
-        Database::resetInstance();
         $this->tmpFile = sys_get_temp_dir() . '/php_rest_logging_test_' . bin2hex(random_bytes(6)) . '.db';
         if (file_exists($this->tmpFile)) @unlink($this->tmpFile);
         // Also clean up SQLite auxiliary files
@@ -20,7 +19,6 @@ class DatabaseTest extends TestCase {
     }
 
     protected function tearDown(): void {
-        Database::resetInstance();
         if (file_exists($this->tmpFile) && is_file($this->tmpFile)) @unlink($this->tmpFile);
         // Also clean up SQLite auxiliary files
         $walFile = $this->tmpFile . '-wal';
@@ -31,14 +29,14 @@ class DatabaseTest extends TestCase {
 
     public function testLoadWhenFileMissingReturnsDefault(): void {
         if (file_exists($this->tmpFile)) @unlink($this->tmpFile);
-        $db = Database::getInstance($this->tmpFile);
+        $db = new Database($this->tmpFile);
 
         // When file is missing, no users should exist
         $this->assertNull($db->getUserByToken('anytoken'));
     }
 
     public function testSaveAndLoadRoundtrip(): void {
-        $db = Database::getInstance($this->tmpFile);
+        $db = new Database($this->tmpFile);
 
         // Create a user using the public API
         $user = $db->createUser('token123');
@@ -46,8 +44,7 @@ class DatabaseTest extends TestCase {
         $token = $user['token'];
 
         // Reset instance to force re-read from file
-        Database::resetInstance();
-        $db2 = Database::getInstance($this->tmpFile);
+        $db2 = new Database($this->tmpFile);
         $loaded = $db2->getUserByToken($token);
 
         $this->assertIsArray($loaded);
@@ -62,7 +59,7 @@ class DatabaseTest extends TestCase {
         $this->expectException(StorageException::class);
 
         // Initialize Database with the path that points to a directory
-        $db = Database::getInstance($dirPath);
+        $db = new Database($dirPath);
         // Attempting to create a user should throw StorageException
         $db->createUser('token123');
 
@@ -77,21 +74,20 @@ class DatabaseTest extends TestCase {
         $this->expectException(StorageException::class);
         $this->expectExceptionMessage('Database initialization failed');
         
-        $db = Database::getInstance($this->tmpFile);
+        $db = new Database($this->tmpFile);
         // Any operation should trigger the database initialization and throw an exception
         $db->getUserByToken('anytoken');
     }
 
     public function testPersistenceAcrossMultipleOperations(): void {
-        $db = Database::getInstance($this->tmpFile);
+        $db = new Database($this->tmpFile);
 
         // Create multiple users
         $db->createUser('token1');
         $db->createUser('token2');
         
         // Reset and verify
-        Database::resetInstance();
-        $db2 = Database::getInstance($this->tmpFile);
+        $db2 = new Database($this->tmpFile);
         
         $this->assertNotNull($db2->getUserByToken('token1'));
         $this->assertNotNull($db2->getUserByToken('token2'));
@@ -102,13 +98,12 @@ class DatabaseTest extends TestCase {
         
         $this->assertFalse(file_exists(dirname($nestedPath)));
         
-        $db = Database::getInstance($nestedPath);
+        $db = new Database($nestedPath);
         $db->createUser('token123');
         
         $this->assertTrue(file_exists($nestedPath));
         
         // Cleanup
-        Database::resetInstance();
         unlink($nestedPath);
         $walFile = $nestedPath . '-wal';
         $shmFile = $nestedPath . '-shm';

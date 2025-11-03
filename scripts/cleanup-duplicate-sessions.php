@@ -27,8 +27,8 @@ require_once $secretsFile;
 use IwhebAPI\UserAuth\Database\{Database, UidEncryptor};
 
 try {
-    // Instantiate Database using getInstance() (reads from environment or uses default DATA_FILE)
-    $db = Database::getInstance();
+    // Instantiate Database from environment
+    $db = Database::fromEnv();
     
     // Initialize UID encryptor from environment
     $uidEncryptor = UidEncryptor::fromEnv();

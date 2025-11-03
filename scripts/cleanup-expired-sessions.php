@@ -24,8 +24,8 @@ require_once $secretsFile;
 use IwhebAPI\UserAuth\Database\Database;
 
 try {
-    // Instantiate Database using getInstance() (reads from environment or uses default DATA_FILE)
-    $db = Database::getInstance();
+    // Instantiate Database from environment
+    $db = Database::fromEnv();
     
     $deleted = $db->deleteExpiredSessions();
     

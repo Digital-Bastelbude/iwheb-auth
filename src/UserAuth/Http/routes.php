@@ -13,7 +13,7 @@ use IwhebAPI\UserAuth\Exception\NotFoundException;
 // -------- Routes --------
 // Instantiate helpers / services (assumes $CONFIG exists in bootstrap)
 $authorizer = new Authorizer($CONFIG ?? []);
-$dbService  = Database::getInstance();
+$dbService  = Database::fromEnv();
 $response   = Response::getInstance();
 
 // Initialize Webling client and UidEncryptor from environment variables

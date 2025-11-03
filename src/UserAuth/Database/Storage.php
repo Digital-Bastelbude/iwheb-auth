@@ -16,15 +16,17 @@ use PDOException;
 /**
  * Database
  *
- * SQLite database storage handler for user authentication data.
- * Facade pattern: delegates to specialized repositories while maintaining
- * backward compatibility with existing API.
- * Implemented as a singleton.
+ * Main database facade for user authentication and session management.
+ * 
+ * Delegates operations to specialized repositories:
+ * - UserRepository: User account management
+ * - SessionOperationsRepository: Session lifecycle (CRUD)
+ * - SessionValidationRepository: Code validation and session state
+ * - SessionDelegationRepository: Delegated session handling
+ * 
+ * Uses SQLite for data persistence.
  */
 class Database {
-    /** @var Database|null */
-    private static ?Database $instance = null;
-
     /** @var PDO */
     private PDO $pdo;
 
@@ -37,9 +39,12 @@ class Database {
     private SessionDelegationRepository $sessionDelegation;
 
     /**
-     * Private constructor.
+     * Constructor.
+     * 
+     * @param string $databasePath Path to SQLite database file
+     * @throws StorageException on database initialization failure
      */
-    private function __construct(string $databasePath) {
+    public function __construct(string $databasePath) {
         $this->databasePath = $databasePath;
         $this->initDatabase();
         
@@ -51,25 +56,22 @@ class Database {
     }
 
     /**
-     * Get the singleton instance.
-     *
-     * @param string|null $databasePath Optional path used on first initialization.
-     * @return Database
-     * @throws StorageException
+     * Create Database instance from environment configuration.
+     * 
+     * Reads database path from environment variables or uses defaults.
+     * Priority: DATABASE_PATH env var > DATA_FILE constant > default path
+     * 
+     * @return self
+     * @throws StorageException on database initialization failure
      */
-    public static function getInstance(?string $databasePath = null): Database {
-        if (self::$instance === null) {
-            $databasePath = $databasePath ?? (defined('DATA_FILE') ? str_replace('.json', '.db', DATA_FILE) : (__DIR__ . '/data.db'));
-            self::$instance = new Database($databasePath);
+    public static function fromEnv(): self {
+        $databasePath = getenv('DATABASE_PATH');
+        
+        if (!$databasePath) {
+            $databasePath = defined('DATA_FILE') ? DATA_FILE : __DIR__ . '/../../storage/data.db';
         }
-        return self::$instance;
-    }
-
-    /**
-     * Reset the singleton (for tests).
-     */
-    public static function resetInstance(): void {
-        self::$instance = null;
+        
+        return new self($databasePath);
     }
 
     /**
