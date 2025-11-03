@@ -4,6 +4,7 @@ Thumbs.db
 
 # Logs & runtime
 logs/
+storage/data.db
 storage/data.json
 storage/ratelimit/
 *.log
