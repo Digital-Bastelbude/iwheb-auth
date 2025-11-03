@@ -8,16 +8,9 @@ use Logger;
 /**
  * Response
  *
- * Singleton wrapper for sending JSON responses, logging access and reading request body.
+ * Handles sending JSON responses, logging access and reading request body.
  */
 class Response {
-
-    /**
-     * Shared singleton instance.
-     *
-     * @var Response|null
-     */
-    private static ?Response $instance = null;
 
     /**
      * Logger instance used for access logging.
@@ -34,51 +27,15 @@ class Response {
     private $inputReader;
 
     /**
-     * Private constructor to enforce singleton usage.
+     * Create a new Response instance.
      *
      * @param Logger|null $logger Optional Logger instance. If null, Logger::getInstance() is used.
      * @param callable|null $inputReader Optional callable returning raw request body as string.
      */
-    private function __construct(?Logger $logger = null, ?callable $inputReader = null) {
+    public function __construct(?Logger $logger = null, ?callable $inputReader = null) {
         $this->logger = $logger ?? Logger::getInstance();
         $this->inputReader = $inputReader ?? function(): string { return file_get_contents('php://input') ?: ''; };
     }
-
-    /**
-     * Return the shared Response instance.
-     * The optional parameters are used only on the first call to initialize the singleton.
-     *
-     * @param Logger|null $logger Optional Logger to inject on first initialization.
-     * @param callable|null $inputReader Optional input reader callable for tests or customization.
-     * @return Response Shared Response instance.
-     */
-    public static function getInstance(?Logger $logger = null, ?callable $inputReader = null): Response {
-        if (self::$instance === null) {
-            self::$instance = new Response($logger, $inputReader);
-        }
-        return self::$instance;
-    }
-
-    /**
-     * Reset the singleton instance (useful for unit tests).
-     *
-     * @return void
-     */
-    public static function resetInstance(): void {
-        self::$instance = null;
-    }
-
-    /**
-     * Prevent cloning of the singleton.
-     */
-    private function __clone() {}
-
-    /**
-     * Prevent unserializing of the singleton.
-     *
-     * Must be public to satisfy PHP magic method visibility requirements.
-     */
-    public function __wakeup(): void {}
 
     /**
      * Send a JSON response, log the access and exit.

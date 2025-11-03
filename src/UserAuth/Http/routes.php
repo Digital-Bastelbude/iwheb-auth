@@ -14,7 +14,7 @@ use IwhebAPI\UserAuth\Exception\NotFoundException;
 // Instantiate helpers / services (assumes $CONFIG exists in bootstrap)
 $authorizer = new Authorizer($CONFIG ?? []);
 $dbService  = Database::fromEnv();
-$response   = Response::getInstance();
+$response   = new Response();
 
 // Initialize Webling client and UidEncryptor from environment variables
 // Environment variables are set in config/.secrets.php which is loaded in public/index.php
@@ -44,7 +44,7 @@ $apiKey = ApiKeyManager::extractApiKeyFromRequest();
 try {
     $auth = $authorizer->authorize($METHOD, $PATH, $apiKey);
 } catch (AuthorizationException $e) {
-    Response::getInstance()->notFound($e->key ?? null, $e->reason);
+    $response->notFound($e->key ?? null, $e->reason);
 }
 
 \error_log("DEBUG: authorized, key: {$auth['key']}");
