@@ -28,7 +28,7 @@ php -S localhost:8080 -t public
 vendor/bin/phpunit --testdox
 ```
 
-See [SECRETS-SETUP.md](SECRETS-SETUP.md) for configuration details.
+See [CONFIG.md](CONFIG.md) for complete configuration details.
 
 ## API Endpoints
 
@@ -46,8 +46,44 @@ See [SECRETS-SETUP.md](SECRETS-SETUP.md) for configuration details.
 **Auth:** `X-API-Key: your-key` or `Authorization: ApiKey your-key`
 
 **Quick Reference:**
-- 📋 [API-CHEATSHEET.md](API-CHEATSHEET.md) - curl examples for all endpoints
-- 📄 [LOGIN-FLOW.md](LOGIN-FLOW.md) - authentication flow details
+- � [LOGIN-FLOW.md](LOGIN-FLOW.md) - authentication flow details
+- 📘 [openapi.yaml](openapi.yaml) - OpenAPI specification
+
+## Key Generation
+
+Generate secure keys using the included generator:
+
+```bash
+# Complete setup (encryption key + API key)
+php keygenerator.php
+
+# Only encryption key
+php keygenerator.php encryption
+
+# Only API key (custom length)
+php keygenerator.php api 64
+```
+
+**Output example:**
+```
+=== COMPLETE KEY SETUP ===
+
+1. Encryption Key (for config/.secrets.php):
+base64:YourRandomKeyHere...
+
+Add: putenv('ENCRYPTION_KEY=base64:YourRandomKeyHere...');
+
+2. API Key (for config/.secrets.php $API_KEYS):
+abc123def456...
+
+Add to $API_KEYS array:
+    'abc123def456...' => [
+        'name' => 'Your App',
+        'permissions' => ['user_info', 'user_token', 'delegate']
+    ],
+```
+
+**Security:** Uses `random_bytes()`, URL-safe format, minimum 16 characters.
 
 ## Structure
 
@@ -135,10 +171,10 @@ vendor/bin/phpunit tests/SessionTest.php    # Specific
 
 ## Docs
 
-- [SECRETS-SETUP.md](SECRETS-SETUP.md) - Configuration
-- [LOGIN-FLOW.md](LOGIN-FLOW.md) - Auth flow
-- [EMAIL-CONFIGURATION.md](EMAIL-CONFIGURATION.md) - SMTP email setup
+- [CONFIG.md](CONFIG.md) - Complete configuration guide
+- [LOGIN-FLOW.md](LOGIN-FLOW.md) - Authentication flow
 - [DEPLOYMENT.md](DEPLOYMENT.md) - Production deployment
-- [KEYGENERATOR.md](KEYGENERATOR.md) - Key generation
+- [DELEGATED-SESSIONS.md](DELEGATED-SESSIONS.md) - Cross-app sessions
+- [openapi.yaml](openapi.yaml) - OpenAPI 3.0 specification
 
 **Requirements:** PHP 8.1+ with libsodium, sqlite3, json, curl | Composer | Webling account
