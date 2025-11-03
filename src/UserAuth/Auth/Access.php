@@ -112,35 +112,65 @@ class RateLimiter {
      * @param string $key Unique identifier for the client (e.g. API key).
      * @param int $windowSec Window size in seconds.
      * @param int $maxRequests Maximum allowed requests in the window.
-     * @return bool True if the request is allowed, false when limit exceeded or on I/O error.
+     * @return bool True if the request is allowed, false when limit exceeded.
      */
     public function checkRateLimit(string $key, int $windowSec, int $maxRequests): bool {
         $file = $this->dir . '/' . sha1($key) . '.json';
-        $now  = time();
-        $state = ['window_start' => $now, 'count' => 0];
-        $fp = fopen($file, 'c+');
-        if (!$fp) return false;
-        flock($fp, LOCK_EX);
-        // Ensure we read from the start of the file (pointer may be at EOF after previous writes)
-        fseek($fp, 0);
-        $json = stream_get_contents($fp);
-        if ($json !== false && $json !== '') {
-            $tmp = json_decode($json, true);
-            if (is_array($tmp) && isset($tmp['window_start'], $tmp['count'])) $state = $tmp;
+        $now = time();
+        
+        // Load current state
+        $state = $this->loadState($file, $now);
+        
+        // Reset window if expired
+        if ($now - $state['window_start'] >= $windowSec) {
+            $state = ['window_start' => $now, 'count' => 0];
         }
-        if ($now - (int)$state['window_start'] >= $windowSec) {
-            $state['window_start'] = $now;
-            $state['count'] = 0;
-        }
+        
+        // Check limit
         if ($state['count'] >= $maxRequests) {
-            ftruncate($fp, 0); fseek($fp, 0); fwrite($fp, json_encode($state)); fflush($fp);
-            flock($fp, LOCK_UN); fclose($fp);
+            $this->saveState($file, $state);
             return false;
         }
+        
+        // Increment and save
         $state['count']++;
-        ftruncate($fp, 0); fseek($fp, 0); fwrite($fp, json_encode($state)); fflush($fp);
-        flock($fp, LOCK_UN); fclose($fp);
+        $this->saveState($file, $state);
         return true;
+    }
+    
+    /**
+     * Load rate limit state from file.
+     *
+     * @param string $file Path to state file
+     * @param int $defaultTimestamp Default timestamp for new state
+     * @return array State array with 'window_start' and 'count'
+     */
+    private function loadState(string $file, int $defaultTimestamp): array {
+        if (!file_exists($file)) {
+            return ['window_start' => $defaultTimestamp, 'count' => 0];
+        }
+        
+        $json = @file_get_contents($file);
+        if ($json === false || $json === '') {
+            return ['window_start' => $defaultTimestamp, 'count' => 0];
+        }
+        
+        $state = json_decode($json, true);
+        if (!is_array($state) || !isset($state['window_start'], $state['count'])) {
+            return ['window_start' => $defaultTimestamp, 'count' => 0];
+        }
+        
+        return $state;
+    }
+    
+    /**
+     * Save rate limit state to file atomically.
+     *
+     * @param string $file Path to state file
+     * @param array $state State array with 'window_start' and 'count'
+     */
+    private function saveState(string $file, array $state): void {
+        @file_put_contents($file, json_encode($state), LOCK_EX);
     }
 }
 
