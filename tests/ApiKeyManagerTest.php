@@ -32,18 +32,6 @@ class ApiKeyManagerTest extends TestCase {
         $this->manager = new ApiKeyManager($this->testApiKeys);
     }
     
-    public function testIsValidApiKeyWithValidKey(): void {
-        $this->assertTrue($this->manager->isValidApiKey('full-access-key'));
-        $this->assertTrue($this->manager->isValidApiKey('info-only-key'));
-        $this->assertTrue($this->manager->isValidApiKey('minimal-key'));
-    }
-    
-    public function testIsValidApiKeyWithInvalidKey(): void {
-        $this->assertFalse($this->manager->isValidApiKey('invalid-key'));
-        $this->assertFalse($this->manager->isValidApiKey(''));
-        $this->assertFalse($this->manager->isValidApiKey('non-existent'));
-    }
-    
     public function testGetApiKeyConfig(): void {
         $config = $this->manager->getApiKeyConfig('full-access-key');
         
@@ -79,59 +67,6 @@ class ApiKeyManagerTest extends TestCase {
     
     public function testHasPermissionWithInvalidKey(): void {
         $this->assertFalse($this->manager->hasPermission('invalid-key', 'user_info'));
-    }
-    
-    public function testCanAccessDefaultRoutes(): void {
-        // All valid API keys should access default routes
-        $defaultRoutes = [
-            '/login',
-            '/validate/abc123',
-            '/session/check/xyz789',
-            '/session/touch/def456',
-            '/session/logout/ghi012',
-        ];
-        
-        foreach ($defaultRoutes as $route) {
-            $this->assertTrue($this->manager->canAccessRoute('full-access-key', $route));
-            $this->assertTrue($this->manager->canAccessRoute('info-only-key', $route));
-            $this->assertTrue($this->manager->canAccessRoute('minimal-key', $route));
-        }
-    }
-    
-    public function testCanAccessUserInfoRoute(): void {
-        $route = '/user/abc123/info';
-        
-        // Keys with user_info permission can access
-        $this->assertTrue($this->manager->canAccessRoute('full-access-key', $route));
-        $this->assertTrue($this->manager->canAccessRoute('info-only-key', $route));
-        
-        // Keys without user_info permission cannot access
-        $this->assertFalse($this->manager->canAccessRoute('token-only-key', $route));
-        $this->assertFalse($this->manager->canAccessRoute('minimal-key', $route));
-    }
-    
-    public function testCanAccessUserTokenRoute(): void {
-        $route = '/user/xyz789/token';
-        
-        // Keys with user_token permission can access
-        $this->assertTrue($this->manager->canAccessRoute('full-access-key', $route));
-        $this->assertTrue($this->manager->canAccessRoute('token-only-key', $route));
-        
-        // Keys without user_token permission cannot access
-        $this->assertFalse($this->manager->canAccessRoute('info-only-key', $route));
-        $this->assertFalse($this->manager->canAccessRoute('minimal-key', $route));
-    }
-    
-    public function testCanAccessRouteWithInvalidKey(): void {
-        $this->assertFalse($this->manager->canAccessRoute('invalid-key', '/login'));
-        $this->assertFalse($this->manager->canAccessRoute('invalid-key', '/user/abc123/info'));
-    }
-    
-    public function testCanAccessUnknownRoute(): void {
-        $route = '/unknown/route';
-        
-        // Unknown routes should not be accessible
-        $this->assertFalse($this->manager->canAccessRoute('full-access-key', $route));
     }
     
     public function testGetApiKeyName(): void {
@@ -226,29 +161,5 @@ class ApiKeyManagerTest extends TestCase {
         
         // Cleanup
         unset($_SERVER['HTTP_AUTHORIZATION']);
-    }
-    
-    public function testRoutePatternMatchingWithVariousSessionIds(): void {
-        $sessionIds = [
-            'abc123def456',
-            'xyz789ghi012',
-            'a1b2c3d4e5f6',
-            'zyxwvutsrqpo',
-        ];
-        
-        foreach ($sessionIds as $sessionId) {
-            $this->assertTrue(
-                $this->manager->canAccessRoute('minimal-key', "/validate/{$sessionId}"),
-                "Should match /validate/{$sessionId}"
-            );
-            $this->assertTrue(
-                $this->manager->canAccessRoute('minimal-key', "/session/check/{$sessionId}"),
-                "Should match /session/check/{$sessionId}"
-            );
-            $this->assertTrue(
-                $this->manager->canAccessRoute('full-access-key', "/user/{$sessionId}/info"),
-                "Should match /user/{$sessionId}/info"
-            );
-        }
     }
 }

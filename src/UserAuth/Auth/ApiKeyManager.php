@@ -6,7 +6,8 @@ namespace IwhebAPI\UserAuth\Auth;
 /**
  * API Key Manager
  * 
- * Handles API key validation and permission checking.
+ * Lightweight helper for API key extraction and permission lookups.
+ * Authorization is handled by the Authorizer class.
  */
 
 class ApiKeyManager {
@@ -23,16 +24,6 @@ class ApiKeyManager {
     }
 
     /**
-     * Validate an API key
-     * 
-     * @param string $apiKey The API key to validate
-     * @return bool True if valid, false otherwise
-     */
-    public function isValidApiKey(string $apiKey): bool {
-        return isset($this->apiKeys[$apiKey]);
-    }
-
-    /**
      * Get API key configuration
      * 
      * @param string $apiKey The API key
@@ -44,6 +35,8 @@ class ApiKeyManager {
 
     /**
      * Check if an API key has a specific permission
+     * 
+     * Used by controllers for fine-grained permission checks.
      * 
      * @param string $apiKey The API key
      * @param string $permission The permission to check (e.g., 'user_info', 'user_token')
@@ -58,57 +51,6 @@ class ApiKeyManager {
         
         $permissions = $config['permissions'] ?? [];
         return in_array($permission, $permissions, true);
-    }
-
-    /**
-     * Check if an API key can access a specific route
-     * 
-     * Default routes (always allowed):
-     * - /login
-     * - /validate/{session_id}
-     * - /session/check/{session_id}
-     * - /session/touch/{session_id}
-     * - /session/logout/{session_id}
-     * 
-     * Permission-based routes:
-     * - /user/{session_id}/info: requires 'user_info' permission
-     * - /user/{session_id}/token: requires 'user_token' permission
-     * 
-     * @param string $apiKey The API key
-     * @param string $path The request path
-     * @return bool True if access allowed, false otherwise
-     */
-    public function canAccessRoute(string $apiKey, string $path): bool {
-        if (!$this->isValidApiKey($apiKey)) {
-            return false;
-        }
-
-        // Default routes (always allowed for valid API keys)
-        $defaultRoutes = [
-            '#^/login$#',
-            '#^/validate/[a-z0-9]+$#',
-            '#^/session/check/[a-z0-9]+$#',
-            '#^/session/touch/[a-z0-9]+$#',
-            '#^/session/logout/[a-z0-9]+$#'
-        ];
-
-        foreach ($defaultRoutes as $pattern) {
-            if (preg_match($pattern, $path)) {
-                return true;
-            }
-        }
-
-        // Permission-based routes
-        if (preg_match('#^/user/[a-z0-9]+/info$#', $path)) {
-            return $this->hasPermission($apiKey, 'user_info');
-        }
-
-        if (preg_match('#^/user/[a-z0-9]+/token$#', $path)) {
-            return $this->hasPermission($apiKey, 'user_token');
-        }
-
-        // Unknown route, deny by default
-        return false;
     }
 
     /**

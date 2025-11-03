@@ -37,27 +37,13 @@ if (!isset($API_KEYS)) {
 
 $apiKeyManager = new ApiKeyManager($API_KEYS);
 
-// Extract and validate API key from request
+// Extract API key from request
 $apiKey = ApiKeyManager::extractApiKeyFromRequest();
 
-if (!$apiKey || !$apiKeyManager->isValidApiKey($apiKey)) {
-    // Invalid or missing API key
-    Response::getInstance()->notFound(null, 'UNAUTHORIZED');
-}
-
-// Check if API key has access to the requested route
-if (!$apiKeyManager->canAccessRoute($apiKey, $PATH)) {
-    // API key doesn't have permission for this route
-    Response::getInstance()->notFound(null, 'FORBIDDEN');
-}
-
-// Authorize once for the current request and path. Authorizer will call
-// API key validation and route access is already handled above
-// Pass the API key to the authorize method for rate limiting and additional checks
+// Authorize request (validates API key, checks permissions, enforces rate limits)
 try {
     $auth = $authorizer->authorize($METHOD, $PATH, $apiKey);
 } catch (AuthorizationException $e) {
-    // Convert authorization failure to the existing response/logging behaviour
     Response::getInstance()->notFound($e->key ?? null, $e->reason);
 }
 
