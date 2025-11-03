@@ -1,4 +1,4 @@
-# iWheb Authentication Service
+# IWHEB Authentication Service
 
 Secure PHP authentication with Webling integration, session management, and API key authorization.
 
