@@ -15,12 +15,12 @@ use PDOException;
 class SessionOperationsRepository extends BaseRepository {
     /**
      * Initiate a new session with authentication code generation.
+     * Enforces "one session per user/API-key" policy by removing existing sessions.
      */
     public function createSession(string $userToken, string $apiKey, int $sessionDurationSeconds = 1800, int $codeValiditySeconds = 300): array {
         try {
-            // Delete existing unvalidated sessions for this user + API key
-            $stmt = $this->pdo->prepare('DELETE FROM sessions WHERE user_token = ? AND api_key = ? AND validated = 0');
-            $stmt->execute([$userToken, $apiKey]);
+            // Delete all existing sessions for this user + API key combination
+            $this->deleteUserApiKeySessions($userToken, $apiKey);
 
             // Generate unique session ID
             do {
@@ -185,6 +185,20 @@ class SessionOperationsRepository extends BaseRepository {
             $beforeTimestamp = $beforeTimestamp ?? $this->getTimestamp();
             $stmt = $this->pdo->prepare('DELETE FROM sessions WHERE expires_at < ?');
             $stmt->execute([$beforeTimestamp]);
+            return $stmt->rowCount();
+        } catch (PDOException $e) {
+            throw new StorageException('STORAGE_ERROR', 'Database operation failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Terminate all sessions for a specific user and API key combination.
+     * Enforces "one session per user/API-key" policy.
+     */
+    public function deleteUserApiKeySessions(string $userToken, string $apiKey): int {
+        try {
+            $stmt = $this->pdo->prepare('DELETE FROM sessions WHERE user_token = ? AND api_key = ?');
+            $stmt->execute([$userToken, $apiKey]);
             return $stmt->rowCount();
         } catch (PDOException $e) {
             throw new StorageException('STORAGE_ERROR', 'Database operation failed: ' . $e->getMessage());

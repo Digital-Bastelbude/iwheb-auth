@@ -23,6 +23,7 @@ class SessionDelegationRepository extends BaseRepository {
     /**
      * Create delegated session for another API key.
      * Session is immediately validated and bound to parent's lifecycle.
+     * Enforces "one session per user/API-key" policy by removing existing target sessions.
      */
     public function createDelegatedSession(string $parentSessionId, string $targetApiKey, int $sessionDurationSeconds = 1800): array {
         try {
@@ -37,6 +38,9 @@ class SessionDelegationRepository extends BaseRepository {
             }
             
             $userToken = $parentSession['user_token'];
+            
+            // Delete all existing sessions for this user + target API key combination
+            $this->operations->deleteUserApiKeySessions($userToken, $targetApiKey);
             
             // Generate unique session ID
             do {

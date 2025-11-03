@@ -321,32 +321,37 @@ class SessionTest extends TestCase {
         $this->assertNull($db->getSessionBySessionId($session['session_id']));
     }
 
-    public function testMultipleSessionsPerUser(): void {
+    public function testOneSessionPerUserApiKey(): void {
         $db = Database::getInstance($this->tmpFile);
         
         $db->createUser('testtoken123');
         
-        // Create multiple sessions for the same user with same API key
-        // Note: Only the last unvalidated session will remain per API key
+        // Create first session
         $session1 = $db->createSession('testtoken123', $this->testApiKey, 1800);
-        $session2 = $db->createSession('testtoken123', $this->testApiKey, 3600);
-        $session3 = $db->createSession('testtoken123', $this->testApiKey, 7200);
+        $this->assertNotNull($db->getSessionBySessionId($session1['session_id']));
         
-        // Only session3 should exist (previous unvalidated sessions are deleted)
+        // Create second session with same user/API key - should replace first
+        $session2 = $db->createSession('testtoken123', $this->testApiKey, 1800);
+        
+        // First session should be deleted, only second should exist
         $this->assertNull($db->getSessionBySessionId($session1['session_id']));
-        $this->assertNull($db->getSessionBySessionId($session2['session_id']));
+        $this->assertNotNull($db->getSessionBySessionId($session2['session_id']));
+        $this->assertNotSame($session1['session_id'], $session2['session_id']);
+        
+        // Create third session with different API key - should coexist
+        $session3 = $db->createSession('testtoken123', 'different-api-key', 1800);
+        
+        // Both sessions with different API keys should exist
+        $this->assertNotNull($db->getSessionBySessionId($session2['session_id']));
         $this->assertNotNull($db->getSessionBySessionId($session3['session_id']));
         
-        // But validated sessions should coexist with new unvalidated sessions
-        $db->validateSession($session3['session_id']);
+        // But creating another session with first API key should replace session2
         $session4 = $db->createSession('testtoken123', $this->testApiKey, 1800);
-        
-        // Both validated session3 and new unvalidated session4 should exist
-        $this->assertNotNull($db->getSessionBySessionId($session3['session_id']));
+        $this->assertNull($db->getSessionBySessionId($session2['session_id']));
+        $this->assertNotNull($db->getSessionBySessionId($session3['session_id'])); // Different API key, untouched
         $this->assertNotNull($db->getSessionBySessionId($session4['session_id']));
-        $this->assertNotSame($session3['session_id'], $session4['session_id']);
         
-        // Both should point to the same user
+        // All should point to the same user
         $user3 = $db->getUserBySessionId($session3['session_id']);
         $user4 = $db->getUserBySessionId($session4['session_id']);
         
@@ -773,7 +778,7 @@ class SessionTest extends TestCase {
         $this->assertNotNull($db->getSessionBySessionId($session3['session_id']));
     }
 
-    public function testCreateSessionKeepsValidatedSessions(): void {
+    public function testCreateSessionReplacesAllPreviousSessions(): void {
         $db = Database::getInstance($this->tmpFile);
         
         $db->createUser('testtoken123');
@@ -785,15 +790,14 @@ class SessionTest extends TestCase {
         // Verify first session is validated
         $this->assertTrue($db->isSessionValidated($session1['session_id']));
         
-        // Create second session (should NOT delete validated session)
+        // Create second session (should replace validated session due to "one session per user/API-key" policy)
         $session2 = $db->createSession('testtoken123', $this->testApiKey);
         
-        // First session (validated) should still exist
+        // First session (validated) should be deleted
         $retrieved1 = $db->getSessionBySessionId($session1['session_id']);
-        $this->assertNotNull($retrieved1);
-        $this->assertTrue($retrieved1['validated']);
+        $this->assertNull($retrieved1);
         
-        // Second session should also exist
+        // Second session should exist and be unvalidated
         $retrieved2 = $db->getSessionBySessionId($session2['session_id']);
         $this->assertNotNull($retrieved2);
         $this->assertFalse($retrieved2['validated']);

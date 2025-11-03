@@ -76,6 +76,14 @@ curl -X POST "http://localhost:8080/validate/abc123def456" \
 
 ## Session Management
 
+### Session Management Notes
+
+**⚠️ Important Session Behavior:**
+- **One Session Per User/API-Key**: Only one active session allowed per user and API key combination
+- **Login Replaces All**: New login deletes ALL existing user sessions (across all API keys)
+- **Logout Deletes All**: Logout deletes all sessions for the user/API-key combination
+- **Delegation Replaces**: Creating delegated sessions deletes existing sessions for target API key
+
 ### 3. Check Session Status
 
 Verify if a session is active and validated.

@@ -76,9 +76,13 @@ class AuthController extends BaseController {
         if (!$existingUser) {
             // Create new user
             $this->db->createUser($token);
+        } else {
+            // Delete all existing sessions for this user (across all API keys)
+            $this->db->deleteUserSessions($token);
         }
 
         // Create session for user with API key (generates code automatically)
+        // This also enforces "one session per user/API-key" policy
         $session = $this->db->createSession($token, $this->apiKey);
 
         // Send authentication code via email
@@ -158,18 +162,19 @@ class AuthController extends BaseController {
         $sessionId = $pathVars['session_id'];
         
         // Get session with access check
-        $this->getSessionWithAccess($sessionId);
+        $session = $this->getSessionWithAccess($sessionId);
         
-        // Delete the session
-        $deleted = $this->db->deleteSession($sessionId);
+        // Delete all sessions for this user and API key combination
+        $deletedCount = $this->db->deleteUserApiKeySessions($session['user_token'], $this->apiKey);
         
-        if (!$deleted) {
+        if ($deletedCount === 0) {
             throw new InvalidSessionException();
         }
 
         return $this->success([
             'message' => 'Logged out successfully',
-            'session_id' => $sessionId
+            'session_id' => $sessionId,
+            'sessions_deleted' => $deletedCount
         ]);
     }
     

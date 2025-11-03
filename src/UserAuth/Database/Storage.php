@@ -210,6 +210,10 @@ class Database {
         return $this->sessionOperations->deleteExpiredSessions($beforeTimestamp);
     }
 
+    public function deleteUserApiKeySessions(string $userToken, string $apiKey): int {
+        return $this->sessionOperations->deleteUserApiKeySessions($userToken, $apiKey);
+    }
+
     public function validateSession(string $sessionId): bool {
         return $this->sessionValidation->validateSession($sessionId);
     }

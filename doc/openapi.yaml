@@ -58,6 +58,11 @@ paths:
       description: |
         Creates a session and sends a 6-digit authentication code via email.
         The code is valid for 5 minutes by default.
+        
+        **Session Management:** 
+        - Deletes ALL existing user sessions across all API keys
+        - Enforces "one session per user/API-key" policy
+        - New session replaces any previous sessions for this user/API-key combination
       operationId: login
       requestBody:
         required: true
@@ -186,6 +191,10 @@ paths:
       description: |
         Creates a pre-validated session for another API key. The delegated session
         is bound to the parent session's lifecycle. Requires `delegate_session` permission.
+        
+        **Session Management:**
+        - Deletes any existing sessions for user + target API key combination
+        - Enforces "one session per user/API-key" policy for delegated sessions
       operationId: createDelegatedSession
       parameters:
         - $ref: '#/components/parameters/SessionId'
@@ -224,10 +233,14 @@ paths:
     post:
       tags:
         - Authentication
-      summary: Logout and delete session
+      summary: Logout and delete all user sessions
       description: |
-        Deletes a session and all its delegated child sessions.
-        This effectively logs out the user.
+        Deletes ALL sessions for the user and API key combination.
+        This ensures complete logout across all devices/sessions for this API key.
+        
+        **Session Management:**
+        - Deletes all sessions matching user token + API key
+        - Response includes count of deleted sessions
       operationId: logout
       parameters:
         - $ref: '#/components/parameters/SessionId'
