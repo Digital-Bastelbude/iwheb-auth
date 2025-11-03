@@ -27,13 +27,8 @@ if (!$weblingDomain || !$weblingApiKey) {
 
 $weblingClient = new WeblingClient($weblingDomain, $weblingApiKey);
 
-// Load encryption key from environment (must be in 'base64:...' format)
-$encryptionKey = getenv('ENCRYPTION_KEY');
-if (!$encryptionKey || strpos($encryptionKey, 'base64:') !== 0) {
-    throw new \RuntimeException('ENCRYPTION_KEY environment variable must be set in config/.secrets.php with base64: prefix');
-}
-
-$uidEncryptor = new UidEncryptor(UidEncryptor::loadKeyFromEnv('ENCRYPTION_KEY'), 'iwheb-auth');
+// Initialize UID encryptor from environment
+$uidEncryptor = UidEncryptor::fromEnv();
 
 // Load API keys from $API_KEYS global (set in config/.secrets.php)
 if (!isset($API_KEYS)) {

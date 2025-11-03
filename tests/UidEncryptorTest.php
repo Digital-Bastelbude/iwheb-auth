@@ -200,7 +200,7 @@ class UidEncryptorTest extends TestCase {
         $this->assertSame($uid, $encryptor2->decrypt($token));
     }
 
-    public function testLoadKeyFromEnvWithValidFormat(): void {
+    public function testFromEnvWithValidFormat(): void {
         $originalKey = UidEncryptor::generateKey();
         $base64Key = base64_encode($originalKey);
         $envValue = 'base64:' . $base64Key;
@@ -209,48 +209,53 @@ class UidEncryptorTest extends TestCase {
         putenv("TEST_ENCRYPTION_KEY={$envValue}");
         
         try {
-            $loadedKey = UidEncryptor::loadKeyFromEnv('TEST_ENCRYPTION_KEY');
-            $this->assertSame($originalKey, $loadedKey);
+            $encryptor = UidEncryptor::fromEnv('TEST_ENCRYPTION_KEY');
+            $this->assertInstanceOf(UidEncryptor::class, $encryptor);
+            
+            // Test that it works
+            $uid = 'test-user-123';
+            $token = $encryptor->encrypt($uid);
+            $this->assertSame($uid, $encryptor->decrypt($token));
         } finally {
             // Clean up
             putenv('TEST_ENCRYPTION_KEY');
         }
     }
 
-    public function testLoadKeyFromEnvThrowsExceptionForMissingEnvVar(): void {
+    public function testFromEnvThrowsExceptionForMissingEnvVar(): void {
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('Env var NONEXISTENT_KEY must start with \'base64:\'.');
         
-        UidEncryptor::loadKeyFromEnv('NONEXISTENT_KEY');
+        UidEncryptor::fromEnv('NONEXISTENT_KEY');
     }
 
-    public function testLoadKeyFromEnvThrowsExceptionForWrongPrefix(): void {
+    public function testFromEnvThrowsExceptionForWrongPrefix(): void {
         putenv('TEST_ENCRYPTION_KEY=wrongprefix:dGVzdA==');
         
         try {
             $this->expectException(\RuntimeException::class);
             $this->expectExceptionMessage('Env var TEST_ENCRYPTION_KEY must start with \'base64:\'.');
             
-            UidEncryptor::loadKeyFromEnv('TEST_ENCRYPTION_KEY');
+            UidEncryptor::fromEnv('TEST_ENCRYPTION_KEY');
         } finally {
             putenv('TEST_ENCRYPTION_KEY');
         }
     }
 
-    public function testLoadKeyFromEnvThrowsExceptionForInvalidBase64(): void {
+    public function testFromEnvThrowsExceptionForInvalidBase64(): void {
         putenv('TEST_ENCRYPTION_KEY=base64:invalid-base64!!!');
         
         try {
             $this->expectException(\RuntimeException::class);
             $this->expectExceptionMessage('Invalid base64 key in env var TEST_ENCRYPTION_KEY.');
             
-            UidEncryptor::loadKeyFromEnv('TEST_ENCRYPTION_KEY');
+            UidEncryptor::fromEnv('TEST_ENCRYPTION_KEY');
         } finally {
             putenv('TEST_ENCRYPTION_KEY');
         }
     }
 
-    public function testLoadKeyFromEnvThrowsExceptionForWrongKeyLength(): void {
+    public function testFromEnvThrowsExceptionForWrongKeyLength(): void {
         $shortKey = base64_encode('too-short');
         putenv("TEST_ENCRYPTION_KEY=base64:{$shortKey}");
         
@@ -258,13 +263,13 @@ class UidEncryptorTest extends TestCase {
             $this->expectException(\RuntimeException::class);
             $this->expectExceptionMessage('Invalid base64 key in env var TEST_ENCRYPTION_KEY.');
             
-            UidEncryptor::loadKeyFromEnv('TEST_ENCRYPTION_KEY');
+            UidEncryptor::fromEnv('TEST_ENCRYPTION_KEY');
         } finally {
             putenv('TEST_ENCRYPTION_KEY');
         }
     }
 
-    public function testLoadKeyFromEnvUsesDefaultEnvVar(): void {
+    public function testFromEnvUsesDefaultEnvVarAndAad(): void {
         $originalKey = UidEncryptor::generateKey();
         $base64Key = base64_encode($originalKey);
         $envValue = 'base64:' . $base64Key;
@@ -272,8 +277,13 @@ class UidEncryptorTest extends TestCase {
         putenv("ENCRYPTION_KEY={$envValue}");
         
         try {
-            $loadedKey = UidEncryptor::loadKeyFromEnv(); // No parameter = uses default
-            $this->assertSame($originalKey, $loadedKey);
+            $encryptor = UidEncryptor::fromEnv(); // No parameters = uses defaults
+            $this->assertInstanceOf(UidEncryptor::class, $encryptor);
+            
+            // Test that it works with default AAD 'iwheb-auth'
+            $uid = 'test-user-456';
+            $token = $encryptor->encrypt($uid);
+            $this->assertSame($uid, $encryptor->decrypt($token));
         } finally {
             putenv('ENCRYPTION_KEY');
         }

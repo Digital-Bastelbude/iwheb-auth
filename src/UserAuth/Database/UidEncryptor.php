@@ -19,9 +19,10 @@ use InvalidArgumentException;
  * Usage:
  *   use IwhebAPI\UserAuth\Database\UidEncryptor;
  *
- *   // Load or generate a 32-byte binary key (store securely!)
- *   $key = UidEncryptor::loadKeyFromEnv('ENCRYPTION_KEY'); // expects 'base64:...' in env
- *   $enc = new UidEncryptor($key, 'your-app-context'); // optional AAD
+ *   // Create from environment (expects ENCRYPTION_KEY='base64:...')
+ *   $enc = UidEncryptor::fromEnv(); // uses defaults
+ *   // Or with custom settings:
+ *   $enc = UidEncryptor::fromEnv('ENCRYPTION_KEY', 'your-app-context');
  *
  *   $token = $enc->encrypt('external-user-42');
  *   $uid   = $enc->decrypt($token); // string|null
@@ -115,13 +116,17 @@ final class UidEncryptor
     }
 
     /**
-     * Load a key from an environment variable formatted as 'base64:<...>'.
+     * Create UidEncryptor instance from environment variable.
+     * 
+     * Environment variable must be formatted as 'base64:<...>'.
      * Example .env: ENCRYPTION_KEY=base64:AbCdEf...==
-     *
-     * @param string $envVar
-     * @return string 32-byte binary key
+     * 
+     * @param string $envVar Environment variable name (default: 'ENCRYPTION_KEY')
+     * @param string $aad Associated Authenticated Data context (default: 'iwheb-auth')
+     * @return self
+     * @throws \RuntimeException if env var is missing or invalid
      */
-    public static function loadKeyFromEnv(string $envVar = 'ENCRYPTION_KEY'): string
+    public static function fromEnv(string $envVar = 'ENCRYPTION_KEY', string $aad = 'iwheb-auth'): self
     {
         $val = getenv($envVar);
         if ($val === false || strpos($val, 'base64:') !== 0) {
@@ -132,7 +137,7 @@ final class UidEncryptor
         if ($key === false || strlen($key) !== SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_KEYBYTES) {
             throw new \RuntimeException("Invalid base64 key in env var {$envVar}.");
         }
-        return $key;
+        return new self($key, $aad);
     }
 
     /**
