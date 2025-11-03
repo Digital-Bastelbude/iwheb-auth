@@ -40,7 +40,7 @@ class SmtpMailerTest extends TestCase {
         putenv('SMTP_FROM_EMAIL');
         
         $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('SMTP configuration incomplete');
+        $this->expectExceptionMessage('Missing SMTP environment variables:');
         
         SmtpMailer::fromEnv();
     }

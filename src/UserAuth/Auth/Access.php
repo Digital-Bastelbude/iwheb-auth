@@ -241,16 +241,15 @@ class Authorizer {
     }
 
     /**
-     * Authorize a request by HTTP method and path.
+     * Authorize an API request.
      *
-     * On failure the method now delegates to Response::getInstance()->notFound(...)
+     * Validates the API key, checks route/scope permissions, and enforces rate limits.
      *
-     * @param string $method HTTP method of the request.
-     * @param string $path Request path.
-     * @param string $method HTTP method (GET, POST, etc.)
-     * @param string $path Request path
+     * @param string $method HTTP method (GET, POST, PUT, etc.)
+     * @param string $path Request path (e.g., "/user/123/info")
      * @param string $key API key to authorize
-     * @return array ['key' => string, 'def' => array] on success.
+     * @return array ['key' => string, 'def' => array] Key and its configuration
+     * @throws AuthorizationException if authorization fails (NO_KEY, INVALID_KEY, NO_PERMISSION, RATE_LIMIT)
      */
     public function authorize(string $method, string $path, string $key): array {
         $cfg = $this->config;

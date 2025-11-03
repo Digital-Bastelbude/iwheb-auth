@@ -202,11 +202,12 @@ class Database {
     }
 
     /**
-     * Delete all expired sessions (maintenance operation)
+     * Delete all expired sessions.
      * 
-     * This is a maintenance function only - NOT callable from routes!
+     * Maintenance operation intended for cron jobs/cleanup scripts.
+     * Not exposed via HTTP routes.
      * 
-     * @param string|null $beforeTimestamp Optional timestamp for testing (defaults to now)
+     * @param string|null $beforeTimestamp UTC timestamp for expiry check (null = now)
      * @return int Number of deleted sessions
      */
     public function deleteExpiredSessions(?string $beforeTimestamp = null): int {
@@ -214,9 +215,10 @@ class Database {
     }
 
     /**
-     * Delete duplicate sessions for same user/API-key combinations (maintenance operation)
+     * Delete duplicate sessions for same user/API-key combinations.
      * 
-     * This is a maintenance function only - NOT callable from routes!
+     * Maintenance operation intended for cleanup scripts.
+     * Not exposed via HTTP routes.
      * 
      * @param UidEncryptor $uidEncryptor Encryptor to decrypt user tokens
      * @return int Number of deleted sessions

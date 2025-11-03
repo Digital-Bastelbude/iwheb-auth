@@ -92,8 +92,17 @@ class SmtpMailer {
             FILTER_VALIDATE_BOOLEAN
         );
         
-        if (!$host || !$username || !$password || !$fromEmail) {
-            throw new \RuntimeException('SMTP configuration incomplete in environment variables');
+        // Check for required environment variables
+        $missing = [];
+        if (!$host) $missing[] = 'SMTP_HOST';
+        if (!$username) $missing[] = 'SMTP_USERNAME';
+        if (!$password) $missing[] = 'SMTP_PASSWORD';
+        if (!$fromEmail) $missing[] = 'SMTP_FROM_EMAIL';
+        
+        if ($missing) {
+            throw new \RuntimeException(
+                'Missing SMTP environment variables: ' . implode(', ', $missing)
+            );
         }
         
         return new self($host, $port, $username, $password, $fromEmail, $fromName, $useTls, $useSsl);
