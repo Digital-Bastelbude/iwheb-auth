@@ -34,30 +34,15 @@ abstract class BaseRepository {
     }
 
     /**
-     * Generate a secure session ID (32 characters, lowercase alphanumeric, URL-safe).
+     * Generate a secure session ID (32 characters, lowercase hex, URL-safe).
      *
-     * @return string
+     * Uses 16 random bytes encoded as hex (128 bits entropy).
+     * Sufficient for session IDs with low collision probability.
+     *
+     * @return string 32-character lowercase hexadecimal string
      */
     protected function generateSessionId(): string {
-        // Use random_bytes and encode to ensure URL-safe, lowercase characters
-        // We'll use a simple approach: base32 encoding with lowercase alphabet
-        $bytes = random_bytes(20); // 20 bytes = 160 bits
-        $result = '';
-        $chars = 'abcdefghijklmnopqrstuvwxyz234567'; // Base32 lowercase alphabet
-        
-        for ($i = 0; $i < 20; $i++) {
-            $byte = ord($bytes[$i]);
-            $result .= $chars[$byte % 32];
-        }
-        
-        // Add some additional characters to reach exactly 32 chars
-        $additionalBytes = random_bytes(12);
-        for ($i = 0; $i < 12; $i++) {
-            $byte = ord($additionalBytes[$i]);
-            $result .= $chars[$byte % 32];
-        }
-        
-        return $result;
+        return bin2hex(random_bytes(16));
     }
     
     /**

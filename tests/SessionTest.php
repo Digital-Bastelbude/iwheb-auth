@@ -289,8 +289,8 @@ class SessionTest extends TestCase {
             // Each session ID should be exactly 32 characters
             $this->assertSame(32, strlen($session['session_id']));
             
-            // Should only contain lowercase letters and digits (URL-safe base32)
-            $this->assertMatchesRegularExpression('/^[a-z2-7]+$/', $session['session_id']);
+            // Should only contain lowercase hex characters (URL-safe)
+            $this->assertMatchesRegularExpression('/^[a-f0-9]+$/', $session['session_id']);
             
             // Clean up for next iteration
             $db->deleteSession($session['session_id']);
