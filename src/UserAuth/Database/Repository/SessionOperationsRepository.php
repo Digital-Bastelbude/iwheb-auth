@@ -8,13 +8,13 @@ use PDO;
 use PDOException;
 
 /**
- * SessionCrudRepository
+ * SessionOperationsRepository
  * 
- * CRUD operations for sessions: create, read, update (touch), delete.
+ * Core session lifecycle operations: creation, persistence, retrieval, refresh, and cleanup.
  */
-class SessionCrudRepository extends BaseRepository {
+class SessionOperationsRepository extends BaseRepository {
     /**
-     * Create a new session with auto-generated code.
+     * Initiate a new session with authentication code generation.
      */
     public function createSession(string $userToken, string $apiKey, int $sessionDurationSeconds = 1800, int $codeValiditySeconds = 300): array {
         try {
@@ -54,8 +54,8 @@ class SessionCrudRepository extends BaseRepository {
     }
 
     /**
-     * Get session by ID. Returns null if not found or expired.
-     * For delegated sessions, validates parent is still active.
+     * Retrieve session data by identifier. Returns null if not found or expired.
+     * For delegated sessions, validates parent session is still active.
      */
     public function getSessionBySessionId(string $sessionId): ?array {
         try {
@@ -128,7 +128,7 @@ class SessionCrudRepository extends BaseRepository {
     }
 
     /**
-     * Delete session by ID. Cascades to child sessions.
+     * Terminate session and all dependent child sessions.
      */
     public function deleteSession(string $sessionId): bool {
         try {
@@ -165,7 +165,7 @@ class SessionCrudRepository extends BaseRepository {
     }
 
     /**
-     * Delete all sessions for a user.
+     * Terminate all sessions for a specific user account.
      */
     public function deleteUserSessions(string $userToken): int {
         try {
@@ -178,7 +178,7 @@ class SessionCrudRepository extends BaseRepository {
     }
 
     /**
-     * Delete all expired sessions.
+     * Clean up expired sessions from storage.
      */
     public function deleteExpiredSessions(?string $beforeTimestamp = null): int {
         try {

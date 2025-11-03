@@ -14,11 +14,11 @@ use PDOException;
  * Session validation operations: validate, check status, code verification, access control.
  */
 class SessionValidationRepository extends BaseRepository {
-    private SessionCrudRepository $crud;
+    private SessionOperationsRepository $operations;
 
-    public function __construct(PDO $pdo, SessionCrudRepository $crud) {
+    public function __construct(PDO $pdo, SessionOperationsRepository $operations) {
         parent::__construct($pdo);
-        $this->crud = $crud;
+        $this->operations = $operations;
     }
 
     /**
@@ -38,7 +38,7 @@ class SessionValidationRepository extends BaseRepository {
      * Check if session is validated.
      */
     public function isSessionValidated(string $sessionId): bool {
-        $session = $this->crud->getSessionBySessionId($sessionId);
+        $session = $this->operations->getSessionBySessionId($sessionId);
         return $session ? $session['validated'] : false;
     }
 
@@ -57,7 +57,7 @@ class SessionValidationRepository extends BaseRepository {
 
             $now = $this->getTimestamp();
             if ($session['expires_at'] < $now) {
-                $this->crud->deleteSession($sessionId);
+                $this->operations->deleteSession($sessionId);
                 return false;
             }
 
@@ -72,7 +72,7 @@ class SessionValidationRepository extends BaseRepository {
      */
     public function validateCode(string $sessionId, string $code): bool {
         try {
-            $session = $this->crud->getSessionBySessionId($sessionId);
+            $session = $this->operations->getSessionBySessionId($sessionId);
             if (!$session) {
                 return false;
             }
@@ -97,7 +97,7 @@ class SessionValidationRepository extends BaseRepository {
      */
     public function regenerateSessionCode(string $sessionId, int $codeValiditySeconds = 300): ?array {
         try {
-            $session = $this->crud->getSessionBySessionId($sessionId);
+            $session = $this->operations->getSessionBySessionId($sessionId);
             if (!$session) {
                 return null;
             }
@@ -112,7 +112,7 @@ class SessionValidationRepository extends BaseRepository {
                 return null;
             }
 
-            return $this->crud->getSessionBySessionId($sessionId);
+            return $this->operations->getSessionBySessionId($sessionId);
         } catch (PDOException $e) {
             throw new StorageException('STORAGE_ERROR', 'Database operation failed: ' . $e->getMessage());
         }
@@ -123,7 +123,7 @@ class SessionValidationRepository extends BaseRepository {
      */
     public function checkSessionAccess(string $sessionId, string $apiKey): bool {
         try {
-            $session = $this->crud->getSessionBySessionId($sessionId);
+            $session = $this->operations->getSessionBySessionId($sessionId);
             return $session ? $session['api_key'] === $apiKey : false;
         } catch (StorageException $e) {
             throw $e;

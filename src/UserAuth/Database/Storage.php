@@ -5,7 +5,7 @@ namespace IwhebAPI\UserAuth\Database;
 
 use IwhebAPI\UserAuth\Database\Repository\{
     UserRepository, 
-    SessionCrudRepository, 
+    SessionOperationsRepository, 
     SessionValidationRepository, 
     SessionDelegationRepository
 };
@@ -32,7 +32,7 @@ class Database {
     private string $databasePath;
     
     private UserRepository $userRepository;
-    private SessionCrudRepository $sessionCrud;
+    private SessionOperationsRepository $sessionOperations;
     private SessionValidationRepository $sessionValidation;
     private SessionDelegationRepository $sessionDelegation;
 
@@ -45,9 +45,9 @@ class Database {
         
         // Initialize repositories
         $this->userRepository = new UserRepository($this->pdo);
-        $this->sessionCrud = new SessionCrudRepository($this->pdo);
-        $this->sessionValidation = new SessionValidationRepository($this->pdo, $this->sessionCrud);
-        $this->sessionDelegation = new SessionDelegationRepository($this->pdo, $this->sessionCrud);
+        $this->sessionOperations = new SessionOperationsRepository($this->pdo);
+        $this->sessionValidation = new SessionValidationRepository($this->pdo, $this->sessionOperations);
+        $this->sessionDelegation = new SessionDelegationRepository($this->pdo, $this->sessionOperations);
     }
 
     /**
@@ -182,7 +182,7 @@ class Database {
         if (!$user) {
             throw new StorageException('STORAGE_ERROR', 'User not found');
         }
-        return $this->sessionCrud->createSession($userToken, $apiKey, $sessionDurationSeconds, $codeValiditySeconds);
+        return $this->sessionOperations->createSession($userToken, $apiKey, $sessionDurationSeconds, $codeValiditySeconds);
     }
 
     public function createDelegatedSession(string $parentSessionId, string $targetApiKey, int $sessionDurationSeconds = 1800): array {
@@ -190,24 +190,24 @@ class Database {
     }
 
     public function getSessionBySessionId(string $sessionId): ?array {
-        return $this->sessionCrud->getSessionBySessionId($sessionId);
+        return $this->sessionOperations->getSessionBySessionId($sessionId);
     }
 
     public function getUserBySessionId(string $sessionId): ?array {
-        $session = $this->sessionCrud->getSessionBySessionId($sessionId);
+        $session = $this->sessionOperations->getSessionBySessionId($sessionId);
         return $session ? $this->userRepository->getUserByToken($session['user_token']) : null;
     }
 
     public function deleteSession(string $sessionId): bool {
-        return $this->sessionCrud->deleteSession($sessionId);
+        return $this->sessionOperations->deleteSession($sessionId);
     }
 
     public function deleteUserSessions(string $userToken): int {
-        return $this->sessionCrud->deleteUserSessions($userToken);
+        return $this->sessionOperations->deleteUserSessions($userToken);
     }
 
     public function deleteExpiredSessions(?string $beforeTimestamp = null): int {
-        return $this->sessionCrud->deleteExpiredSessions($beforeTimestamp);
+        return $this->sessionOperations->deleteExpiredSessions($beforeTimestamp);
     }
 
     public function validateSession(string $sessionId): bool {
@@ -235,12 +235,12 @@ class Database {
     }
 
     public function touchUser(string $sessionId): ?string {
-        $session = $this->sessionCrud->getSessionBySessionId($sessionId);
+        $session = $this->sessionOperations->getSessionBySessionId($sessionId);
         if (!$session) {
             return null;
         }
         $this->userRepository->touchUser($session['user_token']);
-        $newSession = $this->sessionCrud->touchSession($sessionId, $session['user_token'], $session['api_key']);
+        $newSession = $this->sessionOperations->touchSession($sessionId, $session['user_token'], $session['api_key']);
         return $newSession ? $newSession['session_id'] : null;
     }
 }

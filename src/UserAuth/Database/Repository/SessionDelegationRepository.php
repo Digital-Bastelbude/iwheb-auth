@@ -13,11 +13,11 @@ use PDOException;
  * Delegated session operations: create pre-validated sessions for other API keys.
  */
 class SessionDelegationRepository extends BaseRepository {
-    private SessionCrudRepository $crud;
+    private SessionOperationsRepository $operations;
 
-    public function __construct(PDO $pdo, SessionCrudRepository $crud) {
+    public function __construct(PDO $pdo, SessionOperationsRepository $operations) {
         parent::__construct($pdo);
-        $this->crud = $crud;
+        $this->operations = $operations;
     }
 
     /**
@@ -26,7 +26,7 @@ class SessionDelegationRepository extends BaseRepository {
      */
     public function createDelegatedSession(string $parentSessionId, string $targetApiKey, int $sessionDurationSeconds = 1800): array {
         try {
-            $parentSession = $this->crud->getSessionBySessionId($parentSessionId);
+            $parentSession = $this->operations->getSessionBySessionId($parentSessionId);
             
             if (!$parentSession) {
                 throw new StorageException('INVALID_PARENT_SESSION', 'Parent session not found or expired');
