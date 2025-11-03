@@ -45,11 +45,12 @@ class SessionController extends BaseController {
     /**
      * POST /session/touch/{session_id}
      * 
-     * Refresh session by updating last activity and generating new session ID.
+     * Extend session expiry time.
+     * Only updates expires_at, does NOT create new session!
      * 
      * @param array $pathVars ['session_id' => string]
      * @param array $body
-     * @return array Response with new session_id and expiration
+     * @return array Response with same session_id and new expiry
      * @throws InvalidSessionException if session not found or access denied
      * @throws StorageException if session refresh fails
      */
@@ -57,46 +58,42 @@ class SessionController extends BaseController {
         $sessionId = $pathVars['session_id'];
         
         // Get session with access check
-        $this->getSessionWithAccess($sessionId);
+        $session = $this->getSessionWithAccess($sessionId);
         
         // Check if session is active (not expired)
         if (!$this->db->isSessionActive($sessionId)) {
             throw new InvalidSessionException();
         }
 
-        // Touch user to refresh session and update last activity
-        $newSessionId = $this->db->touchUser($sessionId);
+        // Extend session (updates expires_at only)
+        $updatedSession = $this->db->touchSession($sessionId, $session['session_duration']);
 
-        if (!$newSessionId) {
-            throw new StorageException('STORAGE_ERROR', 'Failed to refresh session');
+        if (!$updatedSession) {
+            throw new StorageException('STORAGE_ERROR', 'Failed to extend session');
         }
-
-        // Get the new session to retrieve expires_at
-        $newSession = $this->db->getSessionBySessionId($newSessionId);
         
-        if (!$newSession) {
-            throw new StorageException('STORAGE_ERROR', 'Failed to retrieve new session');
-        }
+        // Touch user activity
+        $this->db->touchUser($sessionId);
 
         return $this->success([
-            'session_id' => $newSessionId,
-            'expires_at' => $newSession['expires_at']
+            'session_id' => $updatedSession['session_id'], // Same ID!
+            'expires_at' => $updatedSession['expires_at']
         ]);
-    }
-    
-    /**
+    }    /**
      * POST /session/delegate/{session_id}
      * 
-     * Create a delegated session for another API key based on a parent session.
-     * The delegated session is immediately validated and bound to the parent session's lifecycle.
-     * Requires 'delegate_session' permission.
+     * Create a delegated session for a different API key.
+     * 
+     * Rules:
+     * - Only one child per parent/API-key combination allowed
+     * - Parent session must NOT be a child itself (no nested delegation)
+     * - Requires 'delegate_session' permission
      * 
      * @param array $pathVars ['session_id' => string]
      * @param array $body ['target_api_key' => string]
-     * @return array Response with new delegated session_id
+     * @return array Response with new delegated session
+     * @throws InvalidSessionException if session not found, access denied, or is a child
      * @throws InvalidInputException if target_api_key is missing or invalid
-     * @throws InvalidSessionException if parent session not found, not validated, or access denied
-     * @throws StorageException if delegated session creation fails
      */
     public function createDelegated(array $pathVars, array $body): array {
         $parentSessionId = $pathVars['session_id'];
@@ -111,6 +108,11 @@ class SessionController extends BaseController {
         // Get parent session with access check
         $parentSession = $this->getSessionWithAccess($parentSessionId);
         
+        // Check if session is a child (no nested delegation!)
+        if (isset($parentSession['parent_session_id']) && $parentSession['parent_session_id'] !== null) {
+            throw new InvalidSessionException('INVALID_SESSION', 'Cannot delegate from a child session');
+        }
+        
         // Check if parent session is validated and active
         if (!$parentSession['validated'] || !$this->db->isSessionActive($parentSessionId)) {
             throw new InvalidSessionException();
@@ -124,7 +126,7 @@ class SessionController extends BaseController {
             throw new InvalidInputException('INVALID_API_KEY', 'Target API key does not exist');
         }
         
-        // Create delegated session
+        // Create delegated session (deletes existing child with same API key)
         $delegatedSession = $this->db->createDelegatedSession($parentSessionId, $targetApiKey);
         
         return $this->success([

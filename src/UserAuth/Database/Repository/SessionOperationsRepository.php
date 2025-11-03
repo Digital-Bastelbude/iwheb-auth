@@ -15,13 +15,26 @@ use PDOException;
 class SessionOperationsRepository extends BaseRepository {
     /**
      * Initiate a new session with authentication code generation.
-     * Enforces "one session per user/API-key" policy by removing existing sessions.
+     * 
+     * If an old session ID is provided:
+     * 1. Child sessions are reparented to the new session
+     * 2. Old session is deleted (children are preserved)
+     * 
+     * @param string $userToken Encrypted Webling user ID
+     * @param string $apiKey API key for this session
+     * @param int $sessionDurationSeconds Session lifetime in seconds
+     * @param int $codeValiditySeconds Code validity in seconds
+     * @param string|null $oldSessionId Optional: Session to replace
+     * @return array New session data
      */
-    public function createSession(string $userToken, string $apiKey, int $sessionDurationSeconds = 1800, int $codeValiditySeconds = 300): array {
+    public function createSession(
+        string $userToken, 
+        string $apiKey, 
+        int $sessionDurationSeconds = 1800, 
+        int $codeValiditySeconds = 300,
+        ?string $oldSessionId = null
+    ): array {
         try {
-            // Delete all existing sessions for this user + API key combination
-            $this->deleteUserApiKeySessions($userToken, $apiKey);
-
             // Generate unique session ID
             do {
                 $sessionId = $this->generateSessionId();
@@ -36,6 +49,12 @@ class SessionOperationsRepository extends BaseRepository {
 
             $stmt = $this->pdo->prepare('INSERT INTO sessions (session_id, user_token, code, code_valid_until, expires_at, session_duration, validated, created_at, api_key) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)');
             $stmt->execute([$sessionId, $userToken, $code, $codeValidUntil, $expiresAt, $sessionDurationSeconds, $createdAt, $apiKey]);
+
+            // If replacing old session: reparent children, then delete old
+            if ($oldSessionId !== null) {
+                $this->reparentChildSessions($oldSessionId, $sessionId);
+                $this->deleteSession($oldSessionId);
+            }
 
             return [
                 'session_id' => $sessionId,
@@ -101,27 +120,27 @@ class SessionOperationsRepository extends BaseRepository {
     }
 
     /**
-     * Refresh session: extend expiry and generate new session ID.
+     * Extend session expiry time without creating new session
+     * 
+     * Simply updates the expires_at timestamp.
+     * 
+     * @param string $sessionId Session ID to extend
+     * @param int $lifetime Session lifetime in seconds
+     * @return array|null Updated session data
      */
-    public function touchSession(string $oldSessionId, string $userToken, string $apiKey): ?array {
+    public function touchSession(string $sessionId, int $lifetime): ?array {
         try {
-            $session = $this->getSessionBySessionId($oldSessionId);
-            if (!$session) {
-                return null;
-            }
-
-            // Create new session with same duration
-            $newSession = $this->createSession($userToken, $apiKey, $session['session_duration']);
-
-            // Copy validation status
-            if ($session['validated']) {
-                $stmt = $this->pdo->prepare('UPDATE sessions SET validated = 1 WHERE session_id = ?');
-                $stmt->execute([$newSession['session_id']]);
-                $newSession['validated'] = true;
-            }
-
-            $this->deleteSession($oldSessionId);
-            return $newSession;
+            $expiresAt = $this->getTimestamp($lifetime);
+            
+            $stmt = $this->pdo->prepare("
+                UPDATE sessions 
+                SET expires_at = ? 
+                WHERE session_id = ?
+            ");
+            $stmt->execute([$expiresAt, $sessionId]);
+            
+            // Return updated session
+            return $this->getSessionBySessionId($sessionId);
         } catch (PDOException $e) {
             throw new StorageException('STORAGE_ERROR', 'Database operation failed: ' . $e->getMessage());
         }
@@ -179,6 +198,12 @@ class SessionOperationsRepository extends BaseRepository {
 
     /**
      * Clean up expired sessions from storage.
+     * 
+     * This is a maintenance operation that should be run periodically
+     * via cron job or manual trigger.
+     * 
+     * @param string|null $beforeTimestamp Optional timestamp for testing (defaults to now)
+     * @return int Number of deleted sessions
      */
     public function deleteExpiredSessions(?string $beforeTimestamp = null): int {
         try {
@@ -192,10 +217,90 @@ class SessionOperationsRepository extends BaseRepository {
     }
 
     /**
-     * Terminate all sessions for a specific user and API key combination.
-     * Enforces "one session per user/API-key" policy.
+     * Delete duplicate sessions for same user/API-key combinations
+     * 
+     * Decrypts all session user tokens and removes duplicates where
+     * the same Webling user ID is logged in with the same API key
+     * multiple times. Keeps the most recent session.
+     * 
+     * This is a maintenance operation for cleanup only.
+     * NOT callable from any route/controller!
+     * 
+     * @param \IwhebAPI\UserAuth\Database\UidEncryptor $uidEncryptor Encryptor to decrypt user tokens
+     * @return int Number of deleted sessions
      */
-    public function deleteUserApiKeySessions(string $userToken, string $apiKey): int {
+    public function deleteDuplicateUserApiKeySessions($uidEncryptor): int {
+        try {
+            // 1. Fetch all sessions
+            $stmt = $this->pdo->query("
+                SELECT session_id, user_token, api_key, created_at 
+                FROM sessions 
+                ORDER BY created_at DESC
+            ");
+            $sessions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // 2. Group by decrypted UID + API key
+            $seen = [];
+            $toDelete = [];
+            
+            foreach ($sessions as $session) {
+                $weblingUserId = $uidEncryptor->decrypt($session['user_token']);
+                if ($weblingUserId === null) continue;
+                
+                $key = $weblingUserId . '|' . $session['api_key'];
+                
+                if (isset($seen[$key])) {
+                    // Duplicate found - mark older one for deletion
+                    $toDelete[] = $session['session_id'];
+                } else {
+                    $seen[$key] = true;
+                }
+            }
+            
+            // 3. Delete duplicates
+            if (empty($toDelete)) {
+                return 0;
+            }
+            
+            $placeholders = str_repeat('?,', count($toDelete) - 1) . '?';
+            $stmt = $this->pdo->prepare("DELETE FROM sessions WHERE session_id IN ($placeholders)");
+            $stmt->execute($toDelete);
+            
+            return $stmt->rowCount();
+        } catch (PDOException $e) {
+            throw new StorageException('STORAGE_ERROR', 'Database operation failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Move child sessions from old parent to new parent
+     * 
+     * This preserves delegated sessions when replacing a parent session.
+     * 
+     * @param string $oldParentId Old parent session ID
+     * @param string $newParentId New parent session ID
+     * @return int Number of reparented sessions
+     */
+    public function reparentChildSessions(string $oldParentId, string $newParentId): int {
+        try {
+            $stmt = $this->pdo->prepare("
+                UPDATE sessions 
+                SET parent_session_id = ? 
+                WHERE parent_session_id = ?
+            ");
+            $stmt->execute([$newParentId, $oldParentId]);
+            return $stmt->rowCount();
+        } catch (PDOException $e) {
+            throw new StorageException('STORAGE_ERROR', 'Database operation failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Terminate all sessions for a specific user and API key combination.
+     * Used internally by createSession() and maintenance operations only.
+     * NOT exposed via Storage facade!
+     */
+    private function deleteUserApiKeySessions(string $userToken, string $apiKey): int {
         try {
             $stmt = $this->pdo->prepare('DELETE FROM sessions WHERE user_token = ? AND api_key = ?');
             $stmt->execute([$userToken, $apiKey]);

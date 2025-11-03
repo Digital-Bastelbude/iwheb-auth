@@ -21,9 +21,41 @@ class SessionDelegationRepository extends BaseRepository {
     }
 
     /**
+     * Delete existing child sessions of a parent with specific API key
+     * 
+     * Ensures only one child session per parent/API-key combination.
+     * 
+     * @param string $parentSessionId Parent session ID
+     * @param string $apiKey Target API key
+     * @return int Number of deleted sessions
+     */
+    private function deleteParentChildByApiKey(string $parentSessionId, string $apiKey): int {
+        try {
+            $stmt = $this->pdo->prepare("
+                DELETE FROM sessions 
+                WHERE parent_session_id = ? 
+                AND api_key = ?
+            ");
+            $stmt->execute([$parentSessionId, $apiKey]);
+            return $stmt->rowCount();
+        } catch (PDOException $e) {
+            throw new StorageException('STORAGE_ERROR', 'Database operation failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * Create delegated session for another API key.
-     * Session is immediately validated and bound to parent's lifecycle.
-     * Enforces "one session per user/API-key" policy by removing existing target sessions.
+     * 
+     * Rules:
+     * - Only one child session per parent/API-key combination allowed
+     * - Existing children with the same API key are deleted before creating new one
+     * - Parent session must NOT be a child itself (no nested delegation)
+     * 
+     * @param string $parentSessionId Parent session ID
+     * @param string $targetApiKey Target API key for delegated session
+     * @param int $sessionDurationSeconds Session duration in seconds
+     * @return array New delegated session data
+     * @throws StorageException If parent is a child session or not found
      */
     public function createDelegatedSession(string $parentSessionId, string $targetApiKey, int $sessionDurationSeconds = 1800): array {
         try {
@@ -37,10 +69,16 @@ class SessionDelegationRepository extends BaseRepository {
                 throw new StorageException('INVALID_PARENT_SESSION', 'Parent session must be validated');
             }
             
+            // Check if parent is itself a child (no nested delegation allowed!)
+            if (isset($parentSession['parent_session_id']) && $parentSession['parent_session_id'] !== null) {
+                throw new StorageException('INVALID_PARENT_SESSION', 'Cannot delegate from a child session');
+            }
+            
             $userToken = $parentSession['user_token'];
             
-            // Delete all existing sessions for this user + target API key combination
-            $this->operations->deleteUserApiKeySessions($userToken, $targetApiKey);
+            // Delete existing child sessions for this parent/API-key combination
+            // This ensures: one parent + one API key = one child session
+            $this->deleteParentChildByApiKey($parentSessionId, $targetApiKey);
             
             // Generate unique session ID
             do {

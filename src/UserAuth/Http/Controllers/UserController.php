@@ -36,12 +36,13 @@ class UserController extends BaseController {
     /**
      * GET /user/{session_id}/info
      * 
-     * Get user information from Webling. Requires 'user_info' permission.
+     * Get user information from Webling.
+     * Session is extended (children preserved if parent session).
      * 
      * @param array $pathVars ['session_id' => string]
      * @param array $body
-     * @return array Response with user data
-     * @throws InvalidSessionException if session not found, not validated, or access denied
+     * @return array Response with user data and new session_id
+     * @throws InvalidSessionException if session not found, access denied, or not validated
      * @throws UserNotFoundException if user not found
      * @throws StorageException if session refresh or Webling fetch fails
      */
@@ -66,12 +67,20 @@ class UserController extends BaseController {
             throw new UserNotFoundException();
         }
 
-        // Touch session to extend expiry
-        $newSessionId = $this->db->touchUser($sessionId);
+        // Create new session, replacing old one (children preserved if parent)
+        $newSession = $this->db->createSession(
+            $session['user_token'],
+            $this->apiKey,
+            $session['session_duration'],
+            300, // code validity
+            $sessionId // Replace old session
+        );
         
-        if (!$newSessionId) {
-            throw new StorageException('STORAGE_ERROR', 'Failed to refresh session');
-        }
+        // Mark new session as validated
+        $this->db->validateSession($newSession['session_id']);
+        
+        // Touch user activity
+        $this->db->touchUser($newSession['session_id']);
 
         // Get weblingId (decrypt token)
         $weblingId = $this->uidEncryptor->decrypt($user['token']);
@@ -84,13 +93,11 @@ class UserController extends BaseController {
         }
 
         return $this->success([
-            'session_id' => $newSessionId,
+            'session_id' => $newSession['session_id'],
             'user' => $weblingUser,
-            'session_expires_at' => $session['expires_at']
+            'session_expires_at' => $newSession['expires_at']
         ]);
-    }
-    
-    /**
+    }    /**
      * GET /user/{session_id}/token
      * 
      * Get encrypted user token. Requires 'user_token' permission.
@@ -123,17 +130,25 @@ class UserController extends BaseController {
             throw new UserNotFoundException();
         }
 
-        // Touch session to extend expiry
-        $newSessionId = $this->db->touchUser($sessionId);
+        // Create new session, replacing old one (children preserved if parent)
+        $newSession = $this->db->createSession(
+            $session['user_token'],
+            $this->apiKey,
+            $session['session_duration'],
+            300, // code validity
+            $sessionId // Replace old session
+        );
         
-        if (!$newSessionId) {
-            throw new StorageException('STORAGE_ERROR', 'Failed to refresh session');
-        }
+        // Mark new session as validated
+        $this->db->validateSession($newSession['session_id']);
+        
+        // Touch user activity
+        $this->db->touchUser($newSession['session_id']);
 
         return $this->success([
-            'session_id' => $newSessionId,
+            'session_id' => $newSession['session_id'],
             'token' => $user['token'],
-            'session_expires_at' => $session['expires_at']
+            'session_expires_at' => $newSession['expires_at']
         ]);
     }
 }

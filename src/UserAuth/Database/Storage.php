@@ -177,12 +177,18 @@ class Database {
 
     // ========== SESSION MANAGEMENT ==========
 
-    public function createSession(string $userToken, string $apiKey, int $sessionDurationSeconds = 1800, int $codeValiditySeconds = 300): array {
+    public function createSession(
+        string $userToken, 
+        string $apiKey, 
+        int $sessionDurationSeconds = 1800, 
+        int $codeValiditySeconds = 300,
+        ?string $oldSessionId = null
+    ): array {
         $user = $this->userRepository->getUserByToken($userToken);
         if (!$user) {
             throw new StorageException('STORAGE_ERROR', 'User not found');
         }
-        return $this->sessionOperations->createSession($userToken, $apiKey, $sessionDurationSeconds, $codeValiditySeconds);
+        return $this->sessionOperations->createSession($userToken, $apiKey, $sessionDurationSeconds, $codeValiditySeconds, $oldSessionId);
     }
 
     public function createDelegatedSession(string $parentSessionId, string $targetApiKey, int $sessionDurationSeconds = 1800): array {
@@ -206,12 +212,39 @@ class Database {
         return $this->sessionOperations->deleteUserSessions($userToken);
     }
 
+    /**
+     * Delete all expired sessions (maintenance operation)
+     * 
+     * This is a maintenance function only - NOT callable from routes!
+     * 
+     * @param string|null $beforeTimestamp Optional timestamp for testing (defaults to now)
+     * @return int Number of deleted sessions
+     */
     public function deleteExpiredSessions(?string $beforeTimestamp = null): int {
         return $this->sessionOperations->deleteExpiredSessions($beforeTimestamp);
     }
 
-    public function deleteUserApiKeySessions(string $userToken, string $apiKey): int {
-        return $this->sessionOperations->deleteUserApiKeySessions($userToken, $apiKey);
+    /**
+     * Delete duplicate sessions for same user/API-key combinations (maintenance operation)
+     * 
+     * This is a maintenance function only - NOT callable from routes!
+     * 
+     * @param UidEncryptor $uidEncryptor Encryptor to decrypt user tokens
+     * @return int Number of deleted sessions
+     */
+    public function deleteDuplicateUserApiKeySessions($uidEncryptor): int {
+        return $this->sessionOperations->deleteDuplicateUserApiKeySessions($uidEncryptor);
+    }
+
+    /**
+     * Extend session expiry time
+     * 
+     * @param string $sessionId Session ID to extend
+     * @param int $sessionDuration Session duration in seconds
+     * @return array|null Updated session data
+     */
+    public function touchSession(string $sessionId, int $sessionDuration = 1800): ?array {
+        return $this->sessionOperations->touchSession($sessionId, $sessionDuration);
     }
 
     public function validateSession(string $sessionId): bool {
@@ -244,7 +277,7 @@ class Database {
             return null;
         }
         $this->userRepository->touchUser($session['user_token']);
-        $newSession = $this->sessionOperations->touchSession($sessionId, $session['user_token'], $session['api_key']);
-        return $newSession ? $newSession['session_id'] : null;
+        $updatedSession = $this->sessionOperations->touchSession($sessionId, $session['session_duration']);
+        return $updatedSession ? $updatedSession['session_id'] : null;
     }
 }

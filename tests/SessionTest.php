@@ -251,10 +251,11 @@ class SessionTest extends TestCase {
         
         sleep(1); // Ensure timestamp difference
         
-        $newSessionId = $db->touchUser($originalSessionId);
+        $returnedSessionId = $db->touchUser($originalSessionId);
         
-        $this->assertNotNull($newSessionId);
-        $this->assertNotSame($originalSessionId, $newSessionId);
+        // New behavior: touchUser returns same session ID (only updates expires_at)
+        $this->assertNotNull($returnedSessionId);
+        $this->assertSame($originalSessionId, $returnedSessionId);
         
         // Verify user's last_activity_at was updated
         $updatedUser = $db->getUserByToken('testtoken123');
@@ -265,11 +266,8 @@ class SessionTest extends TestCase {
         $time2 = \DateTime::createFromFormat(\DateTime::ATOM, $updatedUser['last_activity_at']);
         $this->assertGreaterThan($time1->getTimestamp(), $time2->getTimestamp());
         
-        // Old session should be deleted
-        $this->assertNull($db->getSessionBySessionId($originalSessionId));
-        
-        // New session should exist
-        $this->assertNotNull($db->getSessionBySessionId($newSessionId));
+        // Original session should still exist (not deleted)
+        $this->assertNotNull($db->getSessionBySessionId($originalSessionId));
     }
 
     public function testTouchUserReturnsNullForInvalidSession(): void {
@@ -330,33 +328,37 @@ class SessionTest extends TestCase {
         $session1 = $db->createSession('testtoken123', $this->testApiKey, 1800);
         $this->assertNotNull($db->getSessionBySessionId($session1['session_id']));
         
-        // Create second session with same user/API key - should replace first
+        // Create second session with same user/API key - both should exist now (no auto-deletion)
         $session2 = $db->createSession('testtoken123', $this->testApiKey, 1800);
         
-        // First session should be deleted, only second should exist
-        $this->assertNull($db->getSessionBySessionId($session1['session_id']));
+        // Both sessions should exist (new behavior - no automatic deletion)
+        $this->assertNotNull($db->getSessionBySessionId($session1['session_id']));
         $this->assertNotNull($db->getSessionBySessionId($session2['session_id']));
         $this->assertNotSame($session1['session_id'], $session2['session_id']);
         
         // Create third session with different API key - should coexist
         $session3 = $db->createSession('testtoken123', 'different-api-key', 1800);
         
-        // Both sessions with different API keys should exist
+        // All sessions with different API keys should exist
+        $this->assertNotNull($db->getSessionBySessionId($session1['session_id']));
         $this->assertNotNull($db->getSessionBySessionId($session2['session_id']));
         $this->assertNotNull($db->getSessionBySessionId($session3['session_id']));
         
-        // But creating another session with first API key should replace session2
+        // Creating another session with first API key - all should still exist (no auto-deletion)
         $session4 = $db->createSession('testtoken123', $this->testApiKey, 1800);
-        $this->assertNull($db->getSessionBySessionId($session2['session_id']));
-        $this->assertNotNull($db->getSessionBySessionId($session3['session_id'])); // Different API key, untouched
+        $this->assertNotNull($db->getSessionBySessionId($session1['session_id']));
+        $this->assertNotNull($db->getSessionBySessionId($session2['session_id']));
+        $this->assertNotNull($db->getSessionBySessionId($session3['session_id']));
         $this->assertNotNull($db->getSessionBySessionId($session4['session_id']));
         
         // All should point to the same user
+        $user1 = $db->getUserBySessionId($session1['session_id']);
         $user3 = $db->getUserBySessionId($session3['session_id']);
         $user4 = $db->getUserBySessionId($session4['session_id']);
         
-        $this->assertSame($user3['token'], $user4['token']);
-        $this->assertSame('testtoken123', $user3['token']);
+        $this->assertSame($user1['token'], $user3['token']);
+        $this->assertSame($user1['token'], $user4['token']);
+        $this->assertSame('testtoken123', $user1['token']);
     }
 
     public function testValidateSessionMarksSessionAsValidated(): void {
@@ -700,15 +702,18 @@ class SessionTest extends TestCase {
         
         // Validate session (triggers session rotation)
         $db->validateSession($originalSession['session_id']);
-        $newSessionId = $db->touchUser($originalSession['session_id']);
+        $sessionId = $db->touchUser($originalSession['session_id']);
         
-        // New session should still have the same API key
-        $newSession = $db->getSessionBySessionId($newSessionId);
-        $this->assertNotNull($newSession);
-        $this->assertSame($this->testApiKey, $newSession['api_key']);
+        // touchUser now returns same session ID (only updates expires_at)
+        $this->assertSame($originalSession['session_id'], $sessionId);
+        
+        // Session should still have the same API key
+        $session = $db->getSessionBySessionId($sessionId);
+        $this->assertNotNull($session);
+        $this->assertSame($this->testApiKey, $session['api_key']);
         
         // Access check should still work with original API key
-        $this->assertTrue($db->checkSessionAccess($newSessionId, $this->testApiKey));
+        $this->assertTrue($db->checkSessionAccess($sessionId, $this->testApiKey));
     }
 
     public function testEmptyApiKeyIsStored(): void {
@@ -741,12 +746,12 @@ class SessionTest extends TestCase {
         $this->assertNotNull($retrieved1);
         
         // Create second session for the same user with SAME API key
-        // (should delete first unvalidated session)
+        // (both should exist - no automatic deletion in new version)
         $session2 = $db->createSession('testtoken123', $this->testApiKey);
         
-        // First session should be deleted
+        // Both sessions should exist (new behavior)
         $retrieved1AfterSecond = $db->getSessionBySessionId($session1['session_id']);
-        $this->assertNull($retrieved1AfterSecond);
+        $this->assertNotNull($retrieved1AfterSecond);
         
         // Second session should exist
         $retrieved2 = $db->getSessionBySessionId($session2['session_id']);
@@ -769,11 +774,11 @@ class SessionTest extends TestCase {
         $this->assertNotNull($db->getSessionBySessionId($session1['session_id']));
         $this->assertNotNull($db->getSessionBySessionId($session2['session_id']));
         
-        // Create another session with first API key (should delete only session1)
+        // Create another session with first API key (all should exist - no auto-deletion)
         $session3 = $db->createSession('testtoken123', 'api-key-1');
         
-        // session1 should be deleted, session2 and session3 should exist
-        $this->assertNull($db->getSessionBySessionId($session1['session_id']));
+        // All sessions should exist (new behavior - no automatic deletion)
+        $this->assertNotNull($db->getSessionBySessionId($session1['session_id']));
         $this->assertNotNull($db->getSessionBySessionId($session2['session_id']));
         $this->assertNotNull($db->getSessionBySessionId($session3['session_id']));
     }
@@ -790,12 +795,12 @@ class SessionTest extends TestCase {
         // Verify first session is validated
         $this->assertTrue($db->isSessionValidated($session1['session_id']));
         
-        // Create second session (should replace validated session due to "one session per user/API-key" policy)
+        // Create second session (both should exist - no auto-deletion)
         $session2 = $db->createSession('testtoken123', $this->testApiKey);
         
-        // First session (validated) should be deleted
+        // First session (validated) should still exist (new behavior)
         $retrieved1 = $db->getSessionBySessionId($session1['session_id']);
-        $this->assertNull($retrieved1);
+        $this->assertNotNull($retrieved1);
         
         // Second session should exist and be unvalidated
         $retrieved2 = $db->getSessionBySessionId($session2['session_id']);
@@ -817,17 +822,16 @@ class SessionTest extends TestCase {
         $session2 = $db->createSession('testtoken123', $this->testApiKey);
         $sessionId2 = $session2['session_id'];
         
-        // First session should be deleted
-        $this->assertNull($db->getSessionBySessionId($sessionId1));
+        // Both sessions should exist (new behavior)
+        $this->assertNotNull($db->getSessionBySessionId($sessionId1));
         $this->assertNotNull($db->getSessionBySessionId($sessionId2));
         
-        // Create third session (should delete second)
+        // Create third session (all should exist)
         $session3 = $db->createSession('testtoken123', $this->testApiKey);
         
-        // Second session should be deleted
-        $this->assertNull($db->getSessionBySessionId($sessionId2));
-        
-        // Only third session should exist
+        // All sessions should exist (new behavior - no automatic deletion)
+        $this->assertNotNull($db->getSessionBySessionId($sessionId1));
+        $this->assertNotNull($db->getSessionBySessionId($sessionId2));
         $this->assertNotNull($db->getSessionBySessionId($session3['session_id']));
     }
 
@@ -969,21 +973,12 @@ class SessionTest extends TestCase {
         // Create first-level delegated session
         $delegatedSession1 = $db->createDelegatedSession($parentSession['session_id'], 'api-key-2');
         
-        // Create second-level delegated session (delegated from delegated)
-        $delegatedSession2 = $db->createDelegatedSession($delegatedSession1['session_id'], 'api-key-3');
+        // New behavior: nested delegation should throw an exception
+        $this->expectException(\IwhebAPI\UserAuth\Exception\Database\StorageException::class);
+        $this->expectExceptionMessage('Cannot delegate from a child session');
         
-        // All three sessions should exist
-        $this->assertNotNull($db->getSessionBySessionId($parentSession['session_id']));
-        $this->assertNotNull($db->getSessionBySessionId($delegatedSession1['session_id']));
-        $this->assertNotNull($db->getSessionBySessionId($delegatedSession2['session_id']));
-        
-        // Delete parent (top-level)
-        $db->deleteSession($parentSession['session_id']);
-        
-        // All sessions should be deleted recursively
-        $this->assertNull($db->getSessionBySessionId($parentSession['session_id']));
-        $this->assertNull($db->getSessionBySessionId($delegatedSession1['session_id']));
-        $this->assertNull($db->getSessionBySessionId($delegatedSession2['session_id']));
+        // Attempt to create second-level delegated session (should fail)
+        $db->createDelegatedSession($delegatedSession1['session_id'], 'api-key-3');
     }
 
     public function testDelegatedSessionIsolationByApiKey(): void {

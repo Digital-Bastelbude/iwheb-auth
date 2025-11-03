@@ -76,13 +76,9 @@ class AuthController extends BaseController {
         if (!$existingUser) {
             // Create new user
             $this->db->createUser($token);
-        } else {
-            // Delete all existing sessions for this user (across all API keys)
-            $this->db->deleteUserSessions($token);
         }
 
         // Create session for user with API key (generates code automatically)
-        // This also enforces "one session per user/API-key" policy
         $session = $this->db->createSession($token, $this->apiKey);
 
         // Send authentication code via email
@@ -98,13 +94,14 @@ class AuthController extends BaseController {
     /**
      * POST /validate/{session_id}
      * 
-     * Validate authentication code for a session.
+     * Validate a session with its authentication code.
+     * Creates new session and preserves child sessions.
      * 
      * @param array $pathVars ['session_id' => string]
      * @param array $body ['code' => string]
-     * @return array Response with new session_id and validation status
-     * @throws InvalidInputException if code is missing
+     * @return array Response with new session_id
      * @throws InvalidSessionException if session not found or access denied
+     * @throws InvalidInputException if code is missing
      * @throws InvalidCodeException if code is invalid
      * @throws StorageException if session refresh fails
      */
@@ -128,30 +125,31 @@ class AuthController extends BaseController {
             throw new InvalidCodeException();
         }
 
-        // Mark session as validated
-        $this->db->validateSession($sessionId);
-
-        // Touch user to generate new session ID
-        $newSessionId = $this->db->touchUser($sessionId);
-
-        if (!$newSessionId) {
-            throw new StorageException('STORAGE_ERROR', 'Failed to refresh session');
-        }
-
-        // Regenerate code for security (so old code can't be reused)
-        $this->db->regenerateSessionCode($newSessionId);
+        // Create new validated session, replacing old one (children preserved)
+        $newSession = $this->db->createSession(
+            $session['user_token'],
+            $this->apiKey,
+            $session['session_duration'],
+            300, // code validity
+            $sessionId // Replace old session
+        );
+        
+        // Mark new session as validated
+        $this->db->validateSession($newSession['session_id']);
+        
+        // Touch user activity
+        $this->db->touchUser($newSession['session_id']);
 
         return $this->success([
-            'session_id' => $newSessionId,
+            'session_id' => $newSession['session_id'],
             'validated' => true,
-            'session_expires_at' => $session['expires_at']
+            'session_expires_at' => $newSession['expires_at']
         ]);
-    }
-    
-    /**
+    }    /**
      * POST /session/logout/{session_id}
      * 
-     * Logout and delete a session.
+     * Logout and delete the specific session (and all its children).
+     * Does NOT delete other sessions of the same user!
      * 
      * @param array $pathVars ['session_id' => string]
      * @param array $body
@@ -164,17 +162,15 @@ class AuthController extends BaseController {
         // Get session with access check
         $session = $this->getSessionWithAccess($sessionId);
         
-        // Delete all sessions for this user and API key combination
-        $deletedCount = $this->db->deleteUserApiKeySessions($session['user_token'], $this->apiKey);
+        // Delete this specific session (cascade deletes children)
+        $deleted = $this->db->deleteSession($sessionId);
         
-        if ($deletedCount === 0) {
+        if (!$deleted) {
             throw new InvalidSessionException();
         }
 
         return $this->success([
-            'message' => 'Logged out successfully',
-            'session_id' => $sessionId,
-            'sessions_deleted' => $deletedCount
+            'message' => 'Logged out successfully'
         ]);
     }
     
