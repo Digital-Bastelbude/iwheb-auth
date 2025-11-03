@@ -117,25 +117,12 @@ class Database {
                     session_duration INTEGER NOT NULL DEFAULT 1800,
                     validated INTEGER NOT NULL DEFAULT 0,
                     created_at TEXT NOT NULL,
-                    api_key TEXT NOT NULL,
+                    api_key TEXT NOT NULL DEFAULT '',
+                    parent_session_id TEXT DEFAULT NULL,
                     FOREIGN KEY (user_token) REFERENCES users(token) ON DELETE CASCADE
                 )
             ";
             $this->pdo->exec($sessionSql);
-            
-            // Migration: Add api_key column if it doesn't exist (for existing databases)
-            try {
-                $this->pdo->exec("ALTER TABLE sessions ADD COLUMN api_key TEXT NOT NULL DEFAULT ''");
-            } catch (PDOException $e) {
-                // Column already exists, ignore error
-            }
-            
-            // Migration: Add parent_session_id column if it doesn't exist (for delegated sessions)
-            try {
-                $this->pdo->exec("ALTER TABLE sessions ADD COLUMN parent_session_id TEXT DEFAULT NULL");
-            } catch (PDOException $e) {
-                // Column already exists, ignore error
-            }
             
         } catch (PDOException $e) {
             throw new StorageException('STORAGE_ERROR', 'Database initialization failed: ' . $e->getMessage());
