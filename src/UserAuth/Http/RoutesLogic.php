@@ -69,7 +69,6 @@ function run_routes(array $routes, string $path, string $method, $response): arr
             throw new \Exception('INVALID_HANDLER_RESPONSE');
         }
     }
-
-    error_log("DEBUG: no mathing route found");    
+  
     throw new \Exception('NOT_FOUND');
 }
