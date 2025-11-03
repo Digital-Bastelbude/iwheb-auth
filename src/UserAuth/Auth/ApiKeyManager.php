@@ -87,4 +87,14 @@ class ApiKeyManager {
         $config = $this->getApiKeyConfig($apiKey);
         return $config['name'] ?? null;
     }
+    
+    /**
+     * Check if an API key exists and is valid
+     * 
+     * @param string $apiKey The API key to check
+     * @return bool True if key exists, false otherwise
+     */
+    public function isValidApiKey(string $apiKey): bool {
+        return isset($this->apiKeys[$apiKey]);
+    }
 }
