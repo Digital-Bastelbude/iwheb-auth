@@ -87,6 +87,14 @@ $routes = [
             'GET' => [$userController, 'getToken']
         ]
     ],
+    // GET /user/{session_id}/id
+    [
+        'pattern' => '#^/user/([a-z0-9]+)/id$#',
+        'pathVars' => ['session_id'],
+        'methods' => [
+            'GET' => [$userController, 'getId']
+        ]
+    ],
     // GET /session/check/{session_id}
     [
         'pattern' => '#^/session/check/([a-z0-9]+)$#',

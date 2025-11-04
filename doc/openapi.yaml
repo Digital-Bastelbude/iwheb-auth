@@ -21,12 +21,23 @@ info:
     $API_KEYS = [
         'your-api-key' => [
             'name' => 'Application Name',
+            'permissions' => ['user_info', 'user_token', 'user_id', 'delegate_session'],
             'routes' => ['POST:/login', 'POST:/validate/{session_id}', ...],
             'scopes' => ['read', 'write'],
             'rate_limit' => ['window_seconds' => 60, 'max_requests' => 100]
         ]
     ];
     ```
+    
+    ## Available Permissions
+    
+    - `user_info`: Access to GET /user/{session_id}/info (user data from Webling)
+    - `user_token`: Access to GET /user/{session_id}/token (encrypted user token)
+    - `user_id`: Access to GET /user/{session_id}/id (decrypted Webling user ID)
+    - `delegate_session`: Access to POST /session/delegate/{session_id} (create delegated sessions)
+    
+    **Session Rotation**: All user endpoints (`/user/*`) and delegate endpoint automatically
+    create new sessions and invalidate old ones for enhanced security.
   version: 1.0.0
   contact:
     name: Digital Bastelbude Github
@@ -192,6 +203,10 @@ paths:
         Creates a pre-validated session for another API key. The delegated session
         is bound to the parent session's lifecycle. Requires `delegate_session` permission.
         
+        **Session Rotation**: Creates a new session for the current API key and invalidates the old one.
+        The delegated session becomes a child of the new session.
+        Use the new `session_id` from the response for subsequent requests.
+        
         **Session Management:**
         - Deletes any existing sessions for user + target API key combination
         - Enforces "one session per user/API-key" policy for delegated sessions
@@ -264,6 +279,9 @@ paths:
       description: |
         Retrieves user information from Webling for the authenticated user.
         Requires `user_info` permission.
+        
+        **Session Rotation**: Creates a new session and invalidates the old one.
+        Use the new `session_id` from the response for subsequent requests.
       operationId: getUserInfo
       parameters:
         - $ref: '#/components/parameters/SessionId'
@@ -289,6 +307,9 @@ paths:
       description: |
         Retrieves the encrypted user token for the authenticated user.
         Requires `user_token` permission.
+        
+        **Session Rotation**: Creates a new session and invalidates the old one.
+        Use the new `session_id` from the response for subsequent requests.
       operationId: getUserToken
       parameters:
         - $ref: '#/components/parameters/SessionId'
@@ -299,6 +320,34 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserTokenResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /user/{session_id}/id:
+    get:
+      tags:
+        - User
+      summary: Get user Webling ID
+      description: |
+        Retrieves the decrypted Webling user ID for the authenticated user.
+        Requires `user_id` permission.
+        
+        **Session Rotation**: Creates a new session and invalidates the old one.
+        Use the new `session_id` from the response for subsequent requests.
+      operationId: getUserId
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: User ID retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserIdResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -421,22 +470,34 @@ components:
           properties:
             session_id:
               type: string
-              description: New delegated session identifier
-              example: xyz789abc012
+              description: New session identifier for current API key
+              example: pqr567stu890
             expires_at:
               type: string
               format: date-time
+              description: ISO 8601 timestamp when new session expires
               example: "2025-10-31T13:00:00Z"
-            validated:
-              type: boolean
-              example: true
-              description: Delegated sessions are pre-validated
-            parent_session_id:
-              type: string
-              example: abc123def456
-            api_key:
-              type: string
-              example: app-key-2
+            delegated_session:
+              type: object
+              description: Information about the created delegated session
+              properties:
+                session_id:
+                  type: string
+                  description: Delegated session identifier for target API key
+                  example: xyz789abc012
+                expires_at:
+                  type: string
+                  format: date-time
+                  description: ISO 8601 timestamp when delegated session expires
+                  example: "2025-10-31T13:00:00Z"
+                validated:
+                  type: boolean
+                  example: true
+                  description: Delegated sessions are pre-validated
+                api_key:
+                  type: string
+                  description: Target API key for delegated session
+                  example: app-key-2
 
     UserInfoResponse:
       type: object
@@ -446,13 +507,20 @@ components:
           example: true
         data:
           type: object
-          description: User information from Webling
-          additionalProperties: true
-          example:
-            id: 123
-            firstName: John
-            lastName: Doe
-            email: john.doe@example.com
+          properties:
+            session_id:
+              type: string
+              description: New session identifier
+              example: abc456def789
+            user:
+              type: object
+              description: User information from Webling
+              additionalProperties: true
+            session_expires_at:
+              type: string
+              format: date-time
+              description: ISO 8601 timestamp when session expires
+              example: "2025-10-31T13:05:00Z"
 
     UserTokenResponse:
       type: object
@@ -463,10 +531,42 @@ components:
         data:
           type: object
           properties:
+            session_id:
+              type: string
+              description: New session identifier
+              example: def789ghi012
             token:
               type: string
               description: Encrypted user token
               example: dGVzdF90b2tlbl8xMjM0NTY=
+            session_expires_at:
+              type: string
+              format: date-time
+              description: ISO 8601 timestamp when session expires
+              example: "2025-10-31T13:05:00Z"
+
+    UserIdResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            session_id:
+              type: string
+              description: New session identifier
+              example: jkl345mno678
+            user_id:
+              type: string
+              description: Decrypted Webling user ID
+              example: "542"
+            session_expires_at:
+              type: string
+              format: date-time
+              description: ISO 8601 timestamp when session expires
+              example: "2025-10-31T13:05:00Z"
 
     SuccessResponse:
       type: object

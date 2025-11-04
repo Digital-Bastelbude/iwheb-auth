@@ -97,7 +97,9 @@ class UserController extends BaseController {
             'user' => $weblingUser,
             'session_expires_at' => $newSession['expires_at']
         ]);
-    }    /**
+    }
+    
+    /**
      * GET /user/{session_id}/token
      * 
      * Get encrypted user token. Requires 'user_token' permission.
@@ -148,6 +150,65 @@ class UserController extends BaseController {
         return $this->success([
             'session_id' => $newSession['session_id'],
             'token' => $user['token'],
+            'session_expires_at' => $newSession['expires_at']
+        ]);
+    }
+    
+    /**
+     * GET /user/{session_id}/id
+     * 
+     * Get user Webling ID from session with session rotation.
+     * Requires 'user_id' permission.
+     * 
+     * @param array $pathVars ['session_id' => string]
+     * @param array $body
+     * @return array Response with user_id and new session_id
+     * @throws InvalidSessionException if session not found, not validated, or access denied
+     * @throws UserNotFoundException if user not found
+     * @throws StorageException if session refresh fails
+     */
+    public function getId(array $pathVars, array $body): array {
+        $sessionId = $pathVars['session_id'];
+        
+        // Get session with access check
+        $session = $this->getSessionWithAccess($sessionId);
+        
+        // Require user_id permission
+        $this->requirePermission('user_id');
+        
+        // Check if session is validated
+        if (!$session['validated']) {
+            throw new InvalidSessionException();
+        }
+
+        // Get user
+        $user = $this->db->getUserBySessionId($sessionId);
+        
+        if (!$user) {
+            throw new UserNotFoundException();
+        }
+
+        // Create new session, replacing old one (children preserved if parent)
+        $newSession = $this->db->createSession(
+            $session['user_token'],
+            $this->apiKey,
+            $session['session_duration'],
+            300, // code validity
+            $sessionId // Replace old session
+        );
+        
+        // Mark new session as validated
+        $this->db->validateSession($newSession['session_id']);
+        
+        // Touch user activity
+        $this->db->touchUser($newSession['session_id']);
+
+        // Get weblingId (decrypt token)
+        $weblingId = $this->uidEncryptor->decrypt($user['token']);
+
+        return $this->success([
+            'session_id' => $newSession['session_id'],
+            'user_id' => $weblingId,
             'session_expires_at' => $newSession['expires_at']
         ]);
     }

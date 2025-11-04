@@ -111,11 +111,12 @@ while true; do
     echo "6. POST /session/logout/{session_id} - Logout session"
     echo "7. GET /user/{session_id}/info - Get user info"
     echo "8. GET /user/{session_id}/token - Get user token"
-    echo "9. Full Authentication Flow"
+    echo "9. GET /user/{session_id}/id - Get user ID"
+    echo "10. Full Authentication Flow"
     echo "0. Exit"
     echo
     
-    choice=$(ask_input "Choose an option (0-9)")
+    choice=$(ask_input "Choose an option (0-10)")
     
     case $choice in
         1)
@@ -223,6 +224,14 @@ while true; do
             ;;
             
         9)
+            print_header "GET /user/{session_id}/id"
+            print_info "This retrieves the decrypted Webling user ID."
+            
+            session_id=$(ask_input "Session ID" "${LAST_SESSION_ID}")
+            make_request "GET" "/user/$session_id/id" "" "Get user ID"
+            ;;
+            
+        10)
             print_header "Full Authentication Flow"
             print_info "This will run through the complete authentication process."
             
@@ -289,7 +298,7 @@ while true; do
             ;;
             
         *)
-            print_error "Invalid choice. Please select 0-9."
+            print_error "Invalid choice. Please select 0-10."
             ;;
     esac
     

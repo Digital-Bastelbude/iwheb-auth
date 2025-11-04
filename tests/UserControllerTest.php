@@ -24,8 +24,8 @@ class UserControllerTest extends TestCase {
         $this->config = [
             'keys' => [
                 'test-key' => [
-                    'name' => 'Test App',
-                    'permissions' => ['user_info', 'user_token']
+                    'name' => 'Test Key',
+                    'permissions' => ['user_info', 'user_token', 'user_id']
                 ],
                 'info-only-key' => [
                     'name' => 'Info Only',
@@ -77,8 +77,64 @@ class UserControllerTest extends TestCase {
         $result = $this->userController->getInfo(['session_id' => $session['session_id']], []);
         
         $this->assertArrayHasKey('data', $result);
-        $this->assertArrayHasKey('user', $result['data']);
+                $this->assertArrayHasKey('user', $result['data']);
+        $this->assertArrayHasKey('session_expires_at', $result['data']);
+    }
+    
+    public function testGetIdReturnsWeblingIdWithNewSession(): void {
+        // Create user with known Webling ID
+        $weblingId = '12345';
+        $userToken = $this->encryptor->encrypt($weblingId);
+        $user = $this->db->createUser($userToken);
+        
+        // Create and validate session
+        $session = $this->db->createSession($user['token'], $this->apiKey);
+        $this->db->validateSession($session['session_id']);
+        $originalSessionId = $session['session_id'];
+        
+        // Call getId
+        $result = $this->userController->getId(['session_id' => $originalSessionId], []);
+        
+        // Verify response structure
+        $this->assertArrayHasKey('data', $result);
+        $data = $result['data'];
+        
+        $this->assertArrayHasKey('session_id', $data);
+        $this->assertArrayHasKey('session_expires_at', $data);
+        $this->assertArrayHasKey('user_id', $data);
+        
+        // Verify new session was created
+        $this->assertNotSame($originalSessionId, $data['session_id']);
+        
+        // Verify Webling ID was correctly decrypted
+        $this->assertSame($weblingId, $data['user_id']);
+    }
+    
+    public function testGetIdThrowsForInvalidSession(): void {
+        $this->expectException(InvalidSessionException::class);
+        $this->userController->getId(['session_id' => 'invalid'], []);
+    }
+    
+    public function testGetIdThrowsForUnvalidatedSession(): void {
+        $userToken = $this->encryptor->encrypt('12345');
+        $user = $this->db->createUser($userToken);
+        $session = $this->db->createSession($user['token'], $this->apiKey);
+        
+        $this->expectException(InvalidSessionException::class);
+        $this->userController->getId(['session_id' => $session['session_id']], []);
+    }
+    
+    public function testGetInfoContainsUserData(): void {
+        $user = $this->db->createUser('token456');
+        $session = $this->db->createSession($user['token'], $this->apiKey);
+        $this->db->validateSession($session['session_id']);
+        
+        $result = $this->userController->getInfo(['session_id' => $session['session_id']], []);
+        
+        $this->assertArrayHasKey('data', $result);
         $this->assertArrayHasKey('session_id', $result['data']);
+        $this->assertArrayHasKey('user', $result['data']);
+        $this->assertArrayHasKey('session_expires_at', $result['data']);
         $this->assertSame('Test', $result['data']['user']['firstName']);
     }
     
