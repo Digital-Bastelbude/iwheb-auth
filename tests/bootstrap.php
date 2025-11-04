@@ -5,6 +5,14 @@ if (file_exists($autoloader)) {
 	require_once $autoloader;
 }
 
+// Set test encryption key if not already set
+if (!getenv('ENCRYPTION_KEY')) {
+	// Use a deterministic test key so CI runs are reproducible.
+	// This is acceptable for tests only; do NOT use in production.
+	$fixed = hex2bin('00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff');
+	putenv('ENCRYPTION_KEY=base64:' . base64_encode($fixed));
+}
+
 // Global classes (exceptions, logging) are auto-loaded via Composer's "files" directive
 // Namespaced classes are auto-loaded via Composer PSR-4 and classmap
 
