@@ -129,11 +129,30 @@ class SessionController extends BaseController {
         // Create delegated session (deletes existing child with same API key)
         $delegatedSession = $this->db->createDelegatedSession($parentSessionId, $targetApiKey);
         
+        // Create new session for current API key, replacing old one (children preserved if parent)
+        $newSession = $this->db->createSession(
+            $parentSession['user_token'],
+            $this->apiKey,
+            $parentSession['session_duration'],
+            300, // code validity
+            $parentSessionId // Replace old session (reparent delegated session)
+        );
+        
+        // Mark new session as validated
+        $this->db->validateSession($newSession['session_id']);
+        
+        // Touch user activity
+        $this->db->touchUser($newSession['session_id']);
+
         return $this->success([
-            'session_id' => $delegatedSession['session_id'],
-            'expires_at' => $delegatedSession['expires_at'],
-            'validated' => true,
-            'api_key' => $targetApiKey
+            'session_id' => $newSession['session_id'],
+            'expires_at' => $newSession['expires_at'],
+            'delegated_session' => [
+                'session_id' => $delegatedSession['session_id'],
+                'expires_at' => $delegatedSession['expires_at'],
+                'validated' => true,
+                'api_key' => $targetApiKey
+            ]
         ]);
     }
 }

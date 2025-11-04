@@ -183,8 +183,15 @@ while true; do
             
             make_request "POST" "/session/delegate/$session_id" "$data" "Create delegated session"
             
-            # Save delegated session ID
-            DELEGATED_SESSION_ID=$(echo "$response" | jq -r '.session_id // empty' 2>/dev/null)
+            # Save new session ID (for current API key) and delegated session ID
+            NEW_SESSION_ID=$(echo "$response" | jq -r '.session_id // empty' 2>/dev/null)
+            DELEGATED_SESSION_ID=$(echo "$response" | jq -r '.delegated_session.session_id // empty' 2>/dev/null)
+            
+            if [ -n "$NEW_SESSION_ID" ]; then
+                print_success "New Session ID: $NEW_SESSION_ID"
+                export session_id="$NEW_SESSION_ID"  # Update current session for next operations
+            fi
+            
             if [ -n "$DELEGATED_SESSION_ID" ]; then
                 print_success "Delegated Session ID: $DELEGATED_SESSION_ID"
                 export LAST_DELEGATED_SESSION_ID="$DELEGATED_SESSION_ID"

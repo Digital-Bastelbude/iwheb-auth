@@ -120,9 +120,19 @@ class SessionControllerTest extends TestCase {
         );
         
         $this->assertArrayHasKey('data', $result);
+        
+        // Check new session data (for current API key)
         $this->assertArrayHasKey('session_id', $result['data']);
-        $this->assertTrue($result['data']['validated']);
-        $this->assertSame('target-key', $result['data']['api_key']);
+        $this->assertArrayHasKey('expires_at', $result['data']);
+        $this->assertNotSame($session['session_id'], $result['data']['session_id']); // New session created
+        
+        // Check delegated session data
+        $this->assertArrayHasKey('delegated_session', $result['data']);
+        $delegatedData = $result['data']['delegated_session'];
+        $this->assertArrayHasKey('session_id', $delegatedData);
+        $this->assertArrayHasKey('expires_at', $delegatedData);
+        $this->assertTrue($delegatedData['validated']);
+        $this->assertSame('target-key', $delegatedData['api_key']);
     }
     
     public function testCreateDelegatedThrowsWhenParentIsChild(): void {
