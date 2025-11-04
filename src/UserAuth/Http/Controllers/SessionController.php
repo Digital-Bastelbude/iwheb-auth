@@ -123,6 +123,7 @@ class SessionController extends BaseController {
             throw new InvalidInputException('INVALID_API_KEY', 'Target API key does not exist');
         }
         
+        // All operations successful - now create delegated session and rotate parent
         // Create delegated session (deletes existing child with same API key)
         $delegatedSession = $this->db->createDelegatedSession($parentSessionId, $targetApiKey);
         

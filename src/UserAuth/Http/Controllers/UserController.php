@@ -67,6 +67,17 @@ class UserController extends BaseController {
             throw new UserNotFoundException();
         }
 
+        // Get weblingId (decrypt token)
+        $weblingId = $this->uidEncryptor->decrypt($user['token']);
+
+        // Fetch user data from Webling
+        $weblingUser = $this->weblingClient->getUserDataById((int)$weblingId);
+
+        if (!$weblingUser) {
+            throw new StorageException('WEBLING_ERROR', 'Failed to fetch user from Webling');
+        }
+
+        // All operations successful - now rotate session
         // Create new session, replacing old one (children preserved if parent)
         $newSession = $this->db->createSession(
             $session['user_token'],
@@ -78,16 +89,6 @@ class UserController extends BaseController {
         
         // Mark new session as validated
         $this->db->validateSession($newSession['session_id']);
-
-        // Get weblingId (decrypt token)
-        $weblingId = $this->uidEncryptor->decrypt($user['token']);
-
-        // Fetch user data from Webling
-        $weblingUser = $this->weblingClient->getUserDataById((int)$weblingId);
-
-        if (!$weblingUser) {
-            throw new StorageException('WEBLING_ERROR', 'Failed to fetch user from Webling');
-        }
 
         return $this->success([
             'session_id' => $newSession['session_id'],
@@ -129,6 +130,7 @@ class UserController extends BaseController {
             throw new UserNotFoundException();
         }
 
+        // All operations successful - now rotate session
         // Create new session, replacing old one (children preserved if parent)
         $newSession = $this->db->createSession(
             $session['user_token'],
@@ -182,6 +184,10 @@ class UserController extends BaseController {
             throw new UserNotFoundException();
         }
 
+        // Get weblingId (decrypt token)
+        $weblingId = $this->uidEncryptor->decrypt($user['token']);
+
+        // All operations successful - now rotate session
         // Create new session, replacing old one (children preserved if parent)
         $newSession = $this->db->createSession(
             $session['user_token'],
@@ -193,9 +199,6 @@ class UserController extends BaseController {
         
         // Mark new session as validated
         $this->db->validateSession($newSession['session_id']);
-
-        // Get weblingId (decrypt token)
-        $weblingId = $this->uidEncryptor->decrypt($user['token']);
 
         return $this->success([
             'session_id' => $newSession['session_id'],
