@@ -29,7 +29,7 @@ info:
     ```
   version: 1.0.0
   contact:
-    name: Digital Bastelbude
+    name: Digital Bastelbude Github
     url: https://github.com/Digital-Bastelbude/iwheb-auth
 
 servers:

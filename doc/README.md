@@ -11,7 +11,6 @@ Secure PHP authentication with Webling integration, session management, and API 
 - 🛡️ Session isolation per key
 - � Delegated cross-app sessions
 - �🔒 XChaCha20-Poly1305 encryption
-- ✅ 170 tests, 615 assertions
 
 ## Quick Setup
 
