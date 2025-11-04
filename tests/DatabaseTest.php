@@ -31,24 +31,24 @@ class DatabaseTest extends TestCase {
         if (file_exists($this->tmpFile)) @unlink($this->tmpFile);
         $db = new Database($this->tmpFile);
 
-        // When file is missing, no users should exist
-        $this->assertNull($db->getUserByToken('anytoken'));
+        // When file is missing, no sessions should exist
+        $this->assertNull($db->getSessionBySessionId('anysession'));
     }
 
     public function testSaveAndLoadRoundtrip(): void {
         $db = new Database($this->tmpFile);
 
-        // Create a user using the public API
-        $user = $db->createUser('token123');
-        $this->assertArrayHasKey('token', $user);
-        $token = $user['token'];
+        // Create a session using the public API
+        $session = $db->createSession('token123', 'test-key');
+        $this->assertArrayHasKey('session_id', $session);
+        $sessionId = $session['session_id'];
 
         // Reset instance to force re-read from file
         $db2 = new Database($this->tmpFile);
-        $loaded = $db2->getUserByToken($token);
+        $loaded = $db2->getSessionBySessionId($sessionId);
 
         $this->assertIsArray($loaded);
-        $this->assertSame($token, $loaded['token']);
+        $this->assertSame($sessionId, $loaded['session_id']);
     }
 
     public function testSaveFailsThrowsStorageException(): void {
@@ -59,9 +59,7 @@ class DatabaseTest extends TestCase {
         $this->expectException(StorageException::class);
 
         // Initialize Database with the path that points to a directory
-        $db = new Database($dirPath);
-        // Attempting to create a user should throw StorageException
-        $db->createUser('token123');
+        new Database($dirPath);
 
         // cleanup
         if (is_dir($dirPath)) @rmdir($dirPath);
@@ -76,21 +74,21 @@ class DatabaseTest extends TestCase {
         
         $db = new Database($this->tmpFile);
         // Any operation should trigger the database initialization and throw an exception
-        $db->getUserByToken('anytoken');
+        $db->getSessionBySessionId('anysession');
     }
 
     public function testPersistenceAcrossMultipleOperations(): void {
         $db = new Database($this->tmpFile);
 
-        // Create multiple users
-        $db->createUser('token1');
-        $db->createUser('token2');
+        // Create multiple sessions
+        $session1 = $db->createSession('token1', 'key1');
+        $session2 = $db->createSession('token2', 'key2');
         
         // Reset and verify
         $db2 = new Database($this->tmpFile);
         
-        $this->assertNotNull($db2->getUserByToken('token1'));
-        $this->assertNotNull($db2->getUserByToken('token2'));
+        $this->assertNotNull($db2->getSessionBySessionId($session1['session_id']));
+        $this->assertNotNull($db2->getSessionBySessionId($session2['session_id']));
     }
 
     public function testDatabaseCreatesDirectoryIfNotExists(): void {
@@ -99,7 +97,7 @@ class DatabaseTest extends TestCase {
         $this->assertFalse(file_exists(dirname($nestedPath)));
         
         $db = new Database($nestedPath);
-        $db->createUser('token123');
+        $db->createSession('token123', 'test-key');
         
         $this->assertTrue(file_exists($nestedPath));
         

@@ -55,8 +55,8 @@ class SessionControllerTest extends TestCase {
     }
     
     public function testCheckReturnsActiveForValidatedSession(): void {
-        $user = $this->db->createUser('token-check');
-        $session = $this->db->createSession($user['token'], $this->apiKey);
+        // User creation removed - using token directly: 'token-check'
+        $session = $this->db->createSession('token-check', $this->apiKey);
         $this->db->validateSession($session['session_id']);
         
         $result = $this->sessionController->check(['session_id' => $session['session_id']], []);
@@ -66,8 +66,8 @@ class SessionControllerTest extends TestCase {
     }
     
     public function testCheckThrowsWhenSessionNotValidated(): void {
-        $user = $this->db->createUser('token-not-validated');
-        $session = $this->db->createSession($user['token'], $this->apiKey);
+        // User creation removed - using token directly: 'token-not-validated'
+        $session = $this->db->createSession('token-not-validated', $this->apiKey);
         
         $this->expectException(InvalidSessionException::class);
         
@@ -75,8 +75,8 @@ class SessionControllerTest extends TestCase {
     }
     
     public function testTouchExtendsSession(): void {
-        $user = $this->db->createUser('token-touch');
-        $session = $this->db->createSession($user['token'], $this->apiKey);
+        // User creation removed - using token directly: 'token-touch'
+        $session = $this->db->createSession('token-touch', $this->apiKey);
         $oldExpiry = $session['expires_at'];
         
         sleep(1); // Ensure time difference
@@ -89,8 +89,8 @@ class SessionControllerTest extends TestCase {
     }
     
     public function testTouchReturnsSameSessionId(): void {
-        $user = $this->db->createUser('token-same-id');
-        $session = $this->db->createSession($user['token'], $this->apiKey);
+        // User creation removed - using token directly: 'token-same-id'
+        $session = $this->db->createSession('token-same-id', $this->apiKey);
         $originalId = $session['session_id'];
         
         $result = $this->sessionController->touch(['session_id' => $originalId], []);
@@ -99,8 +99,8 @@ class SessionControllerTest extends TestCase {
     }
     
     public function testCreateDelegatedThrowsWhenTargetKeyMissing(): void {
-        $user = $this->db->createUser('token-delegate');
-        $session = $this->db->createSession($user['token'], $this->apiKey);
+        // User creation removed - using token directly: 'token-delegate'
+        $session = $this->db->createSession('token-delegate', $this->apiKey);
         $this->db->validateSession($session['session_id']);
         
         $this->expectException(InvalidInputException::class);
@@ -110,8 +110,8 @@ class SessionControllerTest extends TestCase {
     }
     
     public function testCreateDelegatedSuccessWithValidInput(): void {
-        $user = $this->db->createUser('token-delegate-ok');
-        $session = $this->db->createSession($user['token'], $this->apiKey);
+        // User creation removed - using token directly: 'token-delegate-ok'
+        $session = $this->db->createSession('token-delegate-ok', $this->apiKey);
         $this->db->validateSession($session['session_id']);
         
         $result = $this->sessionController->createDelegated(
@@ -136,8 +136,8 @@ class SessionControllerTest extends TestCase {
     }
     
     public function testCreateDelegatedThrowsWhenParentIsChild(): void {
-        $user = $this->db->createUser('token-nested');
-        $parentSession = $this->db->createSession($user['token'], $this->apiKey);
+        // User creation removed - using token directly: 'token-nested'
+        $parentSession = $this->db->createSession('token-nested', $this->apiKey);
         $this->db->validateSession($parentSession['session_id']);
         
         // Create child session

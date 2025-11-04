@@ -78,9 +78,6 @@ class UserController extends BaseController {
         
         // Mark new session as validated
         $this->db->validateSession($newSession['session_id']);
-        
-        // Touch user activity
-        $this->db->touchUser($newSession['session_id']);
 
         // Get weblingId (decrypt token)
         $weblingId = $this->uidEncryptor->decrypt($user['token']);
@@ -143,9 +140,6 @@ class UserController extends BaseController {
         
         // Mark new session as validated
         $this->db->validateSession($newSession['session_id']);
-        
-        // Touch user activity
-        $this->db->touchUser($newSession['session_id']);
 
         return $this->success([
             'session_id' => $newSession['session_id'],
@@ -199,9 +193,6 @@ class UserController extends BaseController {
         
         // Mark new session as validated
         $this->db->validateSession($newSession['session_id']);
-        
-        // Touch user activity
-        $this->db->touchUser($newSession['session_id']);
 
         // Get weblingId (decrypt token)
         $weblingId = $this->uidEncryptor->decrypt($user['token']);

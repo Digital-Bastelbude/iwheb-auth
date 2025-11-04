@@ -71,9 +71,6 @@ class SessionController extends BaseController {
         if (!$updatedSession) {
             throw new StorageException('STORAGE_ERROR', 'Failed to extend session');
         }
-        
-        // Touch user activity
-        $this->db->touchUser($sessionId);
 
         return $this->success([
             'session_id' => $updatedSession['session_id'], // Same ID!
@@ -140,9 +137,6 @@ class SessionController extends BaseController {
         
         // Mark new session as validated
         $this->db->validateSession($newSession['session_id']);
-        
-        // Touch user activity
-        $this->db->touchUser($newSession['session_id']);
 
         return $this->success([
             'session_id' => $newSession['session_id'],

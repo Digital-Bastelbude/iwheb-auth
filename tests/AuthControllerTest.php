@@ -96,8 +96,8 @@ class AuthControllerTest extends TestCase {
     
     public function testValidateThrowsWhenCodeMissing(): void {
         // Create user and session first
-        $user = $this->db->createUser('token123');
-        $session = $this->db->createSession($user['token'], $this->apiKey);
+        // User creation removed - using token directly: 'token123'
+        $session = $this->db->createSession('token123', $this->apiKey);
         
         $this->expectException(InvalidInputException::class);
         $this->expectExceptionMessage('code required');
@@ -113,8 +113,8 @@ class AuthControllerTest extends TestCase {
     
     public function testValidateThrowsWhenWrongApiKey(): void {
         // Create session with different API key
-        $user = $this->db->createUser('token456');
-        $session = $this->db->createSession($user['token'], 'other-key');
+        // User creation removed - using token directly: 'token456'
+        $session = $this->db->createSession('token456', 'other-key');
         
         $this->expectException(InvalidSessionException::class);
         
@@ -122,8 +122,8 @@ class AuthControllerTest extends TestCase {
     }
     
     public function testValidateThrowsWhenCodeInvalid(): void {
-        $user = $this->db->createUser('token789');
-        $session = $this->db->createSession($user['token'], $this->apiKey);
+        // User creation removed - using token directly: 'token789'
+        $session = $this->db->createSession('token789', $this->apiKey);
         
         $this->expectException(InvalidCodeException::class);
         
@@ -132,8 +132,8 @@ class AuthControllerTest extends TestCase {
     }
     
     public function testValidateSuccessWithCorrectCode(): void {
-        $user = $this->db->createUser('token999');
-        $session = $this->db->createSession($user['token'], $this->apiKey);
+        // User creation removed - using token directly: 'token999'
+        $session = $this->db->createSession('token999', $this->apiKey);
         $correctCode = $session['code'];
         
         $result = $this->controller->validate(
@@ -151,8 +151,8 @@ class AuthControllerTest extends TestCase {
     }
     
     public function testValidateCreatesNewSessionAndMarksValidated(): void {
-        $user = $this->db->createUser('token-validate');
-        $session = $this->db->createSession($user['token'], $this->apiKey);
+        // User creation removed - using token directly: 'token-validate'
+        $session = $this->db->createSession('token-validate', $this->apiKey);
         
         $result = $this->controller->validate(
             ['session_id' => $session['session_id']], 
@@ -167,8 +167,8 @@ class AuthControllerTest extends TestCase {
     }
     
     public function testLogoutDeletesSession(): void {
-        $user = $this->db->createUser('token-logout');
-        $session = $this->db->createSession($user['token'], $this->apiKey);
+        // User creation removed - using token directly: 'token-logout'
+        $session = $this->db->createSession('token-logout', $this->apiKey);
         
         $result = $this->controller->logout(['session_id' => $session['session_id']], []);
         
@@ -188,8 +188,8 @@ class AuthControllerTest extends TestCase {
     }
     
     public function testLogoutThrowsWhenWrongApiKey(): void {
-        $user = $this->db->createUser('token-logout-wrong');
-        $session = $this->db->createSession($user['token'], 'other-key');
+        // User creation removed - using token directly: 'token-logout-wrong'
+        $session = $this->db->createSession('token-logout-wrong', 'other-key');
         
         $this->expectException(InvalidSessionException::class);
         

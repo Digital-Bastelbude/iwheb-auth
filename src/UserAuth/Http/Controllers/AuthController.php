@@ -70,14 +70,6 @@ class AuthController extends BaseController {
         // Generate token from Webling user ID
         $token = $this->uidEncryptor->encrypt((string)$weblingUserId);
 
-        // Check if user already exists in database
-        $existingUser = $this->db->getUserByToken($token);
-        
-        if (!$existingUser) {
-            // Create new user
-            $this->db->createUser($token);
-        }
-
         // Create session for user with API key (generates code automatically)
         $session = $this->db->createSession($token, $this->apiKey);
 
@@ -136,9 +128,6 @@ class AuthController extends BaseController {
         
         // Mark new session as validated
         $this->db->validateSession($newSession['session_id']);
-        
-        // Touch user activity
-        $this->db->touchUser($newSession['session_id']);
 
         return $this->success([
             'session_id' => $newSession['session_id'],

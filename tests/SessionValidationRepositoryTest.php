@@ -22,8 +22,8 @@ class SessionValidationRepositoryTest extends TestCase {
     }
     
     public function testValidateSessionMarksSessionAsValidated(): void {
-        $user = $this->db->createUser('token-validate');
-        $session = $this->db->createSession($user['token'], 'test-key');
+        // User creation removed - using token directly: 'token-validate'
+        $session = $this->db->createSession('token-validate', 'test-key');
         
         $this->assertFalse($session['validated']);
         
@@ -43,8 +43,8 @@ class SessionValidationRepositoryTest extends TestCase {
     }
     
     public function testIsSessionValidatedReturnsTrueForValidatedSession(): void {
-        $user = $this->db->createUser('token-check-validated');
-        $session = $this->db->createSession($user['token'], 'test-key');
+        // User creation removed - using token directly: 'token-check-validated'
+        $session = $this->db->createSession('token-check-validated', 'test-key');
         $this->db->validateSession($session['session_id']);
         
         $isValidated = $this->db->isSessionValidated($session['session_id']);
@@ -53,8 +53,8 @@ class SessionValidationRepositoryTest extends TestCase {
     }
     
     public function testIsSessionValidatedReturnsFalseForUnvalidatedSession(): void {
-        $user = $this->db->createUser('token-not-validated');
-        $session = $this->db->createSession($user['token'], 'test-key');
+        // User creation removed - using token directly: 'token-not-validated'
+        $session = $this->db->createSession('token-not-validated', 'test-key');
         
         $isValidated = $this->db->isSessionValidated($session['session_id']);
         
@@ -68,8 +68,8 @@ class SessionValidationRepositoryTest extends TestCase {
     }
     
     public function testIsSessionActiveReturnsTrueForValidSession(): void {
-        $user = $this->db->createUser('token-active');
-        $session = $this->db->createSession($user['token'], 'test-key', 3600);
+        // User creation removed - using token directly: 'token-active'
+        $session = $this->db->createSession('token-active', 'test-key', 3600);
         
         $isActive = $this->db->isSessionActive($session['session_id']);
         
@@ -77,8 +77,8 @@ class SessionValidationRepositoryTest extends TestCase {
     }
     
     public function testIsSessionActiveReturnsFalseForExpiredSession(): void {
-        $user = $this->db->createUser('token-expired');
-        $session = $this->db->createSession($user['token'], 'test-key', 1); // 1 second
+        // User creation removed - using token directly: 'token-expired'
+        $session = $this->db->createSession('token-expired', 'test-key', 1); // 1 second
         
         sleep(2); // Wait for expiration
         
@@ -98,8 +98,8 @@ class SessionValidationRepositoryTest extends TestCase {
     }
     
     public function testValidateCodeReturnsTrueForValidCode(): void {
-        $user = $this->db->createUser('token-code-valid');
-        $session = $this->db->createSession($user['token'], 'test-key', 1800, 300);
+        // User creation removed - using token directly: 'token-code-valid'
+        $session = $this->db->createSession('token-code-valid', 'test-key', 1800, 300);
         
         $isValid = $this->db->validateCode($session['session_id'], $session['code']);
         
@@ -107,8 +107,8 @@ class SessionValidationRepositoryTest extends TestCase {
     }
     
     public function testValidateCodeReturnsFalseForInvalidCode(): void {
-        $user = $this->db->createUser('token-code-invalid');
-        $session = $this->db->createSession($user['token'], 'test-key');
+        // User creation removed - using token directly: 'token-code-invalid'
+        $session = $this->db->createSession('token-code-invalid', 'test-key');
         
         $isValid = $this->db->validateCode($session['session_id'], 'wrong-code');
         
@@ -116,8 +116,8 @@ class SessionValidationRepositoryTest extends TestCase {
     }
     
     public function testValidateCodeReturnsFalseForExpiredCode(): void {
-        $user = $this->db->createUser('token-code-expired');
-        $session = $this->db->createSession($user['token'], 'test-key', 1800, 1); // Code valid for 1 second
+        // User creation removed - using token directly: 'token-code-expired'
+        $session = $this->db->createSession('token-code-expired', 'test-key', 1800, 1); // Code valid for 1 second
         
         sleep(2); // Wait for code to expire
         
@@ -133,8 +133,8 @@ class SessionValidationRepositoryTest extends TestCase {
     }
     
     public function testRegenerateSessionCodeCreatesNewCode(): void {
-        $user = $this->db->createUser('token-regen');
-        $session = $this->db->createSession($user['token'], 'test-key');
+        // User creation removed - using token directly: 'token-regen'
+        $session = $this->db->createSession('token-regen', 'test-key');
         $oldCode = $session['code'];
         $oldCodeValidUntil = $session['code_valid_until'];
         
@@ -155,8 +155,8 @@ class SessionValidationRepositoryTest extends TestCase {
     }
     
     public function testCheckSessionAccessReturnsTrueForMatchingApiKey(): void {
-        $user = $this->db->createUser('token-access');
-        $session = $this->db->createSession($user['token'], 'test-key');
+        // User creation removed - using token directly: 'token-access'
+        $session = $this->db->createSession('token-access', 'test-key');
         
         $hasAccess = $this->db->checkSessionAccess($session['session_id'], 'test-key');
         
@@ -164,8 +164,8 @@ class SessionValidationRepositoryTest extends TestCase {
     }
     
     public function testCheckSessionAccessReturnsFalseForDifferentApiKey(): void {
-        $user = $this->db->createUser('token-no-access');
-        $session = $this->db->createSession($user['token'], 'test-key');
+        // User creation removed - using token directly: 'token-no-access'
+        $session = $this->db->createSession('token-no-access', 'test-key');
         
         $hasAccess = $this->db->checkSessionAccess($session['session_id'], 'different-key');
         

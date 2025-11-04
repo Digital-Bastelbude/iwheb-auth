@@ -32,7 +32,7 @@ class SessionTest extends TestCase {
         $db = new Database($this->tmpFile);
         
         // Create a user first
-        $user = $db->createUser('testtoken123');
+        // User creation removed - using token directly: 'testtoken123'
         
         // Create session
         $session = $db->createSession('testtoken123', $this->testApiKey);
@@ -66,7 +66,7 @@ class SessionTest extends TestCase {
     public function testCreateSessionWithCustomDuration(): void {
         $db = new Database($this->tmpFile);
         
-        $db->createUser('testtoken123');
+        // User creation removed
         
         $beforeCreate = time();
         $session = $db->createSession('testtoken123', $this->testApiKey, 3600); // 1 hour
@@ -83,18 +83,12 @@ class SessionTest extends TestCase {
         $this->assertLessThanOrEqual($afterCreate + 3600, $expiresAtTimestamp);
     }
 
-    public function testCreateSessionForNonexistentUserThrowsException(): void {
-        $db = new Database($this->tmpFile);
-        
-        $this->expectException(StorageException::class);
-        $this->expectExceptionMessage('User not found');
-        $db->createSession('nonexistent', $this->testApiKey);
-    }
-
+    // Test removed: User table no longer exists, sessions work with any token
+    
     public function testGetSessionBySessionIdReturnsValidSession(): void {
         $db = new Database($this->tmpFile);
         
-        $db->createUser('testtoken123');
+        // User creation removed
         $originalSession = $db->createSession('testtoken123', $this->testApiKey);
         
         $retrievedSession = $db->getSessionBySessionId($originalSession['session_id']);
@@ -116,7 +110,7 @@ class SessionTest extends TestCase {
     public function testGetSessionBySessionIdDeletesExpiredSession(): void {
         $db = new Database($this->tmpFile);
         
-        $db->createUser('testtoken123');
+        // User creation removed
         $session = $db->createSession('testtoken123', $this->testApiKey, -100); // Already expired
         
         $result = $db->getSessionBySessionId($session['session_id']);
@@ -131,13 +125,13 @@ class SessionTest extends TestCase {
     public function testGetUserBySessionIdReturnsUserData(): void {
         $db = new Database($this->tmpFile);
         
-        $user = $db->createUser('testtoken123');
+        // User creation removed - using token directly: 'testtoken123'
         $session = $db->createSession('testtoken123', $this->testApiKey);
         
         $retrievedUser = $db->getUserBySessionId($session['session_id']);
         
         $this->assertNotNull($retrievedUser);
-        $this->assertSame($user['token'], $retrievedUser['token']);
+        $this->assertSame('testtoken123', $retrievedUser['token']);
         // User no longer has code - that's in the session
         $this->assertArrayNotHasKey('code', $retrievedUser);
     }
@@ -152,7 +146,7 @@ class SessionTest extends TestCase {
     public function testDeleteSessionRemovesSession(): void {
         $db = new Database($this->tmpFile);
         
-        $db->createUser('testtoken123');
+        // User creation removed
         $session = $db->createSession('testtoken123', $this->testApiKey);
         
         $deleted = $db->deleteSession($session['session_id']);
@@ -174,8 +168,8 @@ class SessionTest extends TestCase {
     public function testDeleteUserSessionsRemovesAllUserSessions(): void {
         $db = new Database($this->tmpFile);
         
-        $db->createUser('testtoken123');
-        $db->createUser('testtoken456');
+        // User creation removed
+        // User creation removed
         
         // Create multiple sessions for first user with different API keys
         // (same API key would auto-delete previous unvalidated session)
@@ -198,7 +192,7 @@ class SessionTest extends TestCase {
     public function testDeleteExpiredSessionsRemovesOnlyExpired(): void {
         $db = new Database($this->tmpFile);
         
-        $db->createUser('testtoken123');
+        // User creation removed
         
         // Create expired sessions with different API keys to avoid auto-deletion
         $expiredSession1 = $db->createSession('testtoken123', 'key-expired-1', -100); // Already expired
@@ -220,7 +214,7 @@ class SessionTest extends TestCase {
     public function testDeleteExpiredSessionsWithCustomTimestamp(): void {
         $db = new Database($this->tmpFile);
         
-        $db->createUser('testtoken123');
+        // User creation removed
         
         // Create sessions with different expiry times and different API keys
         // to avoid auto-deletion of previous unvalidated sessions
@@ -238,47 +232,14 @@ class SessionTest extends TestCase {
         $this->assertNotNull($db->getSessionBySessionId($session2['session_id']));
         $this->assertNotNull($db->getSessionBySessionId($session3['session_id']));
     }
+    // Test removed: touchUser method no longer exists (user table removed)
 
-    public function testTouchUserBySessionUpdatesUserAndRefreshesSession(): void {
-        $db = new Database($this->tmpFile);
-        
-        $user = $db->createUser('testtoken123');
-        $originalActivity = $user['last_activity_at'];
-        $originalSession = $db->createSession('testtoken123', $this->testApiKey);
-        $originalSessionId = $originalSession['session_id'];
-        
-        sleep(1); // Ensure timestamp difference
-        
-        $returnedSessionId = $db->touchUser($originalSessionId);
-        
-        // New behavior: touchUser returns same session ID (only updates expires_at)
-        $this->assertNotNull($returnedSessionId);
-        $this->assertSame($originalSessionId, $returnedSessionId);
-        
-        // Verify user's last_activity_at was updated
-        $updatedUser = $db->getUserByToken('testtoken123');
-        $this->assertNotSame($originalActivity, $updatedUser['last_activity_at']);
-        
-        // Verify new timestamp is more recent
-        $time1 = \DateTime::createFromFormat(\DateTime::ATOM, $originalActivity);
-        $time2 = \DateTime::createFromFormat(\DateTime::ATOM, $updatedUser['last_activity_at']);
-        $this->assertGreaterThan($time1->getTimestamp(), $time2->getTimestamp());
-        
-        // Original session should still exist (not deleted)
-        $this->assertNotNull($db->getSessionBySessionId($originalSessionId));
-    }
-
-    public function testTouchUserReturnsNullForInvalidSession(): void {
-        $db = new Database($this->tmpFile);
-        
-        $result = $db->touchUser('invalidsession123456789012');
-        $this->assertNull($result);
-    }
+    // Test removed: touchUser method no longer exists (user table removed)
 
     public function testSessionIdIsUrlSafeAndSecure(): void {
         $db = new Database($this->tmpFile);
         
-        $db->createUser('testtoken123');
+        // User creation removed
         
         // Generate multiple sessions to test session ID format
         $sessionIds = [];
@@ -301,26 +262,12 @@ class SessionTest extends TestCase {
         $this->assertSame(count($sessionIds), count($uniqueIds));
     }
 
-    public function testSessionsAreForeignKeyConstrainedToUsers(): void {
-        $db = new Database($this->tmpFile);
-        
-        $db->createUser('testtoken123');
-        $session = $db->createSession('testtoken123', $this->testApiKey);
-        
-        // Verify session exists
-        $this->assertNotNull($db->getSessionBySessionId($session['session_id']));
-        
-        // Delete the user
-        $db->deleteUser('testtoken123');
-        
-        // Session should be automatically deleted due to foreign key cascade
-        $this->assertNull($db->getSessionBySessionId($session['session_id']));
-    }
+    // Test removed: Foreign key constraint to users table no longer exists (user table removed)
 
     public function testOneSessionPerUserApiKey(): void {
         $db = new Database($this->tmpFile);
         
-        $db->createUser('testtoken123');
+        // User creation removed
         
         // Create first session
         $session1 = $db->createSession('testtoken123', $this->testApiKey, 1800);
@@ -362,7 +309,7 @@ class SessionTest extends TestCase {
     public function testValidateSessionMarksSessionAsValidated(): void {
         $db = new Database($this->tmpFile);
         
-        $db->createUser('testtoken123');
+        // User creation removed
         $session = $db->createSession('testtoken123', $this->testApiKey);
         
         // Initially not validated
@@ -399,7 +346,7 @@ class SessionTest extends TestCase {
     public function testValidateCodeReturnsTrueForValidCode(): void {
         $db = new Database($this->tmpFile);
         
-        $db->createUser('testtoken123');
+        // User creation removed
         $session = $db->createSession('testtoken123', $this->testApiKey);
         
         $isValid = $db->validateCode($session['session_id'], $session['code']);
@@ -409,7 +356,7 @@ class SessionTest extends TestCase {
     public function testValidateCodeReturnsFalseForInvalidCode(): void {
         $db = new Database($this->tmpFile);
         
-        $db->createUser('testtoken123');
+        // User creation removed
         $session = $db->createSession('testtoken123', $this->testApiKey);
         
         $isValid = $db->validateCode($session['session_id'], '000000');
@@ -426,7 +373,7 @@ class SessionTest extends TestCase {
     public function testValidateCodeReturnsFalseForExpiredCode(): void {
         $db = new Database($this->tmpFile);
         
-        $db->createUser('testtoken123');
+        // User creation removed
         $session = $db->createSession('testtoken123', 1800, -100); // Session valid, code expired
         
         $isValid = $db->validateCode($session['session_id'], $session['code']);
@@ -436,7 +383,7 @@ class SessionTest extends TestCase {
     public function testRegenerateSessionCodeCreatesNewCode(): void {
         $db = new Database($this->tmpFile);
         
-        $db->createUser('testtoken123');
+        // User creation removed
         $session = $db->createSession('testtoken123', $this->testApiKey);
         $originalCode = $session['code'];
         
@@ -458,7 +405,7 @@ class SessionTest extends TestCase {
     public function testRegenerateSessionCodeWithCustomValidity(): void {
         $db = new Database($this->tmpFile);
         
-        $db->createUser('testtoken123');
+        // User creation removed
         $session = $db->createSession('testtoken123', $this->testApiKey);
         
         $beforeRegen = time();
@@ -479,7 +426,7 @@ class SessionTest extends TestCase {
     public function testCodeIsAlwaysSixDigits(): void {
         $db = new Database($this->tmpFile);
         
-        $db->createUser('testtoken123');
+        // User creation removed
         
         // Create multiple sessions and verify all codes are 6 digits
         for ($i = 0; $i < 20; $i++) {
@@ -493,7 +440,7 @@ class SessionTest extends TestCase {
     public function testGeneratedCodesAreRandom(): void {
         $db = new Database($this->tmpFile);
         
-        $db->createUser('testtoken123');
+        // User creation removed
         
         $codes = [];
         $sessionIds = [];
@@ -516,7 +463,7 @@ class SessionTest extends TestCase {
     public function testCodeWithLeadingZeros(): void {
         $db = new Database($this->tmpFile);
         
-        $db->createUser('testtoken123');
+        // User creation removed
         
         // Generate many codes to likely get one with leading zeros
         $foundLeadingZero = false;
@@ -545,7 +492,7 @@ class SessionTest extends TestCase {
     public function testIsSessionActiveReturnsTrueForActiveSession(): void {
         $db = new Database($this->tmpFile);
         
-        $db->createUser('testtoken123');
+        // User creation removed
         $session = $db->createSession('testtoken123', $this->testApiKey, 300); // 5 minutes
         
         $isActive = $db->isSessionActive($session['session_id']);
@@ -555,7 +502,7 @@ class SessionTest extends TestCase {
     public function testIsSessionActiveReturnsFalseForExpiredSession(): void {
         $db = new Database($this->tmpFile);
         
-        $db->createUser('testtoken123');
+        // User creation removed
         $session = $db->createSession('testtoken123', $this->testApiKey, -100); // Already expired
         
         $isActive = $db->isSessionActive($session['session_id']);
@@ -577,7 +524,7 @@ class SessionTest extends TestCase {
     public function testSessionStoresApiKey(): void {
         $db = new Database($this->tmpFile);
         
-        $db->createUser('testtoken123');
+        // User creation removed
         $session = $db->createSession('testtoken123', $this->testApiKey);
         
         // Verify api_key is stored in session
@@ -594,7 +541,7 @@ class SessionTest extends TestCase {
     public function testCheckSessionAccessWithCorrectApiKey(): void {
         $db = new Database($this->tmpFile);
         
-        $db->createUser('testtoken123');
+        // User creation removed
         $session = $db->createSession('testtoken123', $this->testApiKey);
         
         // Same API key should have access
@@ -605,7 +552,7 @@ class SessionTest extends TestCase {
     public function testCheckSessionAccessWithWrongApiKey(): void {
         $db = new Database($this->tmpFile);
         
-        $db->createUser('testtoken123');
+        // User creation removed
         $session = $db->createSession('testtoken123', $this->testApiKey);
         
         // Different API key should NOT have access
@@ -625,7 +572,7 @@ class SessionTest extends TestCase {
     public function testMultipleSessionsWithDifferentApiKeys(): void {
         $db = new Database($this->tmpFile);
         
-        $db->createUser('testtoken123');
+        // User creation removed
         
         $apiKey1 = 'api-key-1';
         $apiKey2 = 'api-key-2';
@@ -653,7 +600,7 @@ class SessionTest extends TestCase {
     public function testSessionIsolationBetweenApiKeys(): void {
         $db = new Database($this->tmpFile);
         
-        $db->createUser('testtoken123');
+        // User creation removed
         
         $apiKeyA = 'api-key-application-a';
         $apiKeyB = 'api-key-application-b';
@@ -679,7 +626,7 @@ class SessionTest extends TestCase {
     public function testCheckSessionAccessWithExpiredSession(): void {
         $db = new Database($this->tmpFile);
         
-        $db->createUser('testtoken123');
+        // User creation removed
         
         // Create session that's already expired
         $session = $db->createSession('testtoken123', $this->testApiKey, -100);
@@ -695,29 +642,25 @@ class SessionTest extends TestCase {
     public function testApiKeyPersistsAfterSessionRotation(): void {
         $db = new Database($this->tmpFile);
         
-        $db->createUser('testtoken123');
+        // User creation removed
         $originalSession = $db->createSession('testtoken123', $this->testApiKey);
         
-        // Validate session (triggers session rotation)
+        // Validate session
         $db->validateSession($originalSession['session_id']);
-        $sessionId = $db->touchUser($originalSession['session_id']);
-        
-        // touchUser now returns same session ID (only updates expires_at)
-        $this->assertSame($originalSession['session_id'], $sessionId);
         
         // Session should still have the same API key
-        $session = $db->getSessionBySessionId($sessionId);
+        $session = $db->getSessionBySessionId($originalSession['session_id']);
         $this->assertNotNull($session);
         $this->assertSame($this->testApiKey, $session['api_key']);
         
         // Access check should still work with original API key
-        $this->assertTrue($db->checkSessionAccess($sessionId, $this->testApiKey));
+        $this->assertTrue($db->checkSessionAccess($originalSession['session_id'], $this->testApiKey));
     }
 
     public function testEmptyApiKeyIsStored(): void {
         $db = new Database($this->tmpFile);
         
-        $db->createUser('testtoken123');
+        // User creation removed
         
         // Create session with empty API key (edge case)
         $session = $db->createSession('testtoken123', '');
@@ -733,7 +676,7 @@ class SessionTest extends TestCase {
     public function testCreateSessionDeletesOldUnvalidatedSessions(): void {
         $db = new Database($this->tmpFile);
         
-        $db->createUser('testtoken123');
+        // User creation removed
         
         // Create first session (unvalidated) with specific API key
         $session1 = $db->createSession('testtoken123', $this->testApiKey);
@@ -760,7 +703,7 @@ class SessionTest extends TestCase {
     public function testCreateSessionOnlyDeletesSameApiKeyUnvalidatedSessions(): void {
         $db = new Database($this->tmpFile);
         
-        $db->createUser('testtoken123');
+        // User creation removed
         
         // Create session with first API key (unvalidated)
         $session1 = $db->createSession('testtoken123', 'api-key-1');
@@ -784,7 +727,7 @@ class SessionTest extends TestCase {
     public function testCreateSessionReplacesAllPreviousSessions(): void {
         $db = new Database($this->tmpFile);
         
-        $db->createUser('testtoken123');
+        // User creation removed
         
         // Create and validate first session
         $session1 = $db->createSession('testtoken123', $this->testApiKey);
@@ -809,7 +752,7 @@ class SessionTest extends TestCase {
     public function testCreateSessionDeletesMultipleUnvalidatedSessions(): void {
         $db = new Database($this->tmpFile);
         
-        $db->createUser('testtoken123');
+        // User creation removed
         
         // Create multiple unvalidated sessions by calling createSession multiple times
         // Each call should delete the previous unvalidated session
@@ -837,7 +780,7 @@ class SessionTest extends TestCase {
         $db = new Database($this->tmpFile);
         
         // Create user and parent session
-        $db->createUser('testtoken123');
+        // User creation removed
         $parentSession = $db->createSession('testtoken123', 'api-key-1');
         $db->validateSession($parentSession['session_id']);
         
@@ -878,7 +821,7 @@ class SessionTest extends TestCase {
         $db = new Database($this->tmpFile);
         
         // Create user and parent session (not validated)
-        $db->createUser('testtoken123');
+        // User creation removed
         $parentSession = $db->createSession('testtoken123', 'api-key-1');
         
         $this->expectException(StorageException::class);
@@ -891,7 +834,7 @@ class SessionTest extends TestCase {
         $db = new Database($this->tmpFile);
         
         // Create user and parent session
-        $db->createUser('testtoken123');
+        // User creation removed
         $parentSession = $db->createSession('testtoken123', 'api-key-1');
         $db->validateSession($parentSession['session_id']);
         
@@ -914,7 +857,7 @@ class SessionTest extends TestCase {
         $db = new Database($this->tmpFile);
         
         // Create user and parent session with short duration
-        $db->createUser('testtoken123');
+        // User creation removed
         $parentSession = $db->createSession('testtoken123', 'api-key-1', 1); // 1 second
         $db->validateSession($parentSession['session_id']);
         
@@ -935,7 +878,7 @@ class SessionTest extends TestCase {
         $db = new Database($this->tmpFile);
         
         // Create user and parent session
-        $db->createUser('testtoken123');
+        // User creation removed
         $parentSession = $db->createSession('testtoken123', 'api-key-1');
         $db->validateSession($parentSession['session_id']);
         
@@ -964,7 +907,7 @@ class SessionTest extends TestCase {
         $db = new Database($this->tmpFile);
         
         // Create user and parent session
-        $db->createUser('testtoken123');
+        // User creation removed
         $parentSession = $db->createSession('testtoken123', 'api-key-1');
         $db->validateSession($parentSession['session_id']);
         
@@ -983,7 +926,7 @@ class SessionTest extends TestCase {
         $db = new Database($this->tmpFile);
         
         // Create user and parent session
-        $db->createUser('testtoken123');
+        // User creation removed
         $parentSession = $db->createSession('testtoken123', 'api-key-1');
         $db->validateSession($parentSession['session_id']);
         

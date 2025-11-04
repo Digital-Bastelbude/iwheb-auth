@@ -4,7 +4,6 @@ declare(strict_types=1);
 namespace IwhebAPI\UserAuth\Database;
 
 use IwhebAPI\UserAuth\Database\Repository\{
-    UserRepository, 
     SessionOperationsRepository, 
     SessionValidationRepository, 
     SessionDelegationRepository
@@ -19,7 +18,6 @@ use PDOException;
  * Main database facade for user authentication and session management.
  * 
  * Delegates operations to specialized repositories:
- * - UserRepository: User account management
  * - SessionOperationsRepository: Session lifecycle (CRUD)
  * - SessionValidationRepository: Code validation and session state
  * - SessionDelegationRepository: Delegated session handling
@@ -33,7 +31,6 @@ class Database {
     /** @var string */
     private string $databasePath;
     
-    private UserRepository $userRepository;
     private SessionOperationsRepository $sessionOperations;
     private SessionValidationRepository $sessionValidation;
     private SessionDelegationRepository $sessionDelegation;
@@ -49,7 +46,6 @@ class Database {
         $this->initDatabase();
         
         // Initialize repositories
-        $this->userRepository = new UserRepository($this->pdo);
         $this->sessionOperations = new SessionOperationsRepository($this->pdo);
         $this->sessionValidation = new SessionValidationRepository($this->pdo, $this->sessionOperations);
         $this->sessionDelegation = new SessionDelegationRepository($this->pdo, $this->sessionOperations);
@@ -97,15 +93,6 @@ class Database {
             $this->pdo->exec('PRAGMA foreign_keys = ON');
             $this->pdo->exec('PRAGMA journal_mode = WAL');
             
-            // Create users table if it doesn't exist
-            $sql = "
-                CREATE TABLE IF NOT EXISTS users (
-                    token TEXT PRIMARY KEY,
-                    last_activity_at TEXT NOT NULL
-                )
-            ";
-            $this->pdo->exec($sql);
-            
             // Create sessions table if it doesn't exist
             $sessionSql = "
                 CREATE TABLE IF NOT EXISTS sessions (
@@ -118,8 +105,7 @@ class Database {
                     validated INTEGER NOT NULL DEFAULT 0,
                     created_at TEXT NOT NULL,
                     api_key TEXT NOT NULL DEFAULT '',
-                    parent_session_id TEXT DEFAULT NULL,
-                    FOREIGN KEY (user_token) REFERENCES users(token) ON DELETE CASCADE
+                    parent_session_id TEXT DEFAULT NULL
                 )
             ";
             $this->pdo->exec($sessionSql);
@@ -127,41 +113,6 @@ class Database {
         } catch (PDOException $e) {
             throw new StorageException('STORAGE_ERROR', 'Database initialization failed: ' . $e->getMessage());
         }
-    }
-
-    // ========== USER MANAGEMENT (delegated to UserRepository) ==========
-
-    /**
-     * Retrieve a user record by token. Returns null if not found.
-     *
-     * @param string $token
-     * @return array|null
-     * @throws StorageException on database error
-     */
-    public function getUserByToken(string $token): ?array {
-        return $this->userRepository->getUserByToken($token);
-    }
-
-    /**
-     * Create a new user record.
-     *
-     * @param string $token
-     * @return array The created user record
-     * @throws StorageException on database error or invalid parameters
-     */
-    public function createUser(string $token): array {
-        return $this->userRepository->createUser($token);
-    }
-
-    /**
-     * Delete a user record by token.
-     *
-     * @param string $token
-     * @return bool True if a record was deleted, false if token didn't exist
-     * @throws StorageException on database error
-     */
-    public function deleteUser(string $token): bool {
-        return $this->userRepository->deleteUser($token);
     }
 
     // ========== SESSION MANAGEMENT ==========
@@ -173,10 +124,6 @@ class Database {
         int $codeValiditySeconds = 300,
         ?string $oldSessionId = null
     ): array {
-        $user = $this->userRepository->getUserByToken($userToken);
-        if (!$user) {
-            throw new StorageException('STORAGE_ERROR', 'User not found');
-        }
         return $this->sessionOperations->createSession($userToken, $apiKey, $sessionDurationSeconds, $codeValiditySeconds, $oldSessionId);
     }
 
@@ -190,7 +137,7 @@ class Database {
 
     public function getUserBySessionId(string $sessionId): ?array {
         $session = $this->sessionOperations->getSessionBySessionId($sessionId);
-        return $session ? $this->userRepository->getUserByToken($session['user_token']) : null;
+        return $session ? ['token' => $session['user_token']] : null;
     }
 
     public function deleteSession(string $sessionId): bool {
@@ -259,16 +206,7 @@ class Database {
     }
 
     public function checkSessionAccess(string $sessionId, string $apiKey): bool {
-        return $this->sessionValidation->checkSessionAccess($sessionId, $apiKey);
-    }
-
-    public function touchUser(string $sessionId): ?string {
         $session = $this->sessionOperations->getSessionBySessionId($sessionId);
-        if (!$session) {
-            return null;
-        }
-        $this->userRepository->touchUser($session['user_token']);
-        $updatedSession = $this->sessionOperations->touchSession($sessionId, $session['session_duration']);
-        return $updatedSession ? $updatedSession['session_id'] : null;
+        return $session && $session['api_key'] === $apiKey;
     }
 }
