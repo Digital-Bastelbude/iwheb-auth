@@ -141,6 +141,37 @@ class WeblingClientTest extends TestCase {
         $this->assertIsArray($result);
         $this->assertSame(789, $result['id']);
     }
+    
+    public function testGetUserDataByIdPropagatesNon404Exceptions(): void {
+        $client = new TestableWeblingClient('demo', 'test-key');
+        $client->setMockException(new WeblingException('Server error', 500));
+        
+        $this->expectException(WeblingException::class);
+        $this->expectExceptionMessage('Server error');
+        $this->expectExceptionCode(500);
+        
+        $client->getUserDataById(123);
+    }
+    
+    public function testGetUserIdByEmailThrowsWeblingException(): void {
+        $client = new TestableWeblingClient('demo', 'test-key');
+        $client->setMockException(new WeblingException('API error', 401));
+        
+        $this->expectException(WeblingException::class);
+        $this->expectExceptionMessage('API error');
+        
+        $client->getUserIdByEmail('test@example.com');
+    }
+    
+    public function testGetUserDataByEmailPropagatesExceptionsFromGetUserId(): void {
+        $client = new TestableWeblingClient('demo', 'test-key');
+        $client->setMockException(new WeblingException('Network error', 503));
+        
+        $this->expectException(WeblingException::class);
+        $this->expectExceptionMessage('Network error');
+        
+        $client->getUserDataByEmail('test@example.com');
+    }
 }
 
 /**
