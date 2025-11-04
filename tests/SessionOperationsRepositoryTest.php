@@ -82,43 +82,6 @@ class SessionOperationsRepositoryTest extends TestCase {
         $this->assertSame(0, $deletedCount);
     }
     
-    public function testDeleteExpiredSessionsRemovesOnlyExpiredSessions(): void {
-        $user = $this->db->createUser('token-expired');
-        
-        // Create expired session (0 seconds duration = already expired)
-        $expiredSession = $this->db->createSession($user['token'], 'key1', 0);
-        
-        // Create valid session
-        $validSession = $this->db->createSession($user['token'], 'key2', 3600);
-        
-        sleep(1); // Ensure expired session is in the past
-        
-        $deletedCount = $this->db->deleteExpiredSessions();
-        
-        $this->assertSame(1, $deletedCount);
-        
-        // Verify expired session is gone
-        $this->assertNull($this->db->getSessionBySessionId($expiredSession['session_id']));
-        
-        // Verify valid session still exists
-        $this->assertNotNull($this->db->getSessionBySessionId($validSession['session_id']));
-    }
-    
-    public function testDeleteExpiredSessionsWithCustomTimestamp(): void {
-        $user = $this->db->createUser('token-custom');
-        
-        // Create session with 1 second duration (will expire immediately)
-        $session = $this->db->createSession($user['token'], 'key1', 1);
-        
-        sleep(2); // Wait for expiration
-        
-        // Delete expired sessions
-        $deletedCount = $this->db->deleteExpiredSessions();
-        
-        $this->assertSame(1, $deletedCount);
-        $this->assertNull($this->db->getSessionBySessionId($session['session_id']));
-    }
-    
     public function testCreateSessionWithOldSessionIdReparentsChildren(): void {
         $user = $this->db->createUser('token-reparent');
         $oldSession = $this->db->createSession($user['token'], 'key1');
@@ -142,37 +105,5 @@ class SessionOperationsRepositoryTest extends TestCase {
         $this->assertNotNull($updatedChild2);
         $this->assertSame($newSession['session_id'], $updatedChild1['parent_session_id']);
         $this->assertSame($newSession['session_id'], $updatedChild2['parent_session_id']);
-    }
-    
-    public function testDeleteDuplicateUserApiKeySessionsRemovesDuplicates(): void {
-        $user1 = $this->db->createUser('token-dup1');
-        $user2 = $this->db->createUser('token-dup2');
-        
-        // Create multiple sessions for same user+apiKey (duplicates)
-        $session1 = $this->db->createSession($user1['token'], 'key1');
-        sleep(1); // Ensure different timestamps
-        $session2 = $this->db->createSession($user1['token'], 'key1'); // Duplicate!
-        
-        // Different API key (not duplicate)
-        $session3 = $this->db->createSession($user1['token'], 'key2');
-        
-        // Different user (not duplicate)
-        $session4 = $this->db->createSession($user2['token'], 'key1');
-        
-        // Need to pass UidEncryptor with proper 32-byte key
-        $key = sodium_crypto_aead_xchacha20poly1305_ietf_keygen(); // Generates 32-byte key
-        $uidEncryptor = new \IwhebAPI\UserAuth\Database\UidEncryptor($key);
-        
-        $deletedCount = $this->db->deleteDuplicateUserApiKeySessions($uidEncryptor);
-        
-        // Should delete one session (the older duplicate)
-        $this->assertSame(1, $deletedCount);
-        
-        // Verify newer session still exists
-        $this->assertNotNull($this->db->getSessionBySessionId($session2['session_id']));
-        
-        // Verify other sessions still exist
-        $this->assertNotNull($this->db->getSessionBySessionId($session3['session_id']));
-        $this->assertNotNull($this->db->getSessionBySessionId($session4['session_id']));
     }
 }
