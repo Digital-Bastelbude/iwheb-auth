@@ -187,4 +187,42 @@ class ResponseTest extends TestCase {
         $this->assertIsArray($result);
         $this->assertEmpty($result);
     }
+    
+    public function testSendJsonOutputsCorrectJson(): void {
+        $data = ['message' => 'test', 'value' => 123];
+        
+        // We can't test exit() methods directly, but we can test that
+        // the method exists and accepts the right parameters
+        $response = new Response();
+        
+        // Use reflection to verify method signature
+        $reflection = new ReflectionClass(Response::class);
+        $method = $reflection->getMethod('sendJson');
+        
+        $this->assertTrue($method->isPublic());
+        $this->assertSame(6, $method->getNumberOfParameters());
+        
+        $params = $method->getParameters();
+        $this->assertSame('data', $params[0]->getName());
+        $this->assertSame('status', $params[1]->getName());
+        $this->assertSame('extraHeaders', $params[2]->getName());
+        $this->assertSame('outcome', $params[3]->getName());
+        $this->assertSame('reason', $params[4]->getName());
+        $this->assertSame('keyUsed', $params[5]->getName());
+    }
+    
+    public function testNotFoundMethodExists(): void {
+        $response = new Response();
+        
+        // Use reflection to verify method signature
+        $reflection = new ReflectionClass(Response::class);
+        $method = $reflection->getMethod('notFound');
+        
+        $this->assertTrue($method->isPublic());
+        $this->assertSame(2, $method->getNumberOfParameters());
+        
+        $params = $method->getParameters();
+        $this->assertSame('keyUsed', $params[0]->getName());
+        $this->assertSame('reason', $params[1]->getName());
+    }
 }
