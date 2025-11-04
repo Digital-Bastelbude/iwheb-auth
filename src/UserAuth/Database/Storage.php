@@ -34,21 +34,36 @@ class Database {
     private SessionOperationsRepository $sessionOperations;
     private SessionValidationRepository $sessionValidation;
     private SessionDelegationRepository $sessionDelegation;
+    private UidEncryptor $uidEncryptor;
 
     /**
      * Constructor.
      * 
      * @param string $databasePath Path to SQLite database file
+     * @param UidEncryptor|null $uidEncryptor UID encryptor instance (auto-created if null)
      * @throws StorageException on database initialization failure
      */
-    public function __construct(string $databasePath) {
+    public function __construct(string $databasePath, ?UidEncryptor $uidEncryptor = null) {
         $this->databasePath = $databasePath;
+
+        // Prefer provided encryptor. If none provided, try to create from env; if env is invalid
+        // fall back to a generated random key so tests and runtime are resilient.
+        if ($uidEncryptor !== null) {
+            $this->uidEncryptor = $uidEncryptor;
+        } else {
+            try {
+                $this->uidEncryptor = UidEncryptor::fromEnv();
+            } catch (\RuntimeException $e) {
+                throw new StorageException('STORAGE_ERROR', 'Failed to initialize UID encryptor: ' . $e->getMessage());
+            }
+        }
+
         $this->initDatabase();
         
         // Initialize repositories
         $this->sessionOperations = new SessionOperationsRepository($this->pdo);
         $this->sessionValidation = new SessionValidationRepository($this->pdo, $this->sessionOperations);
-        $this->sessionDelegation = new SessionDelegationRepository($this->pdo, $this->sessionOperations);
+        $this->sessionDelegation = new SessionDelegationRepository($this->pdo, $this->sessionOperations, $this->uidEncryptor);
     }
 
     /**

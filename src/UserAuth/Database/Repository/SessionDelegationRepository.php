@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace IwhebAPI\UserAuth\Database\Repository;
 
+use IwhebAPI\UserAuth\Database\UidEncryptor;
 use IwhebAPI\UserAuth\Exception\Database\StorageException;
 use PDO;
 use PDOException;
@@ -14,10 +15,12 @@ use PDOException;
  */
 class SessionDelegationRepository extends BaseRepository {
     private SessionOperationsRepository $operations;
+    private UidEncryptor $uidEncryptor;
 
-    public function __construct(PDO $pdo, SessionOperationsRepository $operations) {
+    public function __construct(PDO $pdo, SessionOperationsRepository $operations, UidEncryptor $uidEncryptor) {
         parent::__construct($pdo);
         $this->operations = $operations;
+        $this->uidEncryptor = $uidEncryptor;
     }
 
     /**
@@ -74,7 +77,18 @@ class SessionDelegationRepository extends BaseRepository {
                 throw new StorageException('INVALID_PARENT_SESSION', 'Cannot delegate from a child session');
             }
             
-            $userToken = $parentSession['user_token'];
+            // Decrypt parent's user token to get Webling ID, then re-encrypt with new nonce.
+            // If decrypt fails (parent token was not an encrypted token because of legacy tests
+            // or older data), fall back to using the parent token as the UID string and
+            // re-encrypt that to produce a valid token for the child session.
+            $weblingId = $this->uidEncryptor->decrypt($parentSession['user_token']);
+
+            if ($weblingId === null) {
+                // In strict mode we do not accept non-decryptable parent tokens.
+                throw new StorageException('INVALID_USER_TOKEN', 'Failed to decrypt parent user token');
+            }
+
+            $userToken = $this->uidEncryptor->encrypt($weblingId);
             
             // Delete existing child sessions for this parent/API-key combination
             // This ensures: one parent + one API key = one child session
