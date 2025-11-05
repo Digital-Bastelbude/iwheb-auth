@@ -139,6 +139,22 @@ class SessionControllerTest extends TestCase {
         $this->assertSame('target-key', $delegatedData['api_key']);
     }
     
+    public function testCreateDelegatedThrowsWhenTargetIsSameApiKey(): void {
+        // Create encrypted user token
+        $userToken = $this->encryptor->encrypt('12345');
+        $session = createSessionWithToken($this->db, $userToken, $this->apiKey);
+        $this->db->validateSession($session['session_id']);
+        
+        $this->expectException(InvalidInputException::class);
+        $this->expectExceptionMessage('Cannot delegate session to the same API key');
+        
+        // Try to delegate to the same API key that created the session
+        $this->sessionController->createDelegated(
+            ['session_id' => $session['session_id']], 
+            ['target_api_key' => $this->apiKey] // Same API key!
+        );
+    }
+    
     public function testCreateDelegatedThrowsWhenParentIsChild(): void {
         // Create encrypted user token
         $userToken = $this->encryptor->encrypt('12345');
