@@ -39,7 +39,7 @@ class DatabaseTest extends TestCase {
         $db = new Database($this->tmpFile);
 
         // Create a session using the public API
-        $session = $db->createSession('token123', 'test-key');
+        $session = createSessionWithToken($db, 'token123', 'test-key');
         $this->assertArrayHasKey('session_id', $session);
         $sessionId = $session['session_id'];
 
@@ -81,8 +81,8 @@ class DatabaseTest extends TestCase {
         $db = new Database($this->tmpFile);
 
         // Create multiple sessions
-        $session1 = $db->createSession('token1', 'key1');
-        $session2 = $db->createSession('token2', 'key2');
+        $session1 = createSessionWithToken($db, 'token1', 'key1');
+        $session2 = createSessionWithToken($db, 'token2', 'key2');
         
         // Reset and verify
         $db2 = new Database($this->tmpFile);
@@ -97,7 +97,7 @@ class DatabaseTest extends TestCase {
         $this->assertFalse(file_exists(dirname($nestedPath)));
         
         $db = new Database($nestedPath);
-        $db->createSession('token123', 'test-key');
+        createSessionWithToken($db, 'token123', 'test-key');
         
         $this->assertTrue(file_exists($nestedPath));
         

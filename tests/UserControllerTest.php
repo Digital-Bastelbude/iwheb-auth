@@ -61,7 +61,7 @@ class UserControllerTest extends TestCase {
     
     public function testGetInfoThrowsWhenSessionNotValidated(): void {
         // User creation removed - using token directly: 'token123'
-        $session = $this->db->createSession('token123', $this->apiKey);
+        $session = createSessionWithToken($this->db, 'token123', $this->apiKey);
         // Session is not validated yet
         
         $this->expectException(InvalidSessionException::class);
@@ -71,7 +71,7 @@ class UserControllerTest extends TestCase {
     
     public function testGetInfoReturnsUserDataWhenValid(): void {
         // User creation removed - using token directly: 'token456'
-        $session = $this->db->createSession('token456', $this->apiKey);
+        $session = createSessionWithToken($this->db, 'token456', $this->apiKey);
         $this->db->validateSession($session['session_id']);
         
         $result = $this->userController->getInfo(['session_id' => $session['session_id']], []);
@@ -87,7 +87,7 @@ class UserControllerTest extends TestCase {
         $userToken = $this->encryptor->encrypt($weblingId);
         
         // Create and validate session - User table removed, using token directly
-        $session = $this->db->createSession($userToken, $this->apiKey);
+        $session = createSessionWithToken($this->db, $userToken, $this->apiKey);
         $this->db->validateSession($session['session_id']);
         $originalSessionId = $session['session_id'];
         
@@ -117,7 +117,7 @@ class UserControllerTest extends TestCase {
     public function testGetIdThrowsForUnvalidatedSession(): void {
         $userToken = $this->encryptor->encrypt('12345');
         // User table removed - creating session directly with encrypted token
-        $session = $this->db->createSession($userToken, $this->apiKey);
+        $session = createSessionWithToken($this->db, $userToken, $this->apiKey);
         
         $this->expectException(InvalidSessionException::class);
         $this->userController->getId(['session_id' => $session['session_id']], []);
@@ -125,7 +125,7 @@ class UserControllerTest extends TestCase {
     
     public function testGetInfoContainsUserData(): void {
         // User creation removed - using token directly: 'token456'
-        $session = $this->db->createSession('token456', $this->apiKey);
+        $session = createSessionWithToken($this->db, 'token456', $this->apiKey);
         $this->db->validateSession($session['session_id']);
         
         $result = $this->userController->getInfo(['session_id' => $session['session_id']], []);
@@ -139,7 +139,7 @@ class UserControllerTest extends TestCase {
     
     public function testGetInfoCreatesNewSession(): void {
         // User creation removed - using token directly: 'token789'
-        $session = $this->db->createSession('token789', $this->apiKey);
+        $session = createSessionWithToken($this->db, 'token789', $this->apiKey);
         $this->db->validateSession($session['session_id']);
         $oldSessionId = $session['session_id'];
         
@@ -154,7 +154,7 @@ class UserControllerTest extends TestCase {
     
     public function testGetTokenReturnsEncryptedToken(): void {
         // User creation removed - using token directly: 'token-get'
-        $session = $this->db->createSession('token-get', $this->apiKey);
+        $session = createSessionWithToken($this->db, 'token-get', $this->apiKey);
         $this->db->validateSession($session['session_id']);
         
         $result = $this->userController->getToken(['session_id' => $session['session_id']], []);
@@ -166,7 +166,7 @@ class UserControllerTest extends TestCase {
     
     public function testGetTokenThrowsWhenSessionNotValidated(): void {
         // User creation removed - using token directly: 'token-unvalidated'
-        $session = $this->db->createSession('token-unvalidated', $this->apiKey);
+        $session = createSessionWithToken($this->db, 'token-unvalidated', $this->apiKey);
         
         $this->expectException(InvalidSessionException::class);
         

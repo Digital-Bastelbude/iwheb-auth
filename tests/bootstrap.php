@@ -16,6 +16,9 @@ if (!getenv('ENCRYPTION_KEY')) {
 // Global classes (exceptions, logging) are auto-loaded via Composer's "files" directive
 // Namespaced classes are auto-loaded via Composer PSR-4 and classmap
 
+// Load test helper functions
+require_once __DIR__ . '/TestHelper.php';
+
 // During tests, convert deprecations and notices to exceptions to make them visible
 // The strict test error handler is useful during development to make deprecations
 // and notices fail tests so they are fixed quickly. Enable by setting the

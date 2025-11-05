@@ -70,7 +70,7 @@ class BaseControllerTest extends TestCase {
     public function testGetSessionWithAccessReturnsSessionWhenValid(): void {
         // Create user and session
         // User creation removed - using token directly: 'user-token-123'
-        $session = $this->db->createSession('user-token-123', $this->apiKey);
+        $session = createSessionWithToken($this->db, 'user-token-123', $this->apiKey);
         
         // Should return session
         $result = $this->controller->publicGetSessionWithAccess($session['session_id']);
@@ -82,7 +82,7 @@ class BaseControllerTest extends TestCase {
     public function testGetSessionWithAccessThrowsWhenWrongApiKey(): void {
         // Create user and session with different API key
         // User creation removed - using token directly: 'user-token-456'
-        $session = $this->db->createSession('user-token-456', 'other-key');
+        $session = createSessionWithToken($this->db, 'user-token-456', 'other-key');
         
         $this->expectException(InvalidSessionException::class);
         

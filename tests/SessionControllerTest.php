@@ -19,8 +19,8 @@ class SessionControllerTest extends TestCase {
     
     protected function setUp(): void {
         $this->dbFile = sys_get_temp_dir() . '/session_controller_test_' . bin2hex(random_bytes(6)) . '.db';
-        $this->encryptor = new UidEncryptor(UidEncryptor::generateKey());
-        $this->db = new Database($this->dbFile, $this->encryptor);
+        $this->encryptor = UidEncryptor::fromEnv(); // Use environment encryptor
+        $this->db = new Database($this->dbFile);
         
         $this->config = [
             'keys' => [
@@ -58,7 +58,7 @@ class SessionControllerTest extends TestCase {
     
     public function testCheckReturnsActiveForValidatedSession(): void {
         // User creation removed - using token directly: 'token-check'
-        $session = $this->db->createSession('token-check', $this->apiKey);
+        $session = createSessionWithToken($this->db, 'token-check', $this->apiKey);
         $this->db->validateSession($session['session_id']);
         
         $result = $this->sessionController->check(['session_id' => $session['session_id']], []);
@@ -69,7 +69,7 @@ class SessionControllerTest extends TestCase {
     
     public function testCheckThrowsWhenSessionNotValidated(): void {
         // User creation removed - using token directly: 'token-not-validated'
-        $session = $this->db->createSession('token-not-validated', $this->apiKey);
+        $session = createSessionWithToken($this->db, 'token-not-validated', $this->apiKey);
         
         $this->expectException(InvalidSessionException::class);
         
@@ -78,7 +78,7 @@ class SessionControllerTest extends TestCase {
     
     public function testTouchExtendsSession(): void {
         // User creation removed - using token directly: 'token-touch'
-        $session = $this->db->createSession('token-touch', $this->apiKey);
+        $session = createSessionWithToken($this->db, 'token-touch', $this->apiKey);
         $oldExpiry = $session['expires_at'];
         
         sleep(1); // Ensure time difference
@@ -92,7 +92,7 @@ class SessionControllerTest extends TestCase {
     
     public function testTouchReturnsSameSessionId(): void {
         // User creation removed - using token directly: 'token-same-id'
-        $session = $this->db->createSession('token-same-id', $this->apiKey);
+        $session = createSessionWithToken($this->db, 'token-same-id', $this->apiKey);
         $originalId = $session['session_id'];
         
         $result = $this->sessionController->touch(['session_id' => $originalId], []);
@@ -103,7 +103,7 @@ class SessionControllerTest extends TestCase {
     public function testCreateDelegatedThrowsWhenTargetKeyMissing(): void {
         // Create encrypted user token
         $userToken = $this->encryptor->encrypt('12345');
-        $session = $this->db->createSession($userToken, $this->apiKey);
+        $session = createSessionWithToken($this->db, $userToken, $this->apiKey);
         $this->db->validateSession($session['session_id']);
         
         $this->expectException(InvalidInputException::class);
@@ -115,7 +115,7 @@ class SessionControllerTest extends TestCase {
     public function testCreateDelegatedSuccessWithValidInput(): void {
         // Create encrypted user token
         $userToken = $this->encryptor->encrypt('12345');
-        $session = $this->db->createSession($userToken, $this->apiKey);
+        $session = createSessionWithToken($this->db, $userToken, $this->apiKey);
         $this->db->validateSession($session['session_id']);
         
         $result = $this->sessionController->createDelegated(
@@ -142,7 +142,7 @@ class SessionControllerTest extends TestCase {
     public function testCreateDelegatedThrowsWhenParentIsChild(): void {
         // Create encrypted user token
         $userToken = $this->encryptor->encrypt('12345');
-        $parentSession = $this->db->createSession($userToken, $this->apiKey);
+        $parentSession = createSessionWithToken($this->db, $userToken, $this->apiKey);
         $this->db->validateSession($parentSession['session_id']);
         
         // Create child session

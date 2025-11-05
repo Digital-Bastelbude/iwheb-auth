@@ -23,7 +23,7 @@ class SessionOperationsRepositoryTest extends TestCase {
     
     public function testTouchSessionExtendsExpiry(): void {
         // User creation removed - using token directly: 'token-touch'
-        $session = $this->db->createSession('token-touch', 'test-key', 1800);
+        $session = createSessionWithToken($this->db, 'token-touch', 'test-key', 1800);
         $oldExpiry = $session['expires_at'];
         
         sleep(1); // Ensure time difference
@@ -43,7 +43,7 @@ class SessionOperationsRepositoryTest extends TestCase {
     
     public function testDeleteSessionRemovesSession(): void {
         // User creation removed - using token directly: 'token-delete'
-        $session = $this->db->createSession('token-delete', 'test-key');
+        $session = createSessionWithToken($this->db, 'token-delete', 'test-key');
         
         $result = $this->db->deleteSession($session['session_id']);
         
@@ -62,9 +62,9 @@ class SessionOperationsRepositoryTest extends TestCase {
     
     public function testDeleteUserSessionsRemovesAllUserSessions(): void {
         // User creation removed - using token directly: 'token-multi'
-        $session1 = $this->db->createSession('token-multi', 'key1');
-        $session2 = $this->db->createSession('token-multi', 'key2');
-        $session3 = $this->db->createSession('token-multi', 'key3');
+        $session1 = createSessionWithToken($this->db, 'token-multi', 'key1');
+        $session2 = createSessionWithToken($this->db, 'token-multi', 'key2');
+        $session3 = createSessionWithToken($this->db, 'token-multi', 'key3');
         
         $deletedCount = $this->db->deleteUserSessions('token-multi');
         
@@ -84,7 +84,7 @@ class SessionOperationsRepositoryTest extends TestCase {
     
     public function testCreateSessionWithOldSessionIdReparentsChildren(): void {
         // User creation removed - using token directly: 'token-reparent'
-        $oldSession = $this->db->createSession('token-reparent', 'key1');
+        $oldSession = createSessionWithToken($this->db, 'token-reparent', 'key1');
         $this->db->validateSession($oldSession['session_id']); // Must be validated for delegation
         
         // Create child sessions for old session
@@ -92,7 +92,7 @@ class SessionOperationsRepositoryTest extends TestCase {
         $child2 = $this->db->createDelegatedSession($oldSession['session_id'], 'child-key2');
         
         // Create new session replacing old one (should reparent children)
-        $newSession = $this->db->createSession('token-reparent', 'key1', 1800, 300, $oldSession['session_id']);
+        $newSession = createSessionWithToken($this->db, 'token-reparent', 'key1', 1800, 300, $oldSession['session_id']);
         
         // Verify old session is deleted
         $this->assertNull($this->db->getSessionBySessionId($oldSession['session_id']));
