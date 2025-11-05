@@ -142,9 +142,9 @@ $routes[] = [
 ## Testing
 
 ```bash
-vendor/bin/phpunit                          # All
-TEST_STRICT_ERRORS=1 vendor/bin/phpunit     # Strict
-vendor/bin/phpunit tests/SessionTest.php    # Specific
+./vendor/bin/phpunit --testdox                          # All
+TEST_STRICT_ERRORS=1 ./vendor/bin/phpunit --testdo      # Strict
+./vendor/bin/phpunit tests/SessionTest.php              # Specific
 ```
 
 ## Production
