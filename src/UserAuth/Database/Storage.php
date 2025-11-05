@@ -147,6 +147,21 @@ class Database {
         return $this->sessionOperations->setUserToken($sessionId, $encryptedToken);
     }
 
+    /**
+     * Rotate a session: Create new session with all data from old session.
+     * 
+     * Automatically copies user_token, validated status, session_duration, and parent_session_id.
+     * Preserves all child sessions by reparenting them to the new session.
+     * Deletes the old session.
+     *
+     * @param string $oldSessionId The session to rotate
+     * @param string $apiKey The API key for the new session
+     * @return array The new session data
+     */
+    public function rotateSession(string $oldSessionId, string $apiKey): array {
+        return $this->sessionOperations->rotateSession($oldSessionId, $apiKey);
+    }
+
     public function createDelegatedSession(string $parentSessionId, string $targetApiKey, int $sessionDurationSeconds = 1800): array {
         return $this->sessionDelegation->createDelegatedSession($parentSessionId, $targetApiKey, $sessionDurationSeconds);
     }

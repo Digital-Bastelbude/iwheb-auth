@@ -108,6 +108,30 @@ final class UidEncryptor
     }
 
     /**
+     * Re-encrypt a token with a new nonce.
+     * 
+     * Decrypts the old token and encrypts it again with a fresh nonce.
+     * This ensures each session has a unique encrypted token, preventing
+     * nonce reuse and improving security.
+     * 
+     * @param string $encryptedToken The encrypted token to re-encrypt
+     * @return string The newly encrypted token with new nonce
+     * @throws \RuntimeException if decryption fails (invalid/tampered token)
+     */
+    public function reEncrypt(string $encryptedToken): string
+    {
+        // Decrypt to get plain user ID
+        $userId = $this->decrypt($encryptedToken);
+        
+        if ($userId === null) {
+            throw new \RuntimeException('Failed to decrypt token for re-encryption');
+        }
+        
+        // Encrypt again with new nonce
+        return $this->encrypt($userId);
+    }
+
+    /**
      * Generate a new random 32-byte key (binary). Store it securely and reuse.
      */
     public static function generateKey(): string

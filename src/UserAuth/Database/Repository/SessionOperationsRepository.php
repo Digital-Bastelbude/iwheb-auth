@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace IwhebAPI\UserAuth\Database\Repository;
 
 use IwhebAPI\UserAuth\Exception\Database\StorageException;
+use IwhebAPI\UserAuth\Database\UidEncryptor;
 use PDO;
 use PDOException;
 
@@ -85,6 +86,54 @@ class SessionOperationsRepository extends BaseRepository {
             return $stmt->rowCount() > 0;
         } catch (PDOException $e) {
             throw new StorageException('STORAGE_ERROR', 'Failed to set user token: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Rotate a session: Create new session with validated status from old session.
+     * 
+     * Automatically copies:
+     * - validated status
+     * - session_duration
+     * - parent_session_id (if exists)
+     * 
+     * Does NOT copy user_token - business logic should re-encrypt and set token separately.
+     * 
+     * Preserves all child sessions by reparenting them to the new session.
+     * Deletes the old session.
+     *
+     * @param string $oldSessionId The session to rotate
+     * @param string $apiKey The API key for the new session
+     * @return array The new session data (without user_token)
+     * @throws StorageException if old session not found or rotation fails
+     */
+    public function rotateSession(string $oldSessionId, string $apiKey): array {
+        try {
+            // Get old session
+            $oldSession = $this->getSessionBySessionId($oldSessionId);
+            if (!$oldSession) {
+                throw new StorageException('INVALID_SESSION', 'Session not found');
+            }
+            
+            // Create new session (replaces old, preserves children if parent)
+            $newSession = $this->createSession(
+                $apiKey,
+                $oldSession['session_duration'],
+                300, // code validity (not used for rotation, but required)
+                $oldSessionId // This triggers child reparenting + deletion of old session
+            );
+            
+            // Copy validated status only (NOT user_token - that's business logic's job)
+            if ($oldSession['validated']) {
+                // Validated status needs to be set via database update
+                $stmt = $this->pdo->prepare('UPDATE sessions SET validated = 1 WHERE session_id = ?');
+                $stmt->execute([$newSession['session_id']]);
+                $newSession['validated'] = true;
+            }
+            
+            return $newSession;
+        } catch (PDOException $e) {
+            throw new StorageException('STORAGE_ERROR', 'Failed to rotate session: ' . $e->getMessage());
         }
     }
 

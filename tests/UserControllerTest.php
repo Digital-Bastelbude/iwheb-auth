@@ -60,8 +60,8 @@ class UserControllerTest extends TestCase {
     }
     
     public function testGetInfoThrowsWhenSessionNotValidated(): void {
-        // User creation removed - using token directly: 'token123'
-        $session = createSessionWithToken($this->db, 'token123', $this->apiKey);
+        // Create session with encrypted user token
+        $session = createSessionWithToken($this->db, $this->encryptor->encrypt('123'), $this->apiKey);
         // Session is not validated yet
         
         $this->expectException(InvalidSessionException::class);
@@ -70,8 +70,8 @@ class UserControllerTest extends TestCase {
     }
     
     public function testGetInfoReturnsUserDataWhenValid(): void {
-        // User creation removed - using token directly: 'token456'
-        $session = createSessionWithToken($this->db, 'token456', $this->apiKey);
+        // Create session with encrypted user token
+        $session = createSessionWithToken($this->db, $this->encryptor->encrypt('456'), $this->apiKey);
         $this->db->validateSession($session['session_id']);
         
         $result = $this->userController->getInfo(['session_id' => $session['session_id']], []);
@@ -124,8 +124,8 @@ class UserControllerTest extends TestCase {
     }
     
     public function testGetInfoContainsUserData(): void {
-        // User creation removed - using token directly: 'token456'
-        $session = createSessionWithToken($this->db, 'token456', $this->apiKey);
+        // Create session with encrypted user token
+        $session = createSessionWithToken($this->db, $this->encryptor->encrypt('456'), $this->apiKey);
         $this->db->validateSession($session['session_id']);
         
         $result = $this->userController->getInfo(['session_id' => $session['session_id']], []);
@@ -138,8 +138,8 @@ class UserControllerTest extends TestCase {
     }
     
     public function testGetInfoCreatesNewSession(): void {
-        // User creation removed - using token directly: 'token789'
-        $session = createSessionWithToken($this->db, 'token789', $this->apiKey);
+        // Create session with encrypted user token
+        $session = createSessionWithToken($this->db, $this->encryptor->encrypt('789'), $this->apiKey);
         $this->db->validateSession($session['session_id']);
         $oldSessionId = $session['session_id'];
         
@@ -153,15 +153,16 @@ class UserControllerTest extends TestCase {
     }
     
     public function testGetTokenReturnsEncryptedToken(): void {
-        // User creation removed - using token directly: 'token-get'
-        $session = createSessionWithToken($this->db, 'token-get', $this->apiKey);
+        // Create session with encrypted user token
+        $encryptedToken = $this->encryptor->encrypt('999');
+        $session = createSessionWithToken($this->db, $encryptedToken, $this->apiKey);
         $this->db->validateSession($session['session_id']);
         
         $result = $this->userController->getToken(['session_id' => $session['session_id']], []);
         
         $this->assertArrayHasKey('data', $result);
         $this->assertArrayHasKey('token', $result['data']);
-        $this->assertSame('token-get', $result['data']['token']);
+        $this->assertSame($encryptedToken, $result['data']['token']);
     }
     
     public function testGetTokenThrowsWhenSessionNotValidated(): void {

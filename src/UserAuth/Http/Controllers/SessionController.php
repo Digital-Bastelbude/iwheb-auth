@@ -149,22 +149,11 @@ class SessionController extends BaseController {
         $this->db->setUserToken($delegatedSession['session_id'], $newToken);
         $delegatedSession['user_token'] = $newToken;
         
-        // Create new session for current API key, replacing old one (children preserved if parent)
-        $newSession = $this->db->createSession(
-            $this->apiKey,
-            $parentSession['session_duration'],
-            300, // code validity
-            $parentSessionId // Replace old session (reparent delegated session)
-        );
+        // Rotate parent session (creates new session with all data from old)
+        $newSession = $this->db->rotateSession($parentSessionId, $this->apiKey);
         
-        // Copy user token from old session to new session
-        if ($parentSession['user_token'] !== null) {
-            $this->db->setUserToken($newSession['session_id'], $parentSession['user_token']);
-            $newSession['user_token'] = $parentSession['user_token'];
-        }
-        
-        // Mark new session as validated
-        $this->db->validateSession($newSession['session_id']);
+        // Re-encrypt and set user token for new parent session (new nonce)
+        $this->db->setUserToken($newSession['session_id'], $uidEncryptor->reEncrypt($parentSession['user_token']));
 
         return $this->success([
             'session_id' => $newSession['session_id'],
