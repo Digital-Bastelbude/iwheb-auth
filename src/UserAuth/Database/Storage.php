@@ -64,7 +64,7 @@ class Database {
         $databasePath = getenv('DATABASE_PATH');
         
         if (!$databasePath) {
-            $databasePath = defined('DATA_FILE') ? DATA_FILE : __DIR__ . '/../../storage/data.db';
+            $databasePath = defined('DATA_FILE') ? DATA_FILE : __DIR__ . '/../../../storage/data.db';
         }
         
         return new self($databasePath);

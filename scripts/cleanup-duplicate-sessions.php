@@ -80,6 +80,7 @@ try {
         echo "[INFO] Deleting " . count($toDelete) . " duplicate sessions...\n";
         
         foreach ($toDelete as $sessionId) {
+            echo "\tDeleting session {$sessionId}...\n";
             if ($db->deleteSession($sessionId)) {
                 $deletedCount++;
             }
@@ -103,12 +104,15 @@ try {
 /**
  * Get PDO connection to access database directly
  * 
+ * IMPORTANT: Must use same path as Database::fromEnv()
+ * 
  * @return PDO
  */
 function getPdoConnection(): PDO {
     $databasePath = getenv('DATABASE_PATH');
     
     if (!$databasePath) {
+        // Use same default as Database::fromEnv() in Storage.php
         $databasePath = defined('DATA_FILE') ? DATA_FILE : __DIR__ . '/../storage/data.db';
     }
     
