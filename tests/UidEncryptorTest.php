@@ -19,7 +19,7 @@ class UidEncryptorTest extends TestCase {
     }
 
     public function testConstructorWithValidKeyAndAAD(): void {
-        $encryptor = new UidEncryptor($this->validKey, null, 'test-context');
+        $encryptor = new UidEncryptor($this->validKey, 'test-context');
         $this->assertInstanceOf(UidEncryptor::class, $encryptor);
     }
 
@@ -175,9 +175,9 @@ class UidEncryptorTest extends TestCase {
     }
 
     public function testAADMustMatchForDecryption(): void {
-        $encryptor1 = new UidEncryptor($this->validKey, null, 'context-a');
-        $encryptor2 = new UidEncryptor($this->validKey, null, 'context-b');
-        $encryptor3 = new UidEncryptor($this->validKey, null, 'context-a'); // Same AAD as encryptor1
+        $encryptor1 = new UidEncryptor($this->validKey, 'context-a');
+        $encryptor2 = new UidEncryptor($this->validKey, 'context-b');
+        $encryptor3 = new UidEncryptor($this->validKey, 'context-a'); // Same AAD as encryptor1
         
         $uid = 'test-uid';
         $token = $encryptor1->encrypt($uid);
@@ -190,7 +190,7 @@ class UidEncryptorTest extends TestCase {
     }
 
     public function testAADWithEmptyString(): void {
-        $encryptor1 = new UidEncryptor($this->validKey, null, '');
+        $encryptor1 = new UidEncryptor($this->validKey);
         $encryptor2 = new UidEncryptor($this->validKey); // No AAD specified (defaults to '')
         
         $uid = 'test-uid';
@@ -290,7 +290,7 @@ class UidEncryptorTest extends TestCase {
     }
 
     public function testMultipleEncryptDecryptCycles(): void {
-        $encryptor = new UidEncryptor($this->validKey, null, 'test-realm');
+        $encryptor = new UidEncryptor($this->validKey, 'test-realm');
         
         $testUIDs = [
             'simple-uid',
@@ -322,8 +322,8 @@ class UidEncryptorTest extends TestCase {
 
     public function testTokensAreConsistentWithSameAAD(): void {
         $aad = 'consistent-context';
-        $encryptor1 = new UidEncryptor($this->validKey, null, $aad);
-        $encryptor2 = new UidEncryptor($this->validKey, null, $aad);
+        $encryptor1 = new UidEncryptor($this->validKey, $aad);
+        $encryptor2 = new UidEncryptor($this->validKey, $aad);
         
         $uid = 'test-uid';
         
@@ -392,7 +392,7 @@ class UidEncryptorTest extends TestCase {
 
     public function testUniqueTokensWithoutUniqueKeyUsesRandomNonce(): void {
         // No unique_key provided (null)
-        $encryptor = new UidEncryptor($this->validKey, null);
+        $encryptor = new UidEncryptor($this->validKey);
         
         $uid = 'test-user-555';
         

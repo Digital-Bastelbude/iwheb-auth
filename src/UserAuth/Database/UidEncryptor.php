@@ -40,16 +40,16 @@ final class UidEncryptor
 
     /**
      * @param string $key 32-byte binary key (not base64; use generateKey() or loadKeyFromEnv())bind tokens to a specific user/session (must match on decrypt)
-     * @param string|null $unique_key Optional unique key to generate unique keys instead opf random nonces
      * @param string $aad Optional AAD to bind tokens to a context/realm (must match on decrypt)
+     * @param string|null $unique_key Optional unique key to generate unique keys instead of random nonces
      */
-    public function __construct(string $key, string $unique_key = NULL , string $aad = '')
+    public function __construct(string $key, string $aad = '', ?string $unique_key = '')
     {
         if (strlen($key) !== SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_KEYBYTES) {
             throw new \InvalidArgumentException('Key must be 32 bytes (binary).');
         }
         $this->key = $key;
-        $this->unique_key = $unique_key;
+        $this->unique_key = $unique_key ?? '';
         $this->aad = $aad;
     }
 
@@ -68,7 +68,7 @@ final class UidEncryptor
         $nonce = random_bytes(SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_NPUBBYTES);
 
         // When unique_key is set and generateUnique is true, derive a deterministic nonce
-        if ($this->unique_key !== NULL && $generateUnique === true) {
+        if (strlen($this->unique_key) !== 0 && $generateUnique === true) {
             // Derive deterministic nonce from unique_key + uid using BLAKE2b
             $nonce = sodium_crypto_generichash(
             $this->unique_key . $uid,
@@ -179,12 +179,12 @@ final class UidEncryptor
             throw new \RuntimeException("Invalid base64 key in env var {$envVar}.");
         }
 
-        $unique_key = getenv('UNIQUE_KEY') ?: NULL;
-        if ($unique_key !== NULL && strlen($unique_key) !== SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_KEYBYTES) {
+        $unique_key = getenv('UNIQUE_KEY') ?: '';
+        if ($unique_key !== '' && strlen($unique_key) !== SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_KEYBYTES) {
             throw new \RuntimeException("Invalid unique key length in env var UNIQUE_KEY.");
         }
 
-        return new self($key, $unique_key, $aad);
+        return new self($key, $aad, $unique_key);
     }
 
     /**
