@@ -97,7 +97,7 @@ class Database {
             $sessionSql = "
                 CREATE TABLE IF NOT EXISTS sessions (
                     session_id TEXT PRIMARY KEY,
-                    user_token TEXT NOT NULL,
+                    user_token TEXT DEFAULT NULL,
                     code TEXT NOT NULL,
                     code_valid_until TEXT NOT NULL,
                     expires_at TEXT NOT NULL,
