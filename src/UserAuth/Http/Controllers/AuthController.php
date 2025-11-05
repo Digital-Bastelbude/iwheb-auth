@@ -67,11 +67,15 @@ class AuthController extends BaseController {
             throw new UserNotFoundException();
         }
 
-        // Generate token from Webling user ID
-        $token = $this->uidEncryptor->encrypt((string)$weblingUserId);
+        // Create session without user token
+        $session = $this->db->createSession($this->apiKey);
 
-        // Create session for user with API key (generates code automatically)
-        $session = $this->db->createSession($token, $this->apiKey);
+        // Encrypt Webling user ID
+        $token = $this->uidEncryptor->encrypt((string)$weblingUserId);
+        
+        // Assign token to session
+        $this->db->setUserToken($session['session_id'], $token);
+        $session['user_token'] = $token;
 
         // Send authentication code via email
         $this->sendAuthenticationEmail($email, $session);
@@ -119,12 +123,17 @@ class AuthController extends BaseController {
 
         // Create new validated session, replacing old one (children preserved)
         $newSession = $this->db->createSession(
-            $session['user_token'],
             $this->apiKey,
             $session['session_duration'],
             300, // code validity
             $sessionId // Replace old session
         );
+        
+        // Copy user token from old session to new session
+        if ($session['user_token'] !== null) {
+            $this->db->setUserToken($newSession['session_id'], $session['user_token']);
+            $newSession['user_token'] = $session['user_token'];
+        }
         
         // Mark new session as validated
         $this->db->validateSession($newSession['session_id']);

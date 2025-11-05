@@ -6,6 +6,7 @@ namespace IwhebAPI\UserAuth\Http\Controllers;
 use IwhebAPI\UserAuth\Exception\InvalidSessionException;
 use IwhebAPI\UserAuth\Exception\Http\InvalidInputException;
 use IwhebAPI\UserAuth\Exception\Database\StorageException;
+use IwhebAPI\UserAuth\Database\UidEncryptor;
 
 /**
  * SessionController
@@ -127,14 +128,35 @@ class SessionController extends BaseController {
         // Create delegated session (deletes existing child with same API key)
         $delegatedSession = $this->db->createDelegatedSession($parentSessionId, $targetApiKey);
         
+        // Get parent user token to decrypt and re-encrypt for child
+        $parentUserToken = $delegatedSession['parent_user_token'];
+        
+        // Decrypt parent token to get Webling user ID
+        $uidEncryptor = UidEncryptor::fromEnv();
+        $weblingUserId = $uidEncryptor->decrypt($parentUserToken);
+        
+        if ($weblingUserId === null) {
+            throw new StorageException('INVALID_USER_TOKEN', 'Failed to decrypt parent user token');
+        }
+        
+        // Re-encrypt with new nonce for delegated session
+        $newToken = $uidEncryptor->encrypt($weblingUserId);
+        $this->db->setUserToken($delegatedSession['session_id'], $newToken);
+        $delegatedSession['user_token'] = $newToken;
+        
         // Create new session for current API key, replacing old one (children preserved if parent)
         $newSession = $this->db->createSession(
-            $parentSession['user_token'],
             $this->apiKey,
             $parentSession['session_duration'],
             300, // code validity
             $parentSessionId // Replace old session (reparent delegated session)
         );
+        
+        // Copy user token from old session to new session
+        if ($parentSession['user_token'] !== null) {
+            $this->db->setUserToken($newSession['session_id'], $parentSession['user_token']);
+            $newSession['user_token'] = $parentSession['user_token'];
+        }
         
         // Mark new session as validated
         $this->db->validateSession($newSession['session_id']);

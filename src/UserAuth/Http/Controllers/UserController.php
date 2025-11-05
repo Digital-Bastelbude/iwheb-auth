@@ -66,6 +66,11 @@ class UserController extends BaseController {
         if (!$user) {
             throw new UserNotFoundException();
         }
+        
+        // Check if session has user token
+        if ($user['token'] === null) {
+            throw new InvalidSessionException('NO_USER_TOKEN', 'Session has no user token');
+        }
 
         // Get weblingId (decrypt token)
         $weblingId = $this->uidEncryptor->decrypt($user['token']);
@@ -80,12 +85,17 @@ class UserController extends BaseController {
         // All operations successful - now rotate session
         // Create new session, replacing old one (children preserved if parent)
         $newSession = $this->db->createSession(
-            $session['user_token'],
             $this->apiKey,
             $session['session_duration'],
             300, // code validity
             $sessionId // Replace old session
         );
+        
+        // Copy user token from old session to new session
+        if ($session['user_token'] !== null) {
+            $this->db->setUserToken($newSession['session_id'], $session['user_token']);
+            $newSession['user_token'] = $session['user_token'];
+        }
         
         // Mark new session as validated
         $this->db->validateSession($newSession['session_id']);
@@ -129,16 +139,26 @@ class UserController extends BaseController {
         if (!$user) {
             throw new UserNotFoundException();
         }
+        
+        // Check if session has user token
+        if ($user['token'] === null) {
+            throw new InvalidSessionException('NO_USER_TOKEN', 'Session has no user token');
+        }
 
         // All operations successful - now rotate session
         // Create new session, replacing old one (children preserved if parent)
         $newSession = $this->db->createSession(
-            $session['user_token'],
             $this->apiKey,
             $session['session_duration'],
             300, // code validity
             $sessionId // Replace old session
         );
+        
+        // Copy user token from old session to new session
+        if ($session['user_token'] !== null) {
+            $this->db->setUserToken($newSession['session_id'], $session['user_token']);
+            $newSession['user_token'] = $session['user_token'];
+        }
         
         // Mark new session as validated
         $this->db->validateSession($newSession['session_id']);
@@ -183,6 +203,11 @@ class UserController extends BaseController {
         if (!$user) {
             throw new UserNotFoundException();
         }
+        
+        // Check if session has user token
+        if ($user['token'] === null) {
+            throw new InvalidSessionException('NO_USER_TOKEN', 'Session has no user token');
+        }
 
         // Get weblingId (decrypt token)
         $weblingId = $this->uidEncryptor->decrypt($user['token']);
@@ -190,12 +215,17 @@ class UserController extends BaseController {
         // All operations successful - now rotate session
         // Create new session, replacing old one (children preserved if parent)
         $newSession = $this->db->createSession(
-            $session['user_token'],
             $this->apiKey,
             $session['session_duration'],
             300, // code validity
             $sessionId // Replace old session
         );
+        
+        // Copy user token from old session to new session
+        if ($session['user_token'] !== null) {
+            $this->db->setUserToken($newSession['session_id'], $session['user_token']);
+            $newSession['user_token'] = $session['user_token'];
+        }
         
         // Mark new session as validated
         $this->db->validateSession($newSession['session_id']);
