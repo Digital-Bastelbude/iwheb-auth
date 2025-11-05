@@ -32,19 +32,24 @@ final class UidEncryptor
     /** @var string 32-byte secret key (binary) */
     private $key;
 
+    /** @var string|null Unique key to generate tokens unique user tokens */
+    private $unique_key;
+
     /** @var string Associated Authenticated Data (AAD) bound to encryption context */
     private $aad;
 
     /**
-     * @param string $key 32-byte binary key (not base64; use generateKey() or loadKeyFromEnv())
+     * @param string $key 32-byte binary key (not base64; use generateKey() or loadKeyFromEnv())bind tokens to a specific user/session (must match on decrypt)
+     * @param string|null $unique_key Optional unique key to generate unique keys instead opf random nonces
      * @param string $aad Optional AAD to bind tokens to a context/realm (must match on decrypt)
      */
-    public function __construct(string $key, string $aad = '')
+    public function __construct(string $key, string $unique_key = NULL , string $aad = '')
     {
         if (strlen($key) !== SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_KEYBYTES) {
             throw new \InvalidArgumentException('Key must be 32 bytes (binary).');
         }
         $this->key = $key;
+        $this->unique_key = $unique_key;
         $this->aad = $aad;
     }
 
@@ -52,19 +57,31 @@ final class UidEncryptor
      * Encrypt UID -> URL-safe token.
      *
      * @param string $uid Arbitrary user id string (binary-safe)
+     * @param bool $generateUnique If true, use unique_key to generate deterministic nonce (requires unique_key to be set)
      * @return string URL-safe Base64 token
      */
-    public function encrypt(string $uid): string
+    public function encrypt(string $uid, bool $generateUnique = \false): string
     {
+        $key = $this->key;
+
         // Generate random nonce for each encryption
         $nonce = random_bytes(SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_NPUBBYTES);
 
-        // AEAD encrypt (ciphertext includes auth tag).
+        // When unique_key is set and generateUnique is true, derive a deterministic nonce
+        if ($this->unique_key !== NULL && $generateUnique === true) {
+            // Derive deterministic nonce from unique_key + uid using BLAKE2b
+            $nonce = sodium_crypto_generichash(
+            $this->unique_key . $uid,
+            '',
+            SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_NPUBBYTES
+            );
+        }
+
         $ciphertext = sodium_crypto_aead_xchacha20poly1305_ietf_encrypt(
             $uid,
             $this->aad,
             $nonce,
-            $this->key
+            $key
         );
 
         // Token format: base64url( nonce || ciphertext ) without '=' padding.
@@ -161,7 +178,13 @@ final class UidEncryptor
         if ($key === false || strlen($key) !== SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_KEYBYTES) {
             throw new \RuntimeException("Invalid base64 key in env var {$envVar}.");
         }
-        return new self($key, $aad);
+
+        $unique_key = getenv('UNIQUE_KEY') ?: NULL;
+        if ($unique_key !== NULL && strlen($unique_key) !== SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_KEYBYTES) {
+            throw new \RuntimeException("Invalid unique key length in env var UNIQUE_KEY.");
+        }
+
+        return new self($key, $unique_key, $aad);
     }
 
     /**

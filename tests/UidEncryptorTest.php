@@ -19,7 +19,7 @@ class UidEncryptorTest extends TestCase {
     }
 
     public function testConstructorWithValidKeyAndAAD(): void {
-        $encryptor = new UidEncryptor($this->validKey, 'test-context');
+        $encryptor = new UidEncryptor($this->validKey, null, 'test-context');
         $this->assertInstanceOf(UidEncryptor::class, $encryptor);
     }
 
@@ -175,9 +175,9 @@ class UidEncryptorTest extends TestCase {
     }
 
     public function testAADMustMatchForDecryption(): void {
-        $encryptor1 = new UidEncryptor($this->validKey, 'context-a');
-        $encryptor2 = new UidEncryptor($this->validKey, 'context-b');
-        $encryptor3 = new UidEncryptor($this->validKey, 'context-a'); // Same AAD as encryptor1
+        $encryptor1 = new UidEncryptor($this->validKey, null, 'context-a');
+        $encryptor2 = new UidEncryptor($this->validKey, null, 'context-b');
+        $encryptor3 = new UidEncryptor($this->validKey, null, 'context-a'); // Same AAD as encryptor1
         
         $uid = 'test-uid';
         $token = $encryptor1->encrypt($uid);
@@ -190,7 +190,7 @@ class UidEncryptorTest extends TestCase {
     }
 
     public function testAADWithEmptyString(): void {
-        $encryptor1 = new UidEncryptor($this->validKey, '');
+        $encryptor1 = new UidEncryptor($this->validKey, null, '');
         $encryptor2 = new UidEncryptor($this->validKey); // No AAD specified (defaults to '')
         
         $uid = 'test-uid';
@@ -290,7 +290,7 @@ class UidEncryptorTest extends TestCase {
     }
 
     public function testMultipleEncryptDecryptCycles(): void {
-        $encryptor = new UidEncryptor($this->validKey, 'test-realm');
+        $encryptor = new UidEncryptor($this->validKey, null, 'test-realm');
         
         $testUIDs = [
             'simple-uid',
@@ -322,8 +322,8 @@ class UidEncryptorTest extends TestCase {
 
     public function testTokensAreConsistentWithSameAAD(): void {
         $aad = 'consistent-context';
-        $encryptor1 = new UidEncryptor($this->validKey, $aad);
-        $encryptor2 = new UidEncryptor($this->validKey, $aad);
+        $encryptor1 = new UidEncryptor($this->validKey, null, $aad);
+        $encryptor2 = new UidEncryptor($this->validKey, null, $aad);
         
         $uid = 'test-uid';
         
@@ -333,5 +333,143 @@ class UidEncryptorTest extends TestCase {
         
         $this->assertSame($uid, $encryptor1->decrypt($token2));
         $this->assertSame($uid, $encryptor2->decrypt($token1));
+    }
+
+    public function testUniqueTokenGenerationWithUniqueKey(): void {
+        $uniqueKey = random_bytes(SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_KEYBYTES);
+        $encryptor = new UidEncryptor($this->validKey, $uniqueKey);
+        
+        $uid = 'test-user-123';
+        
+        // Generate unique tokens (deterministic)
+        $token1 = $encryptor->encrypt($uid, true);
+        $token2 = $encryptor->encrypt($uid, true);
+        
+        // Should be identical (same uid + same unique_key = same deterministic nonce)
+        $this->assertSame($token1, $token2);
+    }
+
+    public function testUniqueTokensAreDifferentForDifferentUIDs(): void {
+        $uniqueKey = random_bytes(SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_KEYBYTES);
+        $encryptor = new UidEncryptor($this->validKey, $uniqueKey);
+        
+        // Different UIDs should produce different unique tokens
+        $token1 = $encryptor->encrypt('user-123', true);
+        $token2 = $encryptor->encrypt('user-456', true);
+        
+        $this->assertNotSame($token1, $token2);
+    }
+
+    public function testUniqueTokensCanBeDecrypted(): void {
+        $uniqueKey = random_bytes(SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_KEYBYTES);
+        $encryptor = new UidEncryptor($this->validKey, $uniqueKey);
+        
+        $uid = 'test-user-789';
+        $token = $encryptor->encrypt($uid, true);
+        
+        // Should decrypt correctly
+        $decrypted = $encryptor->decrypt($token);
+        $this->assertSame($uid, $decrypted);
+    }
+
+    public function testRandomTokensAreStillDifferentWithUniqueKey(): void {
+        $uniqueKey = random_bytes(SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_KEYBYTES);
+        $encryptor = new UidEncryptor($this->validKey, $uniqueKey);
+        
+        $uid = 'test-user-999';
+        
+        // Generate random tokens (generateUnique = false, default behavior)
+        $token1 = $encryptor->encrypt($uid, false);
+        $token2 = $encryptor->encrypt($uid, false);
+        
+        // Should still be different (random nonces)
+        $this->assertNotSame($token1, $token2);
+        
+        // But both should decrypt correctly
+        $this->assertSame($uid, $encryptor->decrypt($token1));
+        $this->assertSame($uid, $encryptor->decrypt($token2));
+    }
+
+    public function testUniqueTokensWithoutUniqueKeyUsesRandomNonce(): void {
+        // No unique_key provided (null)
+        $encryptor = new UidEncryptor($this->validKey, null);
+        
+        $uid = 'test-user-555';
+        
+        // Even with generateUnique = true, should use random nonce when unique_key is null
+        $token1 = $encryptor->encrypt($uid, true);
+        $token2 = $encryptor->encrypt($uid, true);
+        
+        // Should be different (fallback to random nonce)
+        $this->assertNotSame($token1, $token2);
+    }
+
+    public function testUniqueTokensAreConsistentAcrossInstances(): void {
+        $uniqueKey = random_bytes(SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_KEYBYTES);
+        
+        // Two separate instances with same keys
+        $encryptor1 = new UidEncryptor($this->validKey, $uniqueKey);
+        $encryptor2 = new UidEncryptor($this->validKey, $uniqueKey);
+        
+        $uid = 'test-user-consistent';
+        
+        // Both should generate identical unique tokens
+        $token1 = $encryptor1->encrypt($uid, true);
+        $token2 = $encryptor2->encrypt($uid, true);
+        
+        $this->assertSame($token1, $token2);
+        
+        // Both should decrypt correctly
+        $this->assertSame($uid, $encryptor1->decrypt($token2));
+        $this->assertSame($uid, $encryptor2->decrypt($token1));
+    }
+
+    public function testUniqueTokensWithDifferentUniqueKeys(): void {
+        $uniqueKey1 = random_bytes(SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_KEYBYTES);
+        $uniqueKey2 = random_bytes(SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_KEYBYTES);
+        
+        $encryptor1 = new UidEncryptor($this->validKey, $uniqueKey1);
+        $encryptor2 = new UidEncryptor($this->validKey, $uniqueKey2);
+        
+        $uid = 'test-user-different-keys';
+        
+        // Different unique_keys should produce different tokens
+        $token1 = $encryptor1->encrypt($uid, true);
+        $token2 = $encryptor2->encrypt($uid, true);
+        
+        $this->assertNotSame($token1, $token2);
+        
+        // But each should still decrypt correctly with its own encryptor
+        $this->assertSame($uid, $encryptor1->decrypt($token1));
+        $this->assertSame($uid, $encryptor2->decrypt($token2));
+    }
+
+    public function testUniqueTokenForIdentification(): void {
+        $uniqueKey = random_bytes(SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_KEYBYTES);
+        $encryptor = new UidEncryptor($this->validKey, $uniqueKey, 'user-context');
+        
+        // Simulate multiple users
+        $users = ['alice', 'bob', 'charlie'];
+        $tokens = [];
+        
+        // Generate unique token for each user
+        foreach ($users as $user) {
+            $tokens[$user] = $encryptor->encrypt($user, true);
+        }
+        
+        // Verify tokens are unique per user
+        $this->assertSame(count($users), count(array_unique($tokens)));
+        
+        // Verify same user always gets same token
+        foreach ($users as $user) {
+            $regeneratedToken = $encryptor->encrypt($user, true);
+            $this->assertSame($tokens[$user], $regeneratedToken);
+        }
+        
+        // Verify all tokens decrypt correctly
+        foreach ($users as $user) {
+            $decrypted = $encryptor->decrypt($tokens[$user]);
+            $this->assertSame($user, $decrypted);
+        }
     }
 }
