@@ -105,6 +105,11 @@ class SessionController extends BaseController {
         
         // Get parent session with access check
         $parentSession = $this->getSessionWithAccess($parentSessionId);
+
+        // check if api key wants to delegate to itself (forbidden)
+        if($targetApiKey == $parentSession['api_key']) {
+            throw new InvalidInputException('INVALID_INPUT', 'Cannot delegate session to the same API key');
+        }
         
         // Check if session is a child (no nested delegation!)
         if (isset($parentSession['parent_session_id']) && $parentSession['parent_session_id'] !== null) {
