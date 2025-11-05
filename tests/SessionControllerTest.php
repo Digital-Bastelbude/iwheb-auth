@@ -1,7 +1,7 @@
 <?php
 use PHPUnit\Framework\TestCase;
 use IwhebAPI\UserAuth\Http\Controllers\SessionController;
-use IwhebAPI\UserAuth\Database\Database;
+use IwhebAPI\UserAuth\Database\{Database, UidEncryptor};
 use IwhebAPI\UserAuth\Auth\{Authorizer, ApiKeyManager};
 use IwhebAPI\UserAuth\Http\Response;
 use IwhebAPI\UserAuth\Exception\InvalidSessionException;
@@ -15,10 +15,12 @@ class SessionControllerTest extends TestCase {
     private SessionController $sessionController;
     private array $config;
     private string $apiKey;
+    private UidEncryptor $encryptor;
     
     protected function setUp(): void {
         $this->dbFile = sys_get_temp_dir() . '/session_controller_test_' . bin2hex(random_bytes(6)) . '.db';
-        $this->db = new Database($this->dbFile);
+        $this->encryptor = new UidEncryptor(UidEncryptor::generateKey());
+        $this->db = new Database($this->dbFile, $this->encryptor);
         
         $this->config = [
             'keys' => [
@@ -99,8 +101,9 @@ class SessionControllerTest extends TestCase {
     }
     
     public function testCreateDelegatedThrowsWhenTargetKeyMissing(): void {
-        // User creation removed - using token directly: 'token-delegate'
-        $session = $this->db->createSession('token-delegate', $this->apiKey);
+        // Create encrypted user token
+        $userToken = $this->encryptor->encrypt('12345');
+        $session = $this->db->createSession($userToken, $this->apiKey);
         $this->db->validateSession($session['session_id']);
         
         $this->expectException(InvalidInputException::class);
@@ -110,8 +113,9 @@ class SessionControllerTest extends TestCase {
     }
     
     public function testCreateDelegatedSuccessWithValidInput(): void {
-        // User creation removed - using token directly: 'token-delegate-ok'
-        $session = $this->db->createSession('token-delegate-ok', $this->apiKey);
+        // Create encrypted user token
+        $userToken = $this->encryptor->encrypt('12345');
+        $session = $this->db->createSession($userToken, $this->apiKey);
         $this->db->validateSession($session['session_id']);
         
         $result = $this->sessionController->createDelegated(
@@ -136,8 +140,9 @@ class SessionControllerTest extends TestCase {
     }
     
     public function testCreateDelegatedThrowsWhenParentIsChild(): void {
-        // User creation removed - using token directly: 'token-nested'
-        $parentSession = $this->db->createSession('token-nested', $this->apiKey);
+        // Create encrypted user token
+        $userToken = $this->encryptor->encrypt('12345');
+        $parentSession = $this->db->createSession($userToken, $this->apiKey);
         $this->db->validateSession($parentSession['session_id']);
         
         // Create child session

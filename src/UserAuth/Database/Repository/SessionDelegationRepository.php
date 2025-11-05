@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace IwhebAPI\UserAuth\Database\Repository;
 
-use IwhebAPI\UserAuth\Database\UidEncryptor;
 use IwhebAPI\UserAuth\Exception\Database\StorageException;
 use PDO;
 use PDOException;
@@ -15,12 +14,10 @@ use PDOException;
  */
 class SessionDelegationRepository extends BaseRepository {
     private SessionOperationsRepository $operations;
-    private UidEncryptor $uidEncryptor;
 
-    public function __construct(PDO $pdo, SessionOperationsRepository $operations, UidEncryptor $uidEncryptor) {
+    public function __construct(PDO $pdo, SessionOperationsRepository $operations) {
         parent::__construct($pdo);
         $this->operations = $operations;
-        $this->uidEncryptor = $uidEncryptor;
     }
 
     /**
@@ -77,18 +74,12 @@ class SessionDelegationRepository extends BaseRepository {
                 throw new StorageException('INVALID_PARENT_SESSION', 'Cannot delegate from a child session');
             }
             
-            // Decrypt parent's user token to get Webling ID, then re-encrypt with new nonce.
-            // If decrypt fails (parent token was not an encrypted token because of legacy tests
-            // or older data), fall back to using the parent token as the UID string and
-            // re-encrypt that to produce a valid token for the child session.
-            $weblingId = $this->uidEncryptor->decrypt($parentSession['user_token']);
-
-            if ($weblingId === null) {
-                // In strict mode we do not accept non-decryptable parent tokens.
-                throw new StorageException('INVALID_USER_TOKEN', 'Failed to decrypt parent user token');
+            // Get parent's user token - it will be re-encrypted by the business logic layer
+            $parentUserToken = $parentSession['user_token'];
+            
+            if ($parentUserToken === null) {
+                throw new StorageException('INVALID_USER_TOKEN', 'Parent session has no user token');
             }
-
-            $userToken = $this->uidEncryptor->encrypt($weblingId);
             
             // Delete existing child sessions for this parent/API-key combination
             // This ensures: one parent + one API key = one child session
@@ -106,14 +97,14 @@ class SessionDelegationRepository extends BaseRepository {
             $codeValidUntil = $this->getTimestamp(0); // Expired (not needed)
             $createdAt = $this->getTimestamp();
 
-            // Insert with validated=1 and parent_session_id
+            // Insert with validated=1, parent_session_id, and NULL user_token
+            // Business logic will set the token later
             $stmt = $this->pdo->prepare(
                 'INSERT INTO sessions (session_id, user_token, code, code_valid_until, expires_at, session_duration, validated, created_at, api_key, parent_session_id) 
-                 VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?)'
+                 VALUES (?, NULL, ?, ?, ?, ?, 1, ?, ?, ?)'
             );
             $stmt->execute([
                 $sessionId, 
-                $userToken, 
                 $code, 
                 $codeValidUntil, 
                 $expiresAt, 
@@ -125,7 +116,7 @@ class SessionDelegationRepository extends BaseRepository {
 
             return [
                 'session_id' => $sessionId,
-                'user_token' => $userToken,
+                'user_token' => null,
                 'code' => $code,
                 'code_valid_until' => $codeValidUntil,
                 'expires_at' => $expiresAt,
@@ -133,7 +124,8 @@ class SessionDelegationRepository extends BaseRepository {
                 'validated' => true,
                 'created_at' => $createdAt,
                 'api_key' => $targetApiKey,
-                'parent_session_id' => $parentSessionId
+                'parent_session_id' => $parentSessionId,
+                'parent_user_token' => $parentUserToken  // Return parent token for business logic
             ];
         } catch (PDOException $e) {
             throw new StorageException('STORAGE_ERROR', 'Database operation failed: ' . $e->getMessage());

@@ -15,12 +15,12 @@ use PDOException;
 class SessionOperationsRepository extends BaseRepository {
     /**
      * Initiate a new session with authentication code generation.
+     * Session is created without user token - use setUserToken() to assign it later.
      * 
      * If an old session ID is provided:
      * 1. Child sessions are reparented to the new session
      * 2. Old session is deleted (children are preserved)
      * 
-     * @param string $userToken Encrypted Webling user ID
      * @param string $apiKey API key for this session
      * @param int $sessionDurationSeconds Session lifetime in seconds
      * @param int $codeValiditySeconds Code validity in seconds
@@ -28,7 +28,6 @@ class SessionOperationsRepository extends BaseRepository {
      * @return array New session data
      */
     public function createSession(
-        string $userToken, 
         string $apiKey, 
         int $sessionDurationSeconds = 1800, 
         int $codeValiditySeconds = 300,
@@ -47,8 +46,8 @@ class SessionOperationsRepository extends BaseRepository {
             $codeValidUntil = $this->getTimestamp($codeValiditySeconds);
             $createdAt = $this->getTimestamp();
 
-            $stmt = $this->pdo->prepare('INSERT INTO sessions (session_id, user_token, code, code_valid_until, expires_at, session_duration, validated, created_at, api_key) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)');
-            $stmt->execute([$sessionId, $userToken, $code, $codeValidUntil, $expiresAt, $sessionDurationSeconds, $createdAt, $apiKey]);
+            $stmt = $this->pdo->prepare('INSERT INTO sessions (session_id, user_token, code, code_valid_until, expires_at, session_duration, validated, created_at, api_key) VALUES (?, NULL, ?, ?, ?, ?, 0, ?, ?)');
+            $stmt->execute([$sessionId, $code, $codeValidUntil, $expiresAt, $sessionDurationSeconds, $createdAt, $apiKey]);
 
             // If replacing old session: reparent children, then delete old
             if ($oldSessionId !== null) {
@@ -58,7 +57,7 @@ class SessionOperationsRepository extends BaseRepository {
 
             return [
                 'session_id' => $sessionId,
-                'user_token' => $userToken,
+                'user_token' => null,
                 'code' => $code,
                 'code_valid_until' => $codeValidUntil,
                 'expires_at' => $expiresAt,
@@ -69,6 +68,23 @@ class SessionOperationsRepository extends BaseRepository {
             ];
         } catch (PDOException $e) {
             throw new StorageException('STORAGE_ERROR', 'Database operation failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Set the encrypted user token for an existing session.
+     *
+     * @param string $sessionId Session ID
+     * @param string $encryptedToken Encrypted user token
+     * @return bool True if successful, false if session not found
+     */
+    public function setUserToken(string $sessionId, string $encryptedToken): bool {
+        try {
+            $stmt = $this->pdo->prepare('UPDATE sessions SET user_token = ? WHERE session_id = ?');
+            $stmt->execute([$encryptedToken, $sessionId]);
+            return $stmt->rowCount() > 0;
+        } catch (PDOException $e) {
+            throw new StorageException('STORAGE_ERROR', 'Failed to set user token: ' . $e->getMessage());
         }
     }
 
@@ -210,62 +226,6 @@ class SessionOperationsRepository extends BaseRepository {
             $beforeTimestamp = $beforeTimestamp ?? $this->getTimestamp();
             $stmt = $this->pdo->prepare('DELETE FROM sessions WHERE expires_at < ?');
             $stmt->execute([$beforeTimestamp]);
-            return $stmt->rowCount();
-        } catch (PDOException $e) {
-            throw new StorageException('STORAGE_ERROR', 'Database operation failed: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * Delete duplicate sessions for same user/API-key combinations
-     * 
-     * Decrypts all session user tokens and removes duplicates where
-     * the same Webling user ID is logged in with the same API key
-     * multiple times. Keeps the most recent session.
-     * 
-     * This is a maintenance operation for cleanup only.
-     * NOT callable from any route/controller!
-     * 
-     * @param \IwhebAPI\UserAuth\Database\UidEncryptor $uidEncryptor Encryptor to decrypt user tokens
-     * @return int Number of deleted sessions
-     */
-    public function deleteDuplicateUserApiKeySessions($uidEncryptor): int {
-        try {
-            // 1. Fetch all sessions
-            $stmt = $this->pdo->query("
-                SELECT session_id, user_token, api_key, created_at 
-                FROM sessions 
-                ORDER BY created_at DESC
-            ");
-            $sessions = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            
-            // 2. Group by decrypted UID + API key
-            $seen = [];
-            $toDelete = [];
-            
-            foreach ($sessions as $session) {
-                $weblingUserId = $uidEncryptor->decrypt($session['user_token']);
-                if ($weblingUserId === null) continue;
-                
-                $key = $weblingUserId . '|' . $session['api_key'];
-                
-                if (isset($seen[$key])) {
-                    // Duplicate found - mark older one for deletion
-                    $toDelete[] = $session['session_id'];
-                } else {
-                    $seen[$key] = true;
-                }
-            }
-            
-            // 3. Delete duplicates
-            if (empty($toDelete)) {
-                return 0;
-            }
-            
-            $placeholders = str_repeat('?,', count($toDelete) - 1) . '?';
-            $stmt = $this->pdo->prepare("DELETE FROM sessions WHERE session_id IN ($placeholders)");
-            $stmt->execute($toDelete);
-            
             return $stmt->rowCount();
         } catch (PDOException $e) {
             throw new StorageException('STORAGE_ERROR', 'Database operation failed: ' . $e->getMessage());

@@ -1,6 +1,6 @@
 <?php
 use PHPUnit\Framework\TestCase;
-use IwhebAPI\UserAuth\Database\Database;
+use IwhebAPI\UserAuth\Database\{Database, UidEncryptor};
 use IwhebAPI\UserAuth\Exception\Database\StorageException;
 
 require_once __DIR__ . '/bootstrap.php';
@@ -8,9 +8,11 @@ require_once __DIR__ . '/bootstrap.php';
 class SessionTest extends TestCase {
     private string $tmpFile;
     private string $testApiKey = 'test-api-key-12345';
+    private UidEncryptor $encryptor;
 
     protected function setUp(): void {
         $this->tmpFile = sys_get_temp_dir() . '/php_rest_session_test_' . bin2hex(random_bytes(6)) . '.db';
+        $this->encryptor = new UidEncryptor(UidEncryptor::generateKey());
         if (file_exists($this->tmpFile)) @unlink($this->tmpFile);
         // Also clean up SQLite auxiliary files
         $walFile = $this->tmpFile . '-wal';
@@ -777,11 +779,12 @@ class SessionTest extends TestCase {
     }
 
     public function testCreateDelegatedSessionSuccess(): void {
-        $db = new Database($this->tmpFile);
+        $db = new Database($this->tmpFile, $this->encryptor);
         
-        // Create user and parent session
-        // User creation removed
-        $parentSession = $db->createSession('testtoken123', 'api-key-1');
+        // Create encrypted user token
+        $weblingId = '12345';
+        $userToken = $this->encryptor->encrypt($weblingId);
+        $parentSession = $db->createSession($userToken, 'api-key-1');
         $db->validateSession($parentSession['session_id']);
         
         $targetApiKey = 'api-key-2';
@@ -804,12 +807,15 @@ class SessionTest extends TestCase {
         // Check that parent_session_id is set correctly
         $this->assertEquals($parentSession['session_id'], $delegatedSession['parent_session_id']);
         
-        // Check that user_token matches parent
-        $this->assertEquals($parentSession['user_token'], $delegatedSession['user_token']);
+        // Check that user_token is DIFFERENT from parent (re-encrypted with new nonce)
+        $this->assertNotEquals($parentSession['user_token'], $delegatedSession['user_token']);
+        
+        // But should decrypt to the same Webling ID
+        $this->assertEquals($weblingId, $this->encryptor->decrypt($delegatedSession['user_token']));
     }
 
     public function testCreateDelegatedSessionParentNotFound(): void {
-        $db = new Database($this->tmpFile);
+        $db = new Database($this->tmpFile, $this->encryptor);
         
         $this->expectException(StorageException::class);
         $this->expectExceptionMessage('Parent session not found or expired');
@@ -818,11 +824,11 @@ class SessionTest extends TestCase {
     }
 
     public function testCreateDelegatedSessionParentNotValidated(): void {
-        $db = new Database($this->tmpFile);
+        $db = new Database($this->tmpFile, $this->encryptor);
         
-        // Create user and parent session (not validated)
-        // User creation removed
-        $parentSession = $db->createSession('testtoken123', 'api-key-1');
+        // Create encrypted user token and parent session (not validated)
+        $userToken = $this->encryptor->encrypt('12345');
+        $parentSession = $db->createSession($userToken, 'api-key-1');
         
         $this->expectException(StorageException::class);
         $this->expectExceptionMessage('Parent session must be validated');
@@ -831,11 +837,11 @@ class SessionTest extends TestCase {
     }
 
     public function testDelegatedSessionDeletedWhenParentDeleted(): void {
-        $db = new Database($this->tmpFile);
+        $db = new Database($this->tmpFile, $this->encryptor);
         
-        // Create user and parent session
-        // User creation removed
-        $parentSession = $db->createSession('testtoken123', 'api-key-1');
+        // Create encrypted user token and parent session
+        $userToken = $this->encryptor->encrypt('12345');
+        $parentSession = $db->createSession($userToken, 'api-key-1');
         $db->validateSession($parentSession['session_id']);
         
         // Create delegated session

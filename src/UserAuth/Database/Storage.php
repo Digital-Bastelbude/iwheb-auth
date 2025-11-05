@@ -34,36 +34,21 @@ class Database {
     private SessionOperationsRepository $sessionOperations;
     private SessionValidationRepository $sessionValidation;
     private SessionDelegationRepository $sessionDelegation;
-    private UidEncryptor $uidEncryptor;
 
     /**
      * Constructor.
      * 
      * @param string $databasePath Path to SQLite database file
-     * @param UidEncryptor|null $uidEncryptor UID encryptor instance (auto-created if null)
      * @throws StorageException on database initialization failure
      */
-    public function __construct(string $databasePath, ?UidEncryptor $uidEncryptor = null) {
+    public function __construct(string $databasePath) {
         $this->databasePath = $databasePath;
-
-        // Prefer provided encryptor. If none provided, try to create from env; if env is invalid
-        // fall back to a generated random key so tests and runtime are resilient.
-        if ($uidEncryptor !== null) {
-            $this->uidEncryptor = $uidEncryptor;
-        } else {
-            try {
-                $this->uidEncryptor = UidEncryptor::fromEnv();
-            } catch (\RuntimeException $e) {
-                throw new StorageException('STORAGE_ERROR', 'Failed to initialize UID encryptor: ' . $e->getMessage());
-            }
-        }
-
         $this->initDatabase();
         
         // Initialize repositories
         $this->sessionOperations = new SessionOperationsRepository($this->pdo);
         $this->sessionValidation = new SessionValidationRepository($this->pdo, $this->sessionOperations);
-        $this->sessionDelegation = new SessionDelegationRepository($this->pdo, $this->sessionOperations, $this->uidEncryptor);
+        $this->sessionDelegation = new SessionDelegationRepository($this->pdo, $this->sessionOperations);
     }
 
     /**
@@ -132,14 +117,34 @@ class Database {
 
     // ========== SESSION MANAGEMENT ==========
 
+    /**
+     * Create a new session without user token.
+     * User token can be set later using setUserToken().
+     *
+     * @param string $apiKey API key used to create the session
+     * @param int $sessionDurationSeconds Session duration in seconds
+     * @param int $codeValiditySeconds Code validity duration in seconds
+     * @param string|null $oldSessionId Optional previous session ID for reparenting
+     * @return array Session data
+     */
     public function createSession(
-        string $userToken, 
         string $apiKey, 
         int $sessionDurationSeconds = 1800, 
         int $codeValiditySeconds = 300,
         ?string $oldSessionId = null
     ): array {
-        return $this->sessionOperations->createSession($userToken, $apiKey, $sessionDurationSeconds, $codeValiditySeconds, $oldSessionId);
+        return $this->sessionOperations->createSession($apiKey, $sessionDurationSeconds, $codeValiditySeconds, $oldSessionId);
+    }
+
+    /**
+     * Set the encrypted user token for an existing session.
+     *
+     * @param string $sessionId Session ID
+     * @param string $encryptedToken Encrypted user token
+     * @return bool True if successful, false if session not found
+     */
+    public function setUserToken(string $sessionId, string $encryptedToken): bool {
+        return $this->sessionOperations->setUserToken($sessionId, $encryptedToken);
     }
 
     public function createDelegatedSession(string $parentSessionId, string $targetApiKey, int $sessionDurationSeconds = 1800): array {
@@ -174,19 +179,6 @@ class Database {
      */
     public function deleteExpiredSessions(?string $beforeTimestamp = null): int {
         return $this->sessionOperations->deleteExpiredSessions($beforeTimestamp);
-    }
-
-    /**
-     * Delete duplicate sessions for same user/API-key combinations.
-     * 
-     * Maintenance operation intended for cleanup scripts.
-     * Not exposed via HTTP routes.
-     * 
-     * @param UidEncryptor $uidEncryptor Encryptor to decrypt user tokens
-     * @return int Number of deleted sessions
-     */
-    public function deleteDuplicateUserApiKeySessions($uidEncryptor): int {
-        return $this->sessionOperations->deleteDuplicateUserApiKeySessions($uidEncryptor);
     }
 
     /**
