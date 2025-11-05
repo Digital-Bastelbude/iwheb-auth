@@ -188,6 +188,8 @@ class UserController extends BaseController {
         // Get weblingId (decrypt token)
         $weblingId = $this->uidEncryptor->decrypt($user['token']);
 
+        $uniqueToken = $this->uidEncryptor->encrypt($weblingId, true);
+
         // All operations successful - now rotate session
         $newSession = $this->db->rotateSession($sessionId, $this->apiKey);
         
@@ -196,7 +198,7 @@ class UserController extends BaseController {
 
         return $this->success([
             'session_id' => $newSession['session_id'],
-            'user_id' => $weblingId,
+            'user_id' => $$uniqueToken,
             'session_expires_at' => $newSession['expires_at']
         ]);
     }
