@@ -9,7 +9,7 @@ use IwhebAPI\UserAuth\Http\Response;
  * ApiKeyHelper
  *
  * Helper for extracting API key from request headers/params and utilities
- * for determining method scope and matching route rules.
+ * for matching route rules.
  */
 class ApiKeyHelper {
     /**
@@ -46,17 +46,6 @@ class ApiKeyHelper {
         }
         if (!$key && isset($_GET['api_key'])) $key = trim((string)$_GET['api_key']);
         return $key ?: null;
-    }
-
-    /**
-     * Determine scope required by HTTP method.
-     *
-     * @param string $method HTTP method name.
-     * @return string 'read' for safe methods, otherwise 'write'.
-     */
-    public function methodScope(string $method): string {
-        $m = strtoupper($method);
-        return in_array($m, ['GET','HEAD','OPTIONS'], true) ? 'read' : 'write';
     }
 
     /**
@@ -196,7 +185,7 @@ class AuthorizationException extends \Exception {
 /**
  * Authorizer
  *
- * Performs API key validation, permission checks (routes/scopes) and rate limiting.
+ * Performs API key validation, permission checks (routes) and rate limiting.
  * Configuration array must be provided via constructor; ApiKeyHelper and RateLimiter
  * can be injected or are created from config defaults.
  */
@@ -243,7 +232,7 @@ class Authorizer {
     /**
      * Authorize an API request.
      *
-     * Validates the API key, checks route/scope permissions, and enforces rate limits.
+     * Validates the API key, checks route permissions, and enforces rate limits.
      *
      * @param string $method HTTP method (GET, POST, PUT, etc.)
      * @param string $path Request path (e.g., "/user/123/info")
@@ -265,12 +254,6 @@ class Authorizer {
             foreach ($routes as $rule) {
                 if (is_string($rule) && $this->keyHelper->routeMatches($rule, $method, $path)) { $allowed = true; break; }
             }
-        }
-        // Fallback to scopes
-        if (!$allowed) {
-            $scopes = array_map('strval', (array)($kdef['scopes'] ?? []));
-            $needed = $this->keyHelper->methodScope($method);
-            if (in_array($needed, $scopes, true)) $allowed = true;
         }
     if (!$allowed) throw new AuthorizationException($key, 'NO_PERMISSION');
 

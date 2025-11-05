@@ -8,7 +8,7 @@ info:
     - Webling API authentication
     - Email code delivery via SMTP
     - 6-digit code sessions (30min default)
-    - API key permissions with routes, scopes, and rate limits
+    - API key permissions with routes and rate limits
     - Session isolation per key
     - Delegated cross-app sessions
     - XChaCha20-Poly1305 encryption
@@ -23,7 +23,6 @@ info:
             'name' => 'Application Name',
             'permissions' => ['user_info', 'user_token', 'user_id', 'delegate_session'],
             'routes' => ['POST:/login', 'POST:/validate/{session_id}', ...],
-            'scopes' => ['read', 'write'],
             'rate_limit' => ['window_seconds' => 60, 'max_requests' => 100]
         ]
     ];

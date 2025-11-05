@@ -26,14 +26,6 @@ class AccessTest extends TestCase {
         unset($_GET['api_key']);
     }
 
-    public function testMethodScope(): void {
-        $h = new ApiKeyHelper();
-        $this->assertSame('read', $h->methodScope('GET'));
-        $this->assertSame('read', $h->methodScope('HEAD'));
-        $this->assertSame('write', $h->methodScope('POST'));
-        $this->assertSame('write', $h->methodScope('PUT'));
-    }
-
     public function testRouteMatches(): void {
         $h = new ApiKeyHelper();
         $this->assertTrue($h->routeMatches('GET:/items', 'GET', '/items'));
@@ -72,7 +64,7 @@ class AccessTest extends TestCase {
     }
 
     public function testAuthorizerNoPermissionThrows(): void {
-        $cfg = ['keys' => ['k' => ['routes' => [], 'scopes' => []], 'rate_limit' => ['default' => ['window_seconds' => 60, 'max_requests' => 100]]]];
+        $cfg = ['keys' => ['k' => ['routes' => []], 'rate_limit' => ['default' => ['window_seconds' => 60, 'max_requests' => 100]]]];
         $auth = new Authorizer($cfg);
         $this->expectException(AuthorizationException::class);
         $this->expectExceptionMessage('NO_PERMISSION');
@@ -81,7 +73,7 @@ class AccessTest extends TestCase {
 
     public function testAuthorizerRateLimitThrows(): void {
         $dir = sys_get_temp_dir() . '/rl_test_' . bin2hex(random_bytes(4));
-        $cfg = ['keys' => ['rlkey' => ['routes' => ['GET:/foo'], 'scopes' => ['read'], 'rate_limit' => ['window_seconds' => 60, 'max_requests' => 1]]], 'rate_limit' => ['default' => ['window_seconds' => 60, 'max_requests' => 10]]];
+        $cfg = ['keys' => ['rlkey' => ['routes' => ['GET:/foo'], 'rate_limit' => ['window_seconds' => 60, 'max_requests' => 1]]], 'rate_limit' => ['default' => ['window_seconds' => 60, 'max_requests' => 10]]];
         $rl = new RateLimiter($dir);
         $auth = new Authorizer($cfg, new ApiKeyHelper(), $rl);
         // first call allowed

@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 /**
  * Pure PHP REST API with:
- *  - JSON config for API keys, scopes/routes and rate limits
+ *  - JSON config for API keys, routes and rate limits
  *  - Fixed-window per-key rate limiting (fallback to default)
  *  - Logging to logs/api.log (JSON per line) for Fail2Ban
  *  - Masking: unauthorized/forbidden/ratelimited behave as 404

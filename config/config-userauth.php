@@ -39,11 +39,6 @@ function load_config(): array {
                 $keyConfig['routes'] = $config['routes'];
             }
             
-            // Map scopes (if available)
-            if (isset($config['scopes']) && is_array($config['scopes'])) {
-                $keyConfig['scopes'] = $config['scopes'];
-            }
-            
             // Map rate_limit (if available)
             if (isset($config['rate_limit']) && is_array($config['rate_limit'])) {
                 $keyConfig['rate_limit'] = $config['rate_limit'];
