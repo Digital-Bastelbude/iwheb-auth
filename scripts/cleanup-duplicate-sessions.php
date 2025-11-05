@@ -84,7 +84,7 @@ try {
             if ($db->deleteSession($sessionId)) {
                 $deletedCount++;
             } else {
-                echo "\t[ERROR] Failed to delete session {$sessionId}, maybe already deleted?\n";
+                echo "\t[ERROR] Failed to delete session {$sessionId}\n";
             }
         }
     }
