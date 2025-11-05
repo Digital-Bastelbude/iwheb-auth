@@ -337,7 +337,7 @@ class UidEncryptorTest extends TestCase {
 
     public function testUniqueTokenGenerationWithUniqueKey(): void {
         $uniqueKey = random_bytes(SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_KEYBYTES);
-        $encryptor = new UidEncryptor($this->validKey, $uniqueKey);
+        $encryptor = new UidEncryptor($this->validKey, 'test-aad', $uniqueKey);
         
         $uid = 'test-user-123';
         
@@ -408,9 +408,9 @@ class UidEncryptorTest extends TestCase {
         $uniqueKey = random_bytes(SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_KEYBYTES);
         
         // Two separate instances with same keys
-        $encryptor1 = new UidEncryptor($this->validKey, $uniqueKey);
-        $encryptor2 = new UidEncryptor($this->validKey, $uniqueKey);
-        
+        $encryptor1 = new UidEncryptor($this->validKey, 'test-aad', $uniqueKey);
+        $encryptor2 = new UidEncryptor($this->validKey, 'test-aad', $uniqueKey);
+
         $uid = 'test-user-consistent';
         
         // Both should generate identical unique tokens

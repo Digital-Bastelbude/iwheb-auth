@@ -198,7 +198,7 @@ class UserController extends BaseController {
 
         return $this->success([
             'session_id' => $newSession['session_id'],
-            'user_id' => $$uniqueToken,
+            'user_id' => $uniqueToken,
             'session_expires_at' => $newSession['expires_at']
         ]);
     }

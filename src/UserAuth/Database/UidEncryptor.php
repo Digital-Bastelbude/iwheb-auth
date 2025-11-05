@@ -167,7 +167,7 @@ final class UidEncryptor
      * @return self
      * @throws \RuntimeException if env var is missing or invalid
      */
-    public static function fromEnv(string $envVar = 'ENCRYPTION_KEY', string $aad = 'iwheb-auth'): self
+    public static function fromEnv(string $envVar = 'ENCRYPTION_KEY', string $aad = 'iwheb-auth', ?string $envVarUniqueKey = 'UNIQUE_KEY'): self
     {
         $val = getenv($envVar);
         if ($val === false || strpos($val, 'base64:') !== 0) {
@@ -179,7 +179,9 @@ final class UidEncryptor
             throw new \RuntimeException("Invalid base64 key in env var {$envVar}.");
         }
 
-        $unique_key = getenv('UNIQUE_KEY') ?: '';
+        $unique_key = getenv($envVarUniqueKey);
+        $b64 = substr($val, 7);
+        $unique_key = base64_decode($b64, true) ?: '';
         if ($unique_key !== '' && strlen($unique_key) !== SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_KEYBYTES) {
             throw new \RuntimeException("Invalid unique key length in env var UNIQUE_KEY.");
         }
