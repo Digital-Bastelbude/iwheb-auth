@@ -94,19 +94,19 @@ class UserControllerTest extends TestCase {
         // Call getId
         $result = $this->userController->getId(['session_id' => $originalSessionId], []);
         
-        // Verify response structure
         $this->assertArrayHasKey('data', $result);
-        $data = $result['data'];
-        
-        $this->assertArrayHasKey('session_id', $data);
-        $this->assertArrayHasKey('session_expires_at', $data);
-        $this->assertArrayHasKey('user_id', $data);
-        
+        $this->assertArrayHasKey('session_id', $result['data']);
+        $this->assertArrayHasKey('session_expires_at', $result['data']);
+        $this->assertArrayHasKey('user_id', $result['data']);
+
+        $newWeblingId = $this->encryptor->decrypt($result['data']['user_id'], true);
+        $newSessionId = $result['data']['session_id'];
+
         // Verify new session was created
-        $this->assertNotSame($originalSessionId, $data['session_id']);
-        
+        $this->assertNotSame($originalSessionId, $newSessionId);
+
         // Verify Webling ID was correctly decrypted
-        $this->assertSame($weblingId, $data['user_id']);
+        $this->assertSame($weblingId, $newWeblingId);
     }
     
     public function testGetIdThrowsForInvalidSession(): void {
