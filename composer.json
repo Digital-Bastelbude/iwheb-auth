@@ -23,7 +23,8 @@
     "classmap": [
       "src/UserAuth/Auth/",
       "src/UserAuth/Database/",
-      "src/UserAuth/Http/"
+      "src/UserAuth/Http/",
+      "src/UserAuth/Exception/"
     ]
   }
 }
