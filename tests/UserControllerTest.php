@@ -1,11 +1,10 @@
 <?php
 use PHPUnit\Framework\TestCase;
-use IwhebAPI\UserAuth\Http\Controllers\{UserController, SessionController};
+use IwhebAPI\UserAuth\Http\Controllers\{UserController};
 use IwhebAPI\UserAuth\Database\{Database, UidEncryptor};
 use IwhebAPI\UserAuth\Auth\{Authorizer, ApiKeyManager};
-use IwhebAPI\UserAuth\Http\{Response, WeblingClient};
-use IwhebAPI\UserAuth\Exception\{InvalidSessionException, UserNotFoundException};
-use IwhebAPI\UserAuth\Exception\Http\InvalidInputException;
+use IwhebAPI\UserAuth\Http\{Response};
+use IwhebAPI\UserAuth\Exception\{InvalidSessionException};
 
 require_once __DIR__ . '/bootstrap.php';
 
