@@ -9,12 +9,16 @@ use iwhebAPI\SessionManagement\Http\Response;
 use iwhebAPI\SessionManagement\Exception\Database\StorageException;
 use iwhebAPI\SessionManagement\Exception\NotFoundException;
 use iwhebAPI\SessionManagement\Database\Repository\SessionOperationsRepository;
+use Logger;
 
 use iwhebAPI\UserAuth\Http\Controllers\{AuthController, UserController, CustomSessionController};
 use iwhebAPI\UserAuth\Http\WeblingClient;
 use iwhebAPI\UserAuth\Database\UidEncryptor;
 use iwhebAPI\UserAuth\Database\Repository\SessionDelegationRepository;
 use iwhebAPI\UserAuth\Exception\Http\InvalidInputException;
+
+// -------- Create Logger --------
+$logger = new Logger(__DIR__ . '/../../logs/api.log');
 
 // -------- Routes --------
 // Instantiate helpers / services (assumes $CONFIG exists in bootstrap)
