@@ -3,12 +3,14 @@ declare(strict_types=1);
 
 namespace iwhebAPI\UserAuth\Http;
 
-use iwhebAPI\UserAuth\Database\{Database, UidEncryptor};
-use iwhebAPI\UserAuth\Auth\{Authorizer, ApiKeyManager, AuthorizationException};
-use iwhebAPI\UserAuth\Http\Controllers\{AuthController, SessionController, UserController};
+use iwhebAPI\SessionManagement\Database\{Database, UidEncryptor};
+use iwhebAPI\SessionManagement\Auth\{Authorizer, ApiKeyManager, AuthorizationException};
+use iwhebAPI\SessionManagement\Http\Controllers\{AuthController, SessionController, Response};
+use iwhebAPI\SessionManagement\Exception\Database\StorageException;
+use iwhebAPI\SessionManagement\Exception\NotFoundException;
+
+use iwhebAPI\UserAuth\Http\Controllers\{UserController};
 use iwhebAPI\UserAuth\Exception\Http\InvalidInputException;
-use iwhebAPI\UserAuth\Exception\Database\StorageException;
-use iwhebAPI\UserAuth\Exception\NotFoundException;
 
 // -------- Routes --------
 // Instantiate helpers / services (assumes $CONFIG exists in bootstrap)

@@ -3,7 +3,8 @@ declare(strict_types=1);
 
 namespace iwhebAPI\UserAuth\Database\Repository;
 
-use iwhebAPI\UserAuth\Exception\Database\StorageException;
+use iwhebAPI\SessionManagement\Exception\Database\StorageException;
+use iwhebAPI\SessionManagement\Database\Repository\{BaseRepository, SessionOperationsRepository}; 
 use PDO;
 use PDOException;
 
