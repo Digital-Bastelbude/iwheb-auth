@@ -3,11 +3,15 @@ declare(strict_types=1);
 
 namespace IwhebAPI\UserAuth\Http\Controllers;
 
-use IwhebAPI\UserAuth\Database\{Database, UidEncryptor};
-use IwhebAPI\UserAuth\Auth\{Authorizer, ApiKeyManager};
-use IwhebAPI\UserAuth\Http\{Response, WeblingClient};
-use IwhebAPI\UserAuth\Exception\{InvalidSessionException, UserNotFoundException};
-use IwhebAPI\UserAuth\Exception\Database\StorageException;
+use iwhebAPI\SessionManagement\Database\Database;
+use IwhebAPI\UserAuth\Database\UidEncryptor;
+use iwhebAPI\SessionManagement\Auth\{Authorizer, ApiKeyManager};
+use iwhebAPI\SessionManagement\Http\Response;
+use IwhebAPI\UserAuth\Http\WeblingClient;
+use iwhebAPI\SessionManagement\Exception\InvalidSessionException;
+use IwhebAPI\UserAuth\Exception\UserNotFoundException;
+use iwhebAPI\SessionManagement\Exception\Database\StorageException;
+use iwhebAPI\SessionManagement\Http\Controllers\BaseController;
 
 /**
  * UserController

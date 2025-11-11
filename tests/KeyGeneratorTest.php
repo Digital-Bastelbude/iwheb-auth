@@ -2,7 +2,7 @@
 use PHPUnit\Framework\TestCase;
 
 require_once __DIR__ . '/bootstrap.php';
-require_once __DIR__ . '/../src/UserAuth/Auth/KeyGenerator.php';
+require_once __DIR__ . '/../src/SessionManagement/Auth/KeyGenerator.php';
 
 class KeyGeneratorTest extends TestCase {
     

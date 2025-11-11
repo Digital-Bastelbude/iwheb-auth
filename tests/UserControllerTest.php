@@ -1,10 +1,11 @@
 <?php
 use PHPUnit\Framework\TestCase;
 use IwhebAPI\UserAuth\Http\Controllers\{UserController};
-use IwhebAPI\UserAuth\Database\{Database, UidEncryptor};
-use IwhebAPI\UserAuth\Auth\{Authorizer, ApiKeyManager};
-use IwhebAPI\UserAuth\Http\{Response};
-use IwhebAPI\UserAuth\Exception\{InvalidSessionException};
+use iwhebAPI\SessionManagement\Database\Database;
+use IwhebAPI\UserAuth\Database\UidEncryptor;
+use iwhebAPI\SessionManagement\Auth\{Authorizer, ApiKeyManager};
+use iwhebAPI\SessionManagement\Http\Response;
+use iwhebAPI\SessionManagement\Exception\InvalidSessionException;
 
 require_once __DIR__ . '/bootstrap.php';
 

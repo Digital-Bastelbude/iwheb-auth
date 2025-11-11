@@ -5,7 +5,7 @@
  * Common helper functions for tests after Storage.php refactoring.
  */
 
-use IwhebAPI\UserAuth\Database\Database;
+use iwhebAPI\SessionManagement\Database\Database;
 
 /**
  * Create a session with user token.
