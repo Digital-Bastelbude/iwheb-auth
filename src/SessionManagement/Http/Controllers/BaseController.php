@@ -1,12 +1,12 @@
 <?php
 declare(strict_types=1);
 
-namespace IwhebAPI\UserAuth\Http\Controllers;
+namespace iwhebAPI\SessionManagement\Http\Controllers;
 
-use IwhebAPI\UserAuth\Database\Database;
-use IwhebAPI\UserAuth\Auth\{Authorizer, ApiKeyManager};
-use IwhebAPI\UserAuth\Http\Response;
-use IwhebAPI\UserAuth\Exception\InvalidSessionException;
+use iwhebAPI\SessionManagement\Database\Database;
+use iwhebAPI\SessionManagement\Auth\{Authorizer, ApiKeyManager};
+use iwhebAPI\SessionManagement\Http\Response;
+use iwhebAPI\SessionManagement\Exception\InvalidSessionException;
 
 /**
  * BaseController

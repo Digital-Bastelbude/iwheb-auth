@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 namespace IwhebAPI\UserAuth\Exception;
+use iwhebAPI\SessionManagement\Exception\NotFoundException;
 
 /**
  * InvalidCodeException

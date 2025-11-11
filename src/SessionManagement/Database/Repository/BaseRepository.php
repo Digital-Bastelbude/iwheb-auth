@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace IwhebAPI\UserAuth\Database\Repository;
+namespace iwhebAPI\SessionManagement\Database\Repository;
 
 use PDO;
 

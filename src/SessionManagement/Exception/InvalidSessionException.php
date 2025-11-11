@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace IwhebAPI\UserAuth\Exception;
+namespace iwhebAPI\SessionManagement\Exception;
 
 /**
  * InvalidSessionException

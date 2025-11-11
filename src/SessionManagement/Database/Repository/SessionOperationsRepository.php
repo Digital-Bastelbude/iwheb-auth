@@ -1,9 +1,9 @@
 <?php
 declare(strict_types=1);
 
-namespace IwhebAPI\UserAuth\Database\Repository;
+namespace iwhebAPI\SessionManagement\Database\Repository;
 
-use IwhebAPI\UserAuth\Exception\Database\StorageException;
+use iwhebAPI\SessionManagement\Exception\Database\StorageException;
 use PDO;
 use PDOException;
 

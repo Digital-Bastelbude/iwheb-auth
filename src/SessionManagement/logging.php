@@ -75,7 +75,7 @@ class Logger {
         if (self::$instance instanceof Logger) {
             return self::$instance;
         }
-        $logFile = $logFile ?? (defined('LOG_FILE') ? LOG_FILE : (__DIR__ . '/logs/access.log'));
+        $logFile = $logFile ?? dirname(__DIR__, 3) . '/storage/logs/access.log';
         self::$instance = new Logger($logFile, $server, $get, $inputReader);
         return self::$instance;
     }

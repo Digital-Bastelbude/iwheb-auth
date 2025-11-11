@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace IwhebAPI\UserAuth\Exception\Database;
+namespace iwhebAPI\SessionManagement\Exception\Database;
 
 /**
  * StorageException

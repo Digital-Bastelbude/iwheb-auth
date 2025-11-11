@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace IwhebAPI\UserAuth\Auth;
+namespace iwhebAPI\SessionManagement\Auth;
 
 /**
  * API Key Manager

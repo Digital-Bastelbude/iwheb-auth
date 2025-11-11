@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace IwhebAPI\UserAuth\Auth;
+namespace iwhebAPI\SessionManagement\Auth;
 
 
 /**
@@ -223,7 +223,7 @@ class Authorizer {
         if ($rateLimiter !== null) {
             $this->rateLimiter = $rateLimiter;
         } else {
-            $rlDir = $this->config['rate_limit']['dir'] ?? (defined('RL_DIR') ? RL_DIR : sys_get_temp_dir() . '/rl');
+            $rlDir = $this->config['rate_limit']['dir'] ?? '/storage/ratelimit';
             $this->rateLimiter = new RateLimiter($rlDir);
         }
     }

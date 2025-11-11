@@ -1,14 +1,13 @@
 <?php
 declare(strict_types=1);
 
-namespace IwhebAPI\UserAuth\Database;
+namespace iwhebAPI\SessionManagement\Database;
 
-use IwhebAPI\UserAuth\Database\Repository\{
+use iwhebAPI\SessionManagement\Database\Repository\{
     SessionOperationsRepository, 
     SessionValidationRepository, 
-    SessionDelegationRepository
 };
-use IwhebAPI\UserAuth\Exception\Database\StorageException;
+use iwhebAPI\SessionManagement\Exception\Database\StorageException;
 use PDO;
 use PDOException;
 
@@ -33,7 +32,6 @@ class Database {
     
     private SessionOperationsRepository $sessionOperations;
     private SessionValidationRepository $sessionValidation;
-    private SessionDelegationRepository $sessionDelegation;
 
     /**
      * Constructor.
@@ -48,7 +46,6 @@ class Database {
         // Initialize repositories
         $this->sessionOperations = new SessionOperationsRepository($this->pdo);
         $this->sessionValidation = new SessionValidationRepository($this->pdo, $this->sessionOperations);
-        $this->sessionDelegation = new SessionDelegationRepository($this->pdo, $this->sessionOperations);
     }
 
     /**
@@ -64,7 +61,8 @@ class Database {
         $databasePath = getenv('DATABASE_PATH');
         
         if (!$databasePath) {
-            $databasePath = defined('DATA_FILE') ? DATA_FILE : __DIR__ . '/../../../storage/data.db';
+            // Default to storage/data.db relative to project root
+            $databasePath = dirname(__DIR__, 4) . '/storage/data/sessions.db';
         }
         
         return new self($databasePath);
@@ -160,10 +158,6 @@ class Database {
      */
     public function rotateSession(string $oldSessionId, string $apiKey): array {
         return $this->sessionOperations->rotateSession($oldSessionId, $apiKey);
-    }
-
-    public function createDelegatedSession(string $parentSessionId, string $targetApiKey, int $sessionDurationSeconds = 1800): array {
-        return $this->sessionDelegation->createDelegatedSession($parentSessionId, $targetApiKey, $sessionDurationSeconds);
     }
 
     public function getSessionBySessionId(string $sessionId): ?array {
