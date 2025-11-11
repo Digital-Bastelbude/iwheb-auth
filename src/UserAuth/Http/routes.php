@@ -18,13 +18,13 @@ use iwhebAPI\UserAuth\Database\Repository\SessionDelegationRepository;
 use iwhebAPI\UserAuth\Exception\Http\InvalidInputException;
 
 // -------- Create Logger --------
-$logger = new Logger(__DIR__ . '/../../logs/api.log');
+$logger = Logger::getInstance(__DIR__ . '/../../logs/api.log');
 
 // -------- Routes --------
 // Instantiate helpers / services (assumes $CONFIG exists in bootstrap)
 $authorizer = new Authorizer($CONFIG ?? []);
 $dbService  = Database::fromEnv();
-$response   = new Response();
+$response   = new Response($logger);
 
 // Initialize Webling client and UidEncryptor from environment variables
 // Environment variables are set in config/.secrets.php which is loaded in public/index.php
