@@ -3,13 +3,16 @@ declare(strict_types=1);
 
 namespace iwhebAPI\UserAuth\Http;
 
-use iwhebAPI\SessionManagement\Database\{Database, UidEncryptor};
+use iwhebAPI\SessionManagement\Database\Database;
 use iwhebAPI\SessionManagement\Auth\{Authorizer, ApiKeyManager, AuthorizationException};
-use iwhebAPI\SessionManagement\Http\Controllers\{AuthController, SessionController, Response};
+use iwhebAPI\SessionManagement\Http\Controllers\SessionController;
+use iwhebAPI\SessionManagement\Http\Response;
 use iwhebAPI\SessionManagement\Exception\Database\StorageException;
 use iwhebAPI\SessionManagement\Exception\NotFoundException;
 
-use iwhebAPI\UserAuth\Http\Controllers\{UserController};
+use iwhebAPI\UserAuth\Http\Controllers\{AuthController, UserController};
+use iwhebAPI\UserAuth\Http\WeblingClient;
+use iwhebAPI\UserAuth\Database\UidEncryptor;
 use iwhebAPI\UserAuth\Exception\Http\InvalidInputException;
 
 // -------- Routes --------
