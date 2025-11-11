@@ -113,6 +113,16 @@ class Database {
         }
     }
 
+    /**
+     * Get the PDO instance for direct database access.
+     * Used by specialized repositories that need direct PDO access.
+     * 
+     * @return PDO
+     */
+    public function getPdo(): PDO {
+        return $this->pdo;
+    }
+
     // ========== SESSION MANAGEMENT ==========
 
     /**

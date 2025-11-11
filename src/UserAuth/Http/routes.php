@@ -5,15 +5,16 @@ namespace iwhebAPI\UserAuth\Http;
 
 use iwhebAPI\SessionManagement\Database\Database;
 use iwhebAPI\SessionManagement\Auth\{Authorizer, ApiKeyManager, AuthorizationException};
-use iwhebAPI\SessionManagement\Http\Controllers\SessionController;
 use iwhebAPI\SessionManagement\Http\Response;
 use iwhebAPI\SessionManagement\Exception\Database\StorageException;
 use iwhebAPI\SessionManagement\Exception\NotFoundException;
+use iwhebAPI\SessionManagement\Database\Repository\SessionOperationsRepository;
 
-use iwhebAPI\UserAuth\Http\Controllers\{AuthController, UserController};
+use iwhebAPI\UserAuth\Http\Controllers\{AuthController, UserController, CustomSessionController};
 use iwhebAPI\UserAuth\Http\WeblingClient;
-use iwhebAPI\UserAuth\Database\UidEncryptor;
-use iwhebAPI\UserAuth\Exception\Http\InvalidInputException;
+use IwhebAPI\UserAuth\Database\UidEncryptor;
+use IwhebAPI\UserAuth\Database\Repository\SessionDelegationRepository;
+use IwhebAPI\UserAuth\Exception\Http\InvalidInputException;
 
 // -------- Routes --------
 // Instantiate helpers / services (assumes $CONFIG exists in bootstrap)
@@ -54,9 +55,14 @@ try {
 
 \error_log("DEBUG: authorized, key: {$auth['key']}");
 
+// Initialize repositories for delegation
+$pdo = $dbService->getPdo();
+$sessionOperations = new SessionOperationsRepository($pdo);
+$delegationRepo = new SessionDelegationRepository($pdo, $sessionOperations);
+
 // Instantiate controllers
 $authController = new AuthController($dbService, $response, $authorizer, $apiKeyManager, $CONFIG, $apiKey, $weblingClient, $uidEncryptor);
-$sessionController = new SessionController($dbService, $response, $authorizer, $apiKeyManager, $CONFIG, $apiKey);
+$sessionController = new CustomSessionController($dbService, $response, $authorizer, $apiKeyManager, $CONFIG, $apiKey, $delegationRepo);
 $userController = new UserController($dbService, $response, $authorizer, $apiKeyManager, $CONFIG, $apiKey, $weblingClient, $uidEncryptor);
 
 // Define routes using pattern-based format for flexible paths
