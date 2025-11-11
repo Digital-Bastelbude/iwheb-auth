@@ -6,7 +6,6 @@ namespace iwhebAPI\UserAuth\Http\Controllers;
 use iwhebAPI\SessionManagement\Database\Database;
 use iwhebAPI\UserAuth\Database\UidEncryptor;
 use iwhebAPI\SessionManagement\Auth\{Authorizer, ApiKeyManager};
-use iwhebAPI\SessionManagement\Http\Response;
 use iwhebAPI\UserAuth\Http\WeblingClient;
 use iwhebAPI\SessionManagement\Exception\InvalidSessionException;
 use iwhebAPI\UserAuth\Exception\UserNotFoundException;
@@ -24,7 +23,6 @@ class UserController extends BaseController {
     
     public function __construct(
         Database $db,
-        Response $response,
         Authorizer $authorizer,
         ApiKeyManager $apiKeyManager,
         array $config,
@@ -32,7 +30,7 @@ class UserController extends BaseController {
         WeblingClient $weblingClient,
         UidEncryptor $uidEncryptor
     ) {
-        parent::__construct($db, $response, $authorizer, $apiKeyManager, $config, $apiKey);
+        parent::__construct($db, $authorizer, $apiKeyManager, $config, $apiKey);
         $this->weblingClient = $weblingClient;
         $this->uidEncryptor = $uidEncryptor;
     }

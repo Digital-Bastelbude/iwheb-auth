@@ -5,7 +5,6 @@ namespace IwhebAPI\UserAuth\Http\Controllers;
 
 use iwhebAPI\SessionManagement\Database\Database;
 use iwhebAPI\SessionManagement\Http\Controllers\BaseController;
-use iwhebAPI\SessionManagement\Http\Response;
 use iwhebAPI\SessionManagement\Auth\{Authorizer, ApiKeyManager};
 use iwhebAPI\SessionManagement\Exception\InvalidSessionException;
 use iwhebAPI\SessionManagement\Exception\Database\StorageException;
@@ -26,7 +25,6 @@ class AuthController extends BaseController {
     
     public function __construct(
         Database $db,
-        Response $response,
         Authorizer $authorizer,
         ApiKeyManager $apiKeyManager,
         array $config,
@@ -34,7 +32,7 @@ class AuthController extends BaseController {
         WeblingClient $weblingClient,
         UidEncryptor $uidEncryptor
     ) {
-        parent::__construct($db, $response, $authorizer, $apiKeyManager, $config, $apiKey);
+        parent::__construct($db, $authorizer, $apiKeyManager, $config, $apiKey);
         $this->weblingClient = $weblingClient;
         $this->uidEncryptor = $uidEncryptor;
     }

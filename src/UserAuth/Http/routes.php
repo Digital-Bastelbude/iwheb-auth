@@ -61,9 +61,9 @@ $sessionOperations = new SessionOperationsRepository($pdo);
 $delegationRepo = new SessionDelegationRepository($pdo, $sessionOperations);
 
 // Instantiate controllers
-$authController = new AuthController($dbService, $response, $authorizer, $apiKeyManager, $CONFIG, $apiKey, $weblingClient, $uidEncryptor);
-$sessionController = new CustomSessionController($dbService, $response, $authorizer, $apiKeyManager, $CONFIG, $apiKey, $delegationRepo);
-$userController = new UserController($dbService, $response, $authorizer, $apiKeyManager, $CONFIG, $apiKey, $weblingClient, $uidEncryptor);
+$authController = new AuthController($dbService, $authorizer, $apiKeyManager, $CONFIG, $apiKey, $weblingClient, $uidEncryptor);
+$sessionController = new CustomSessionController($dbService, $authorizer, $apiKeyManager, $CONFIG, $apiKey, $delegationRepo);
+$userController = new UserController($dbService, $authorizer, $apiKeyManager, $CONFIG, $apiKey, $weblingClient, $uidEncryptor);
 
 // Define routes using pattern-based format for flexible paths
 $routes = [
