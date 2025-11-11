@@ -40,13 +40,12 @@ class UserControllerTest extends TestCase {
         $this->apiKey = 'test-key';
         $this->encryptor = new UidEncryptor(UidEncryptor::generateKey());
         
-        $response = new Response();
         $authorizer = new Authorizer($this->config);
         $apiKeyManager = new ApiKeyManager($this->config['keys']);
         $weblingClient = new MockWeblingClientForUser('demo', 'key');
         
         $this->userController = new UserController(
-            $this->db, $response, $authorizer, $apiKeyManager,
+            $this->db, $authorizer, $apiKeyManager,
             $this->config, $this->apiKey, $weblingClient, $this->encryptor
         );
     }
@@ -176,7 +175,6 @@ class UserControllerTest extends TestCase {
     
     public function testGetInfoThrowsWhenMissingUserInfoPermission(): void {
         // Create controller with info-only-key that lacks user_info permission
-        $response = new Response();
         $authorizer = new Authorizer($this->config);
         $apiKeyManager = new ApiKeyManager($this->config['keys']);
         $weblingClient = new MockWeblingClientForUser('demo', 'key');
@@ -188,7 +186,7 @@ class UserControllerTest extends TestCase {
         ];
         
         $controller = new UserController(
-            $this->db, $response, $authorizer, $apiKeyManager,
+            $this->db, $authorizer, $apiKeyManager,
             $this->config, 'no-info-key', $weblingClient, $this->encryptor
         );
         
@@ -201,14 +199,13 @@ class UserControllerTest extends TestCase {
     
     public function testGetTokenThrowsWhenMissingUserTokenPermission(): void {
         // Create controller with key that lacks user_token permission
-        $response = new Response();
         $authorizer = new Authorizer($this->config);
         $apiKeyManager = new ApiKeyManager($this->config['keys']);
         $weblingClient = new MockWeblingClientForUser('demo', 'key');
         
         // Use info-only-key which has only user_info permission
         $controller = new UserController(
-            $this->db, $response, $authorizer, $apiKeyManager,
+            $this->db, $authorizer, $apiKeyManager,
             $this->config, 'info-only-key', $weblingClient, $this->encryptor
         );
         
@@ -221,14 +218,13 @@ class UserControllerTest extends TestCase {
     
     public function testGetIdThrowsWhenMissingUserIdPermission(): void {
         // Create controller with key that lacks user_id permission
-        $response = new Response();
         $authorizer = new Authorizer($this->config);
         $apiKeyManager = new ApiKeyManager($this->config['keys']);
         $weblingClient = new MockWeblingClientForUser('demo', 'key');
         
         // Use info-only-key which has only user_info permission
         $controller = new UserController(
-            $this->db, $response, $authorizer, $apiKeyManager,
+            $this->db, $authorizer, $apiKeyManager,
             $this->config, 'info-only-key', $weblingClient, $this->encryptor
         );
         
