@@ -44,13 +44,13 @@ class UserController extends BaseController {
      * Session is extended (children preserved if parent session).
      * 
      * @param array $pathVars ['session_id' => string]
-     * @param array $body
+     * @param array $body Unused
      * @return array Response with user data and new session_id
      * @throws InvalidSessionException if session not found, access denied, or not validated
      * @throws UserNotFoundException if user not found
      * @throws StorageException if session refresh or Webling fetch fails
      */
-    public function getInfo(array $pathVars, array $body): array {
+    public function getInfo(array $pathVars, array $_body): array {
         $sessionId = $pathVars['session_id'];
         
         // Get session with access check
@@ -105,13 +105,13 @@ class UserController extends BaseController {
      * Get encrypted user token. Requires 'user_token' permission.
      * 
      * @param array $pathVars ['session_id' => string]
-     * @param array $body
+     * @param array $body Unused
      * @return array Response with encrypted token
      * @throws InvalidSessionException if session not found, not validated, or access denied
      * @throws UserNotFoundException if user not found
      * @throws StorageException if session refresh fails
      */
-    public function getToken(array $pathVars, array $body): array {
+    public function getToken(array $pathVars, array $_body): array {
         $sessionId = $pathVars['session_id'];
         
         // Get session with access check
@@ -157,13 +157,13 @@ class UserController extends BaseController {
      * Requires 'user_id' permission.
      * 
      * @param array $pathVars ['session_id' => string]
-     * @param array $body
+     * @param array $body Unused
      * @return array Response with user_id and new session_id
      * @throws InvalidSessionException if session not found, not validated, or access denied
      * @throws UserNotFoundException if user not found
      * @throws StorageException if session refresh fails
      */
-    public function getId(array $pathVars, array $body): array {
+    public function getId(array $pathVars, array $_body): array {
         $sessionId = $pathVars['session_id'];
         
         // Get session with access check
