@@ -192,4 +192,81 @@ class SmtpMailerTest extends TestCase {
         putenv('SMTP_USE_SSL');
         putenv('SMTP_USE_TLS');
     }
+    
+    public function testSendThrowsExceptionOnNetworkError(): void {
+        // Create mailer with invalid/unreachable host to simulate network error
+        $mailer = new SmtpMailer(
+            'invalid-host-that-does-not-exist-12345.local',
+            587,
+            'user@example.com',
+            'password',
+            'noreply@example.com',
+            'Test Mailer',
+            false,
+            false
+        );
+        
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessageMatches('/Failed to (send email|connect)|Connection refused|Could not connect|Cannot connect/i');
+        
+        $mailer->send('recipient@example.com', 'Test Subject', 'Test Message');
+    }
+    
+    public function testSendThrowsExceptionOnSMTPAuthError(): void {
+        // Note: This test requires a real SMTP server or mock to properly test
+        // For now, we test with incorrect credentials to an unreachable host
+        // which will fail at connection, simulating auth failure behavior
+        
+        $mailer = new SmtpMailer(
+            'smtp.gmail.com', // Real host but wrong credentials
+            587,
+            'invalid-user@example.com',
+            'wrong-password',
+            'noreply@example.com',
+            'Test Mailer',
+            true,
+            false
+        );
+        
+        // This will throw an exception due to connection/auth failure
+        $this->expectException(\RuntimeException::class);
+        
+        try {
+            $mailer->send('recipient@example.com', 'Test Subject', 'Test Message');
+        } catch (\RuntimeException $e) {
+            // Verify the error is related to SMTP/connection/auth
+            $message = $e->getMessage();
+            $this->assertMatchesRegularExpression(
+                '/Failed to connect|Connection|Authentication|SMTP|AUTH/i',
+                $message,
+                'Exception should be related to SMTP connection or authentication'
+            );
+            throw $e; // Re-throw for expectException
+        }
+    }
+    
+    public function testSendAuthCodeThrowsExceptionOnNetworkError(): void {
+        // Create mailer with invalid host
+        $mailer = new SmtpMailer(
+            'invalid-host-network-error.local',
+            587,
+            'user@example.com',
+            'password',
+            'noreply@example.com',
+            'Test Mailer',
+            false,
+            false
+        );
+        
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessageMatches('/Failed to (send email|connect)|Connection refused|Could not connect|Cannot connect/i');
+        
+        $mailer->sendAuthCode(
+            'recipient@example.com',
+            'Your Code',
+            'Code: ###CODE###',
+            '123456',
+            'session-123'
+        );
+    }
 }

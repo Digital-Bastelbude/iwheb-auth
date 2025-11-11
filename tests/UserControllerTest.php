@@ -173,6 +173,71 @@ class UserControllerTest extends TestCase {
         
         $this->userController->getToken(['session_id' => $session['session_id']], []);
     }
+    
+    public function testGetInfoThrowsWhenMissingUserInfoPermission(): void {
+        // Create controller with info-only-key that lacks user_info permission
+        $response = new Response();
+        $authorizer = new Authorizer($this->config);
+        $apiKeyManager = new ApiKeyManager($this->config['keys']);
+        $weblingClient = new MockWeblingClientForUser('demo', 'key');
+        
+        // Create key without user_info permission
+        $this->config['keys']['no-info-key'] = [
+            'name' => 'No Info Key',
+            'permissions' => ['user_token'] // Missing 'user_info'
+        ];
+        
+        $controller = new UserController(
+            $this->db, $response, $authorizer, $apiKeyManager,
+            $this->config, 'no-info-key', $weblingClient, $this->encryptor
+        );
+        
+        $session = createSessionWithToken($this->db, $this->encryptor->encrypt('123'), 'no-info-key');
+        $this->db->validateSession($session['session_id']);
+        
+        $this->expectException(\iwhebAPI\SessionManagement\Auth\AuthorizationException::class);
+        $controller->getInfo(['session_id' => $session['session_id']], []);
+    }
+    
+    public function testGetTokenThrowsWhenMissingUserTokenPermission(): void {
+        // Create controller with key that lacks user_token permission
+        $response = new Response();
+        $authorizer = new Authorizer($this->config);
+        $apiKeyManager = new ApiKeyManager($this->config['keys']);
+        $weblingClient = new MockWeblingClientForUser('demo', 'key');
+        
+        // Use info-only-key which has only user_info permission
+        $controller = new UserController(
+            $this->db, $response, $authorizer, $apiKeyManager,
+            $this->config, 'info-only-key', $weblingClient, $this->encryptor
+        );
+        
+        $session = createSessionWithToken($this->db, $this->encryptor->encrypt('456'), 'info-only-key');
+        $this->db->validateSession($session['session_id']);
+        
+        $this->expectException(\iwhebAPI\SessionManagement\Auth\AuthorizationException::class);
+        $controller->getToken(['session_id' => $session['session_id']], []);
+    }
+    
+    public function testGetIdThrowsWhenMissingUserIdPermission(): void {
+        // Create controller with key that lacks user_id permission
+        $response = new Response();
+        $authorizer = new Authorizer($this->config);
+        $apiKeyManager = new ApiKeyManager($this->config['keys']);
+        $weblingClient = new MockWeblingClientForUser('demo', 'key');
+        
+        // Use info-only-key which has only user_info permission
+        $controller = new UserController(
+            $this->db, $response, $authorizer, $apiKeyManager,
+            $this->config, 'info-only-key', $weblingClient, $this->encryptor
+        );
+        
+        $session = createSessionWithToken($this->db, $this->encryptor->encrypt('789'), 'info-only-key');
+        $this->db->validateSession($session['session_id']);
+        
+        $this->expectException(\iwhebAPI\SessionManagement\Auth\AuthorizationException::class);
+        $controller->getId(['session_id' => $session['session_id']], []);
+    }
 }
 
 class MockWeblingClientForUser extends \iwhebAPI\UserAuth\Http\WeblingClient {

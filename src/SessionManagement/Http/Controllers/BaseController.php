@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace iwhebAPI\SessionManagement\Http\Controllers;
 
 use iwhebAPI\SessionManagement\Database\Database;
-use iwhebAPI\SessionManagement\Auth\{Authorizer, ApiKeyManager};
+use iwhebAPI\SessionManagement\Auth\{Authorizer, ApiKeyManager, AuthorizationException};
 use iwhebAPI\SessionManagement\Http\Response;
 use iwhebAPI\SessionManagement\Exception\InvalidSessionException;
 
@@ -68,7 +68,7 @@ abstract class BaseController {
      */
     protected function requirePermission(string $permission): void {
         if (!$this->apiKeyManager->hasPermission($this->apiKey, $permission)) {
-            $this->response->notFound($this->apiKey, 'FORBIDDEN');
+            throw new AuthorizationException($this->apiKey, 'FORBIDDEN', "Permission '{$permission}' required");
         }
     }
     
