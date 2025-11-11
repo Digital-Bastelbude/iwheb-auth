@@ -12,9 +12,9 @@ use iwhebAPI\SessionManagement\Database\Repository\SessionOperationsRepository;
 
 use iwhebAPI\UserAuth\Http\Controllers\{AuthController, UserController, CustomSessionController};
 use iwhebAPI\UserAuth\Http\WeblingClient;
-use IwhebAPI\UserAuth\Database\UidEncryptor;
-use IwhebAPI\UserAuth\Database\Repository\SessionDelegationRepository;
-use IwhebAPI\UserAuth\Exception\Http\InvalidInputException;
+use iwhebAPI\UserAuth\Database\UidEncryptor;
+use iwhebAPI\UserAuth\Database\Repository\SessionDelegationRepository;
+use iwhebAPI\UserAuth\Exception\Http\InvalidInputException;
 
 // -------- Routes --------
 // Instantiate helpers / services (assumes $CONFIG exists in bootstrap)
