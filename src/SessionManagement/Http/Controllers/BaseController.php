@@ -5,7 +5,6 @@ namespace iwhebAPI\SessionManagement\Http\Controllers;
 
 use iwhebAPI\SessionManagement\Database\Database;
 use iwhebAPI\SessionManagement\Auth\{Authorizer, ApiKeyManager, AuthorizationException};
-use iwhebAPI\SessionManagement\Http\Response;
 use iwhebAPI\SessionManagement\Exception\InvalidSessionException;
 
 /**
@@ -15,7 +14,6 @@ use iwhebAPI\SessionManagement\Exception\InvalidSessionException;
  */
 abstract class BaseController {
     protected Database $db;
-    protected Response $response;
     protected Authorizer $authorizer;
     protected ApiKeyManager $apiKeyManager;
     protected array $config;
@@ -23,14 +21,12 @@ abstract class BaseController {
     
     public function __construct(
         Database $db,
-        Response $response,
         Authorizer $authorizer,
         ApiKeyManager $apiKeyManager,
         array $config,
         string $apiKey
     ) {
         $this->db = $db;
-        $this->response = $response;
         $this->authorizer = $authorizer;
         $this->apiKeyManager = $apiKeyManager;
         $this->config = $config;

@@ -6,7 +6,6 @@ namespace iwhebAPI\UserAuth\Http\Controllers;
 use iwhebAPI\SessionManagement\Http\Controllers\SessionController;
 use iwhebAPI\SessionManagement\Database\Database;
 use iwhebAPI\SessionManagement\Auth\{Authorizer, ApiKeyManager};
-use iwhebAPI\SessionManagement\Http\Response;
 use iwhebAPI\SessionManagement\Exception\InvalidSessionException;
 use iwhebAPI\SessionManagement\Exception\Database\StorageException;
 
@@ -20,14 +19,13 @@ class CustomSessionController extends SessionController {
     
     public function __construct(
         Database $db,
-        Response $response,
         Authorizer $authorizer,
         ApiKeyManager $apiKeyManager,
         array $config,
         string $apiKey,
         SessionDelegationRepository $delegationRepo
     ) {
-        parent::__construct($db, $response, $authorizer, $apiKeyManager, $config, $apiKey);
+        parent::__construct($db, $authorizer, $apiKeyManager, $config, $apiKey);
         $this->delegationRepo = $delegationRepo ?? null;
     }
 

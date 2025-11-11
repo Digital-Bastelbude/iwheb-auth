@@ -49,6 +49,16 @@ class Database {
     }
 
     /**
+     * Get the PDO instance for direct database access.
+     * Used by specialized repositories that need direct PDO access.
+     * 
+     * @return PDO
+     */
+    public function getPdo(): PDO {
+        return $this->pdo;
+    }
+
+    /**
      * Create Database instance from environment configuration.
      * 
      * Reads database path from environment variables or uses defaults.
@@ -111,16 +121,6 @@ class Database {
         } catch (PDOException $e) {
             throw new StorageException('STORAGE_ERROR', 'Database initialization failed: ' . $e->getMessage());
         }
-    }
-
-    /**
-     * Get the PDO instance for direct database access.
-     * Used by specialized repositories that need direct PDO access.
-     * 
-     * @return PDO
-     */
-    public function getPdo(): PDO {
-        return $this->pdo;
     }
 
     // ========== SESSION MANAGEMENT ==========
