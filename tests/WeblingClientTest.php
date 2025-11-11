@@ -1,7 +1,7 @@
 <?php
 use PHPUnit\Framework\TestCase;
-use IwhebAPI\UserAuth\Http\WeblingClient;
-use IwhebAPI\UserAuth\Exception\Http\WeblingException;
+use iwhebAPI\UserAuth\Http\WeblingClient;
+use iwhebAPI\UserAuth\Exception\Http\WeblingException;
 
 require_once __DIR__ . '/bootstrap.php';
 

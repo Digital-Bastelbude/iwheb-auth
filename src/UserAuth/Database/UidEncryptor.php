@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace IwhebAPI\UserAuth\Database;
+namespace iwhebAPI\UserAuth\Database;
 
 use InvalidArgumentException;
 
@@ -17,7 +17,7 @@ use InvalidArgumentException;
  *   - PHP >= 7.2 with libsodium (sodium_* functions)
  *
  * Usage:
- *   use IwhebAPI\UserAuth\Database\UidEncryptor;
+ *   use iwhebAPI\UserAuth\Database\UidEncryptor;
  *
  *   // Create from environment (expects ENCRYPTION_KEY='base64:...')
  *   $enc = UidEncryptor::fromEnv(); // uses defaults

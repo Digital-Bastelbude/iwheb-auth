@@ -24,7 +24,7 @@ if (!file_exists($secretsFile)) {
 }
 require_once $secretsFile;
 
-use IwhebAPI\UserAuth\Database\{Database, UidEncryptor};
+use iwhebAPI\UserAuth\Database\{Database, UidEncryptor};
 
 try {
     // Instantiate Database from environment

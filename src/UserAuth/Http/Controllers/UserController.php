@@ -1,15 +1,15 @@
 <?php
 declare(strict_types=1);
 
-namespace IwhebAPI\UserAuth\Http\Controllers;
+namespace iwhebAPI\UserAuth\Http\Controllers;
 
 use iwhebAPI\SessionManagement\Database\Database;
-use IwhebAPI\UserAuth\Database\UidEncryptor;
+use iwhebAPI\UserAuth\Database\UidEncryptor;
 use iwhebAPI\SessionManagement\Auth\{Authorizer, ApiKeyManager};
 use iwhebAPI\SessionManagement\Http\Response;
-use IwhebAPI\UserAuth\Http\WeblingClient;
+use iwhebAPI\UserAuth\Http\WeblingClient;
 use iwhebAPI\SessionManagement\Exception\InvalidSessionException;
-use IwhebAPI\UserAuth\Exception\UserNotFoundException;
+use iwhebAPI\UserAuth\Exception\UserNotFoundException;
 use iwhebAPI\SessionManagement\Exception\Database\StorageException;
 use iwhebAPI\SessionManagement\Http\Controllers\BaseController;
 

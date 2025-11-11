@@ -1,14 +1,14 @@
 <?php
 declare(strict_types=1);
 
-namespace IwhebAPI\UserAuth\Http;
+namespace iwhebAPI\UserAuth\Http;
 
-use IwhebAPI\UserAuth\Database\{Database, UidEncryptor};
-use IwhebAPI\UserAuth\Auth\{Authorizer, ApiKeyManager, AuthorizationException};
-use IwhebAPI\UserAuth\Http\Controllers\{AuthController, SessionController, UserController};
-use IwhebAPI\UserAuth\Exception\Http\InvalidInputException;
-use IwhebAPI\UserAuth\Exception\Database\StorageException;
-use IwhebAPI\UserAuth\Exception\NotFoundException;
+use iwhebAPI\UserAuth\Database\{Database, UidEncryptor};
+use iwhebAPI\UserAuth\Auth\{Authorizer, ApiKeyManager, AuthorizationException};
+use iwhebAPI\UserAuth\Http\Controllers\{AuthController, SessionController, UserController};
+use iwhebAPI\UserAuth\Exception\Http\InvalidInputException;
+use iwhebAPI\UserAuth\Exception\Database\StorageException;
+use iwhebAPI\UserAuth\Exception\NotFoundException;
 
 // -------- Routes --------
 // Instantiate helpers / services (assumes $CONFIG exists in bootstrap)

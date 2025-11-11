@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace IwhebAPI\UserAuth\Exception\Http;
+namespace iwhebAPI\UserAuth\Exception\Http;
 
 use Exception;
 use Throwable;

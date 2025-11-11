@@ -15,7 +15,7 @@
     },
     "autoload": {
         "psr-4": {
-            "IwhebAPI\\UserAuth\\": "src/UserAuth/",
+            "iwhebAPI\\UserAuth\\": "src/UserAuth/",
             "iwhebAPI\\SessionManagement\\": "src/SessionManagement/"
         },
         "files": [

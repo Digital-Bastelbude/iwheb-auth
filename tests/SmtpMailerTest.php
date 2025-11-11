@@ -1,6 +1,6 @@
 <?php
 use PHPUnit\Framework\TestCase;
-use IwhebAPI\UserAuth\Http\SmtpMailer;
+use iwhebAPI\UserAuth\Http\SmtpMailer;
 
 require_once __DIR__ . '/bootstrap.php';
 

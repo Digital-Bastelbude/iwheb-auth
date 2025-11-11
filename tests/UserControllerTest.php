@@ -1,8 +1,8 @@
 <?php
 use PHPUnit\Framework\TestCase;
-use IwhebAPI\UserAuth\Http\Controllers\{UserController};
+use iwhebAPI\UserAuth\Http\Controllers\{UserController};
 use iwhebAPI\SessionManagement\Database\Database;
-use IwhebAPI\UserAuth\Database\UidEncryptor;
+use iwhebAPI\UserAuth\Database\UidEncryptor;
 use iwhebAPI\SessionManagement\Auth\{Authorizer, ApiKeyManager};
 use iwhebAPI\SessionManagement\Http\Response;
 use iwhebAPI\SessionManagement\Exception\InvalidSessionException;
@@ -175,7 +175,7 @@ class UserControllerTest extends TestCase {
     }
 }
 
-class MockWeblingClientForUser extends \IwhebAPI\UserAuth\Http\WeblingClient {
+class MockWeblingClientForUser extends \iwhebAPI\UserAuth\Http\WeblingClient {
     public function getUserDataById(int $userId): ?array {
         return [
             'id' => $userId,
