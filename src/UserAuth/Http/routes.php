@@ -18,7 +18,7 @@ use iwhebAPI\UserAuth\Database\Repository\SessionDelegationRepository;
 use iwhebAPI\UserAuth\Exception\Http\InvalidInputException;
 
 // -------- Create Logger --------
-$logger = Logger::getInstance(__DIR__ . '/../../logs/api.log');
+$logger = Logger::getInstance();
 
 // -------- Routes --------
 // Instantiate helpers / services (assumes $CONFIG exists in bootstrap)
@@ -56,8 +56,6 @@ try {
 } catch (AuthorizationException $e) {
     $response->notFound($e->key ?? null, $e->reason);
 }
-
-\error_log("DEBUG: authorized, key: {$auth['key']}");
 
 // Initialize repositories for delegation
 $pdo = $dbService->getPdo();
