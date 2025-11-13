@@ -33,6 +33,7 @@ info:
     - `user_info`: Access to GET /user/{session_id}/info (user data from Webling)
     - `user_token`: Access to GET /user/{session_id}/token (encrypted user token)
     - `user_id`: Access to GET /user/{session_id}/id (decrypted Webling user ID)
+    - `user_properties`: Access to POST /user/{session_id}/properties (selective user properties)
     - `delegate_session`: Access to POST /session/delegate/{session_id} (create delegated sessions)
     
     **Session Rotation**: All user endpoints (`/user/*`) and delegate endpoint automatically
@@ -354,6 +355,57 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /user/{session_id}/properties:
+    get:
+      tags:
+        - User
+      summary: Get selective user properties
+      description: |
+        Retrieves specific user properties from Webling for the authenticated user.
+        Requires `user_properties` permission.
+        
+        **Property Filtering**: Properties are filtered by:
+        1. Properties requested in the query parameter
+        2. Properties allowed for the API key (configured in `allowed_properties`)
+        3. Properties that exist in the Webling user object
+        
+        If a requested property is not allowed or doesn't exist, it is silently omitted
+        from the response (no error is thrown).
+        
+        **API Key Configuration**: Optionally restrict properties per API key:
+        ```php
+        'allowed_properties' => ['Vorname', 'Name', 'E-Mail']
+        ```
+        If `allowed_properties` is not configured, all requested properties are allowed.
+        
+        **Session Rotation**: Creates a new session and invalidates the old one.
+        Use the new `session_id` from the response for subsequent requests.
+      operationId: getUserProperties
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - name: properties
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Comma-separated list of property names to retrieve
+          example: "Vorname,Name,E-Mail,Telefon 1"
+      responses:
+        '200':
+          description: User properties retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPropertiesResponse'
+        '400':
+          $ref: '#/components/responses/InvalidInput'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
 components:
   securitySchemes:
     ApiKeyAuth:
@@ -561,6 +613,34 @@ components:
               type: string
               description: Decrypted Webling user ID
               example: "542"
+            session_expires_at:
+              type: string
+              format: date-time
+              description: ISO 8601 timestamp when session expires
+              example: "2025-10-31T13:05:00Z"
+
+    UserPropertiesResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            session_id:
+              type: string
+              description: New session identifier
+              example: mno789pqr012
+            properties:
+              type: object
+              description: Filtered user properties from Webling
+              additionalProperties:
+                type: string
+              example:
+                Vorname: "Max"
+                Name: "Mustermann"
+                E-Mail: "max.mustermann@example.com"
             session_expires_at:
               type: string
               format: date-time

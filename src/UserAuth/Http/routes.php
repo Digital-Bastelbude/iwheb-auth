@@ -108,6 +108,14 @@ $routes = [
             'GET' => [$userController, 'getId']
         ]
     ],
+    // GET /user/{session_id}/properties
+    [
+        'pattern' => '#^/user/([a-z0-9]+)/properties$#',
+        'pathVars' => ['session_id'],
+        'methods' => [
+            'GET' => [$userController, 'getProperties']
+        ]
+    ],
     // GET /session/check/{session_id}
     [
         'pattern' => '#^/session/check/([a-z0-9]+)$#',
