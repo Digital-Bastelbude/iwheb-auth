@@ -38,6 +38,20 @@ class Response {
     }
 
     /**
+     * Determine client IP (prefers X-Forwarded-For).
+     *
+     * @return string Client IP address.
+     */
+    private function clientIp(): string {
+        $ip = $this->server['HTTP_X_FORWARDED_FOR'] ?? $this->server['REMOTE_ADDR'] ?? '0.0.0.0';
+        if (strpos($ip, ',') !== false) {
+            $parts = explode(',', $ip);
+            $ip = trim($parts[0]);
+        }
+        return $ip;
+    }
+
+    /**
      * Send a JSON response, log the access and exit.
      *
      * @param mixed $data Data to JSON-encode and send.
@@ -52,7 +66,12 @@ class Response {
         foreach ($extraHeaders as $k => $v) header("$k: $v");
         http_response_code($status);
         echo json_encode($data, JSON_UNESCAPED_UNICODE);
-        $this->logger->logAccess($status, $outcome, $reason, $keyUsed);
+        $logdata = [
+            'ip'     => $this->clientIp(),
+            'method' => $this->server['REQUEST_METHOD'] ?? 'GET',
+            'path'   => parse_url($this->server['REQUEST_URI'] ?? '/', PHP_URL_PATH)
+        ];
+        $this->logger->logResponse($status, $outcome, $reason, $logdata, $keyUsed);
         exit;
     }
 

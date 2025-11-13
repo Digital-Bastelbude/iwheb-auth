@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace iwhebAPI\SessionManagement\Auth;
 
+use Logger;
 
 /**
  * ApiKeyHelper
@@ -211,6 +212,13 @@ class Authorizer {
     private RateLimiter $rateLimiter;
 
     /**
+     * Logger instance used for access logging.
+     *
+     * @var Logger
+     */
+    private Logger $logger;
+
+    /**
      * Constructor.
      *
      * @param array $config Application config containing key definitions and defaults.
@@ -218,6 +226,7 @@ class Authorizer {
      * @param RateLimiter|null $rateLimiter Optional rate limiter instance.
      */
     public function __construct(array $config, ?ApiKeyHelper $keyHelper = null, ?RateLimiter $rateLimiter = null) {
+        $this->logger = $logger ?? Logger::getInstance();
         $this->config = $config;
         $this->keyHelper = $keyHelper ?? new ApiKeyHelper();
         if ($rateLimiter !== null) {
@@ -254,7 +263,12 @@ class Authorizer {
                 if (is_string($rule) && $this->keyHelper->routeMatches($rule, $method, $path)) { $allowed = true; break; }
             }
         }
-    if (!$allowed) throw new AuthorizationException($key, 'NO_PERMISSION');
+    
+        // check if access is allowed
+        if (!$allowed){
+            $this->logger->logAccess('DENY', 'NO_PERMISSION', $key);
+            throw new AuthorizationException($key, 'NO_PERMISSION');
+        }
 
         // Rate limit
         $rl = $kdef['rate_limit'] ?? [];
@@ -262,7 +276,12 @@ class Authorizer {
         $m  = isset($rl['max_requests'])   ? (int)$rl['max_requests']   : (int)($cfg['rate_limit']['default']['max_requests']   ?? 60);
         if ($w <= 0) $w = 60;
         if ($m <= 0) $m = 60;
-    if (!$this->rateLimiter->checkRateLimit($key, $w, $m)) throw new AuthorizationException($key, 'RATE_LIMIT');
+
+        // check if rate limit is exceeded
+        if (!$this->rateLimiter->checkRateLimit($key, $w, $m)){
+            $this->logger->logAccess('DENY', 'RATE_LIMIT', $key);
+            throw new AuthorizationException($key, 'RATE_LIMIT');
+        }
 
         return ['key' => $key, 'def' => $kdef];
     }

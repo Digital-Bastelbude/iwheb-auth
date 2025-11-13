@@ -8,6 +8,7 @@ use iwhebAPI\SessionManagement\Database\Repository\{
     SessionValidationRepository, 
 };
 use iwhebAPI\SessionManagement\Exception\Database\StorageException;
+use Logger;
 use PDO;
 use PDOException;
 
@@ -34,12 +35,20 @@ class Database {
     private SessionValidationRepository $sessionValidation;
 
     /**
+     * Logger instance used for access logging.
+     *
+     * @var Logger
+     */
+    private Logger $logger;
+
+    /**
      * Constructor.
      * 
      * @param string $databasePath Path to SQLite database file
      * @throws StorageException on database initialization failure
      */
     public function __construct(string $databasePath) {
+        $this->logger = $logger ?? Logger::getInstance();
         $this->databasePath = $databasePath;
         $this->initDatabase();
         
@@ -117,8 +126,13 @@ class Database {
                 )
             ";
             $this->pdo->exec($sessionSql);
+            $this->logger->logDB("SUCCESS", "DB_INITIALIZED", ['databasePath' => strval($this->databasePath)]);
             
         } catch (PDOException $e) {
+            $this->logger->logDB("ERROR", "DB_INITIALIZATION_FAILED", [
+                'databasePath' => strval($this->databasePath),
+                'error' => $e->getMessage()
+            ]);
             throw new StorageException('STORAGE_ERROR', 'Database initialization failed: ' . $e->getMessage());
         }
     }
