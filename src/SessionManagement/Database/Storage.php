@@ -81,7 +81,7 @@ class Database {
         
         if (!$databasePath) {
             // Default to storage/data.db relative to project root
-            $databasePath = dirname(__DIR__, 4) . '/storage/data/sessions.db';
+            $databasePath = dirname(__DIR__, 3) . '/storage/data/sessions.db';
         }
         
         return new self($databasePath);

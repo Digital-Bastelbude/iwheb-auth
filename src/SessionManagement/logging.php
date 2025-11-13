@@ -78,7 +78,7 @@ class Logger {
 
         // Use default path if none provided
         if (!isset($logPath)) {
-            $logPath = dirname(__DIR__, 3) . '/logs/';
+            $logPath = dirname(__DIR__, 2) . '/logs/';
         }
 
         self::$instance = new Logger($logPath, $server, $get, $inputReader);
