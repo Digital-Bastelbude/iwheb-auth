@@ -172,6 +172,124 @@ class WeblingClientTest extends TestCase {
         
         $client->getUserDataByEmail('test@example.com');
     }
+    
+    public function testGetMembergroupsReturnsListOfIds(): void {
+        $client = new TestableWeblingClient('demo', 'test-key');
+        $client->setMockResponse(['objects' => [1, 2, 3, 4]]);
+        
+        $result = $client->getMembergroups();
+        
+        $this->assertIsArray($result);
+        $this->assertSame([1, 2, 3, 4], $result);
+    }
+    
+    public function testGetMembergroupsReturnsEmptyArrayWhenNoGroups(): void {
+        $client = new TestableWeblingClient('demo', 'test-key');
+        $client->setMockResponse(['objects' => []]);
+        
+        $result = $client->getMembergroups();
+        
+        $this->assertIsArray($result);
+        $this->assertEmpty($result);
+    }
+    
+    public function testGetMembergroupReturnsGroupData(): void {
+        $mockData = [
+            'properties' => [
+                'title' => 'Admin Group',
+                'description' => 'Administrators'
+            ],
+            'links' => [
+                'member' => [101, 102, 103]
+            ]
+        ];
+        
+        $client = new TestableWeblingClient('demo', 'test-key');
+        $client->setMockResponse($mockData);
+        
+        $result = $client->getMembergroup(1);
+        
+        $this->assertIsArray($result);
+        $this->assertSame('Admin Group', $result['properties']['title']);
+        $this->assertSame([101, 102, 103], $result['links']['member']);
+    }
+    
+    public function testGetMembergroupReturnsNullOn404(): void {
+        $client = new TestableWeblingClient('demo', 'test-key');
+        $client->setMockException(new WeblingException('Not found', 404));
+        
+        $result = $client->getMembergroup(999);
+        
+        $this->assertNull($result);
+    }
+    
+    public function testGetMemberGroupByNameReturnsGroupWithId(): void {
+        $client = new TestableWeblingClient('demo', 'test-key');
+        
+        // First call returns list of group IDs
+        // Subsequent calls return individual group data
+        $client->setMockResponseQueue([
+            ['objects' => [1, 2, 3]],
+            ['properties' => ['title' => 'Other Group'], 'links' => ['member' => []]],
+            ['properties' => ['title' => 'Admin Group'], 'links' => ['member' => [101, 102]]]
+        ]);
+        
+        $result = $client->getMemberGroupByName('Admin Group');
+        
+        $this->assertIsArray($result);
+        $this->assertSame(2, $result['id']);
+        $this->assertSame('Admin Group', $result['data']['properties']['title']);
+    }
+    
+    public function testGetMemberGroupByNameReturnsNullWhenNotFound(): void {
+        $client = new TestableWeblingClient('demo', 'test-key');
+        
+        $client->setMockResponseQueue([
+            ['objects' => [1, 2]],
+            ['properties' => ['title' => 'Group A'], 'links' => ['member' => []]],
+            ['properties' => ['title' => 'Group B'], 'links' => ['member' => []]]
+        ]);
+        
+        $result = $client->getMemberGroupByName('NonExistent');
+        
+        $this->assertNull($result);
+    }
+    
+    public function testIsUserInMembergroupReturnsTrueWhenUserIsMember(): void {
+        $client = new TestableWeblingClient('demo', 'test-key');
+        
+        $client->setMockResponseQueue([
+            ['objects' => [1]],
+            ['properties' => ['title' => 'Test Group'], 'links' => ['member' => [101, 102, 103]]]
+        ]);
+        
+        $result = $client->isUserInMembergroup(102, 'Test Group');
+        
+        $this->assertTrue($result);
+    }
+    
+    public function testIsUserInMembergroupReturnsFalseWhenUserNotMember(): void {
+        $client = new TestableWeblingClient('demo', 'test-key');
+        
+        $client->setMockResponseQueue([
+            ['objects' => [1]],
+            ['properties' => ['title' => 'Test Group'], 'links' => ['member' => [101, 102, 103]]]
+        ]);
+        
+        $result = $client->isUserInMembergroup(999, 'Test Group');
+        
+        $this->assertFalse($result);
+    }
+    
+    public function testIsUserInMembergroupReturnsFalseWhenGroupNotFound(): void {
+        $client = new TestableWeblingClient('demo', 'test-key');
+        
+        $client->setMockResponse(['objects' => []]);
+        
+        $result = $client->isUserInMembergroup(101, 'NonExistent');
+        
+        $this->assertFalse($result);
+    }
 }
 
 /**
@@ -224,6 +342,39 @@ class TestableWeblingClient extends WeblingClient {
     
     public function getUserDataById(int $userId): ?array {
         $this->lastEndpoint = "/member/{$userId}";
+        
+        if ($this->mockException) {
+            if ($this->mockException->getCode() === 404) {
+                return null;
+            }
+            throw $this->mockException;
+        }
+        
+        if (!empty($this->mockResponseQueue)) {
+            return $this->mockResponseQueue[$this->callCount++] ?? $this->mockResponse;
+        }
+        
+        return $this->mockResponse;
+    }
+    
+    public function getMembergroups(): array {
+        $this->lastEndpoint = "/membergroup";
+        
+        if ($this->mockException) {
+            throw $this->mockException;
+        }
+        
+        if (!empty($this->mockResponseQueue)) {
+            $result = $this->mockResponseQueue[$this->callCount++] ?? $this->mockResponse;
+        } else {
+            $result = $this->mockResponse;
+        }
+        
+        return $result['objects'] ?? [];
+    }
+    
+    public function getMembergroup(int $groupId): ?array {
+        $this->lastEndpoint = "/membergroup/{$groupId}";
         
         if ($this->mockException) {
             if ($this->mockException->getCode() === 404) {

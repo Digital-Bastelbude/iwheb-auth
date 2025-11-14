@@ -108,6 +108,14 @@ $routes = [
             'GET' => [$userController, 'getId']
         ]
     ],
+    // GET /user/{user_id}/membergroup/{group_name}
+    [
+        'pattern' => '#^/user/([0-9]+)/membergroup/([^/]+)$#',
+        'pathVars' => ['user_id', 'group_name'],
+        'methods' => [
+            'GET' => [$userController, 'checkMembergroup']
+        ]
+    ],
     // GET /session/check/{session_id}
     [
         'pattern' => '#^/session/check/([a-z0-9]+)$#',

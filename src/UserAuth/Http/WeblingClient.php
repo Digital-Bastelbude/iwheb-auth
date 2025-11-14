@@ -140,4 +140,86 @@ class WeblingClient {
         
         return $this->getUserDataById($userId);
     }
+    
+    /**
+     * Get all membergroups
+     * 
+     * Retrieves all membergroups from Webling API.
+     * 
+     * @return array List of membergroup IDs
+     * @throws WeblingException
+     */
+    public function getMembergroups(): array {
+        $result = $this->request("/membergroup");
+        return $result['objects'] ?? [];
+    }
+    
+    /**
+     * Get membergroup data by ID
+     * 
+     * Retrieves complete membergroup data including members.
+     * 
+     * @param int $groupId The membergroup ID
+     * @return array|null Membergroup data or null if not found
+     * @throws WeblingException
+     */
+    public function getMembergroup(int $groupId): ?array {
+        try {
+            $result = $this->request("/membergroup/{$groupId}");
+            return $result;
+        } catch (WeblingException $e) {
+            if ($e->getCode() === 404) {
+                return null;
+            }
+            throw $e;
+        }
+    }
+    
+    /**
+     * Get membergroup by name
+     * 
+     * Searches for a membergroup with the given name.
+     * 
+     * @param string $groupName The membergroup name to search for
+     * @return array|null Membergroup data with ID or null if not found
+     * @throws WeblingException
+     */
+    public function getMemberGroupByName(string $groupName): ?array {
+        // Get all membergroups
+        $groupIds = $this->getMembergroups();
+        
+        // Search through each group to find matching name
+        foreach ($groupIds as $groupId) {
+            $group = $this->getMembergroup($groupId);
+            if ($group && isset($group['properties']['title']) && $group['properties']['title'] === $groupName) {
+                return [
+                    'id' => $groupId,
+                    'data' => $group
+                ];
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Check if user is member of a membergroup
+     * 
+     * Checks if the given user ID is in the members list of the specified membergroup.
+     * 
+     * @param int $userId The member/user ID
+     * @param string $groupName The membergroup name
+     * @return bool True if user is member, false otherwise
+     * @throws WeblingException
+     */
+    public function isUserInMembergroup(int $userId, string $groupName): bool {
+        $group = $this->getMemberGroupByName($groupName);
+        
+        if ($group === null) {
+            return false;
+        }
+        
+        $members = $group['data']['links']['member'] ?? [];
+        return in_array($userId, $members, true);
+    }
 }
