@@ -13,6 +13,7 @@ use iwhebAPI\UserAuth\Database\UidEncryptor;
 use iwhebAPI\UserAuth\Http\{SmtpMailer, WeblingClient};
 use iwhebAPI\UserAuth\Exception\Http\InvalidInputException;
 use iwhebAPI\UserAuth\Exception\{UserNotFoundException, InvalidCodeException};
+use iwhebAPI\UserAuth\Validation\ValidationProviderManager;
 
 /**
  * AuthController
@@ -22,6 +23,7 @@ use iwhebAPI\UserAuth\Exception\{UserNotFoundException, InvalidCodeException};
 class AuthController extends BaseController {
     private WeblingClient $weblingClient;
     private UidEncryptor $uidEncryptor;
+    private ValidationProviderManager $validationProviderManager;
     
     public function __construct(
         Database $db,
@@ -30,41 +32,81 @@ class AuthController extends BaseController {
         array $config,
         string $apiKey,
         WeblingClient $weblingClient,
-        UidEncryptor $uidEncryptor
+        UidEncryptor $uidEncryptor,
+        ValidationProviderManager $validationProviderManager
     ) {
         parent::__construct($db, $authorizer, $apiKeyManager, $config, $apiKey);
         $this->weblingClient = $weblingClient;
         $this->uidEncryptor = $uidEncryptor;
+        $this->validationProviderManager = $validationProviderManager;
     }
     
     /**
      * POST /login
      * 
-     * Initiate login by email. Creates session and sends authentication code via email.
+     * Initiate login with validation code. Creates session and sends authentication code
+     * via the specified validation provider (email or SMS).
      * 
      * @param array $pathVars
-     * @param array $body ['email' => base64-encoded email]
+     * @param array $body ['email' => base64-encoded email] or ['phone' => base64-encoded phone, 'provider' => 'sms']
      * @return array Response with session_id and expiration times
-     * @throws InvalidInputException if email is missing or invalid
+     * @throws InvalidInputException if required fields are missing or invalid
      * @throws UserNotFoundException if user not found in Webling
-     * @throws \RuntimeException if email sending fails
+     * @throws \RuntimeException if sending fails
      */
     public function login(array $pathVars, array $body): array {
-        // Validate input
-        if (!isset($body['email'])) {
-            throw new InvalidInputException('INVALID_INPUT', 'Email required');
-        }
-
-        // Decode base64 URL-safe encoded email
-        $encodedEmail = $body['email'];
-        $email = base64_decode(strtr($encodedEmail, '-_', '+/'), true);
+        // Get validation provider from body (optional, defaults to email)
+        $providerName = $body['provider'] ?? null;
         
-        if ($email === false || empty($email)) {
-            throw new InvalidInputException('INVALID_INPUT', 'Invalid email encoding');
+        // Get the validation provider (defaults to email, falls back to email on error)
+        $provider = $this->validationProviderManager->getProvider($providerName);
+        
+        if ($provider === null) {
+            // Fallback to email provider if specified provider not found
+            $provider = $this->validationProviderManager->getDefaultProvider();
+        }
+        
+        // Determine the recipient field based on provider
+        // For email provider, use 'email' field
+        // For SMS provider, use 'phone' field
+        $recipientField = $provider->getName() === 'sms' ? 'phone' : 'email';
+        
+        // Validate input
+        if (!isset($body[$recipientField])) {
+            throw new InvalidInputException('INVALID_INPUT', ucfirst($recipientField) . ' required');
         }
 
-        // Check if user exists in Webling
-        $weblingUserId = $this->weblingClient->getUserIdByEmail($email);
+        // Decode base64 URL-safe encoded recipient
+        $encodedRecipient = $body[$recipientField];
+        $recipient = base64_decode(strtr($encodedRecipient, '-_', '+/'), true);
+        
+        if ($recipient === false || empty($recipient)) {
+            throw new InvalidInputException('INVALID_INPUT', 'Invalid ' . $recipientField . ' encoding');
+        }
+
+        // Check if user exists in Webling using the validation provider
+        $weblingUserId = null;
+        try {
+            $weblingUserId = $provider->getUserId($recipient);
+        } catch (\Exception $e) {
+            // If provider fails, try fallback to email provider
+            if ($provider->getName() !== 'email') {
+                $fallbackProvider = $this->validationProviderManager->getDefaultProvider();
+                // Only try email fallback if we have an email field
+                if (isset($body['email'])) {
+                    $fallbackRecipient = base64_decode(strtr($body['email'], '-_', '+/'), true);
+                    if ($fallbackRecipient !== false && !empty($fallbackRecipient)) {
+                        try {
+                            $weblingUserId = $fallbackProvider->getUserId($fallbackRecipient);
+                            $provider = $fallbackProvider;
+                            $recipient = $fallbackRecipient;
+                        } catch (\Exception $fallbackError) {
+                            // Continue with original error
+                        }
+                    }
+                }
+            }
+        }
         
         if ($weblingUserId === null) {
             throw new UserNotFoundException();
@@ -80,8 +122,26 @@ class AuthController extends BaseController {
         $this->db->setUserToken($session['session_id'], $token);
         $session['user_token'] = $token;
 
-        // Send authentication code via email
-        $this->sendAuthenticationEmail($email, $session);
+        // Send authentication code via the selected provider
+        try {
+            $provider->sendCode($recipient, $session['code'], $session['session_id'], $this->config);
+        } catch (\Exception $e) {
+            // If sending fails and not using email, try email fallback
+            if ($provider->getName() !== 'email' && isset($body['email'])) {
+                $fallbackRecipient = base64_decode(strtr($body['email'], '-_', '+/'), true);
+                if ($fallbackRecipient !== false && !empty($fallbackRecipient)) {
+                    try {
+                        $fallbackProvider = $this->validationProviderManager->getDefaultProvider();
+                        $fallbackProvider->sendCode($fallbackRecipient, $session['code'], $session['session_id'], $this->config);
+                    } catch (\Exception $fallbackError) {
+                        // Throw original error
+                        throw $e;
+                    }
+                }
+            } else {
+                throw $e;
+            }
+        }
 
         return $this->success([
             'session_id' => $session['session_id'],

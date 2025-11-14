@@ -12,10 +12,11 @@ use iwhebAPI\SessionManagement\Database\Repository\SessionOperationsRepository;
 use Logger;
 
 use iwhebAPI\UserAuth\Http\Controllers\{AuthController, UserController, CustomSessionController, MembergroupController};
-use iwhebAPI\UserAuth\Http\WeblingClient;
+use iwhebAPI\UserAuth\Http\{WeblingClient, SevenClient};
 use iwhebAPI\UserAuth\Database\UidEncryptor;
 use iwhebAPI\UserAuth\Database\Repository\SessionDelegationRepository;
 use iwhebAPI\UserAuth\Exception\Http\InvalidInputException;
+use iwhebAPI\UserAuth\Validation\{ValidationProviderManager, EmailValidationProvider, SmsValidationProvider};
 
 // -------- Create Logger --------
 $logger = Logger::getInstance();
@@ -62,8 +63,29 @@ $pdo = $dbService->getPdo();
 $sessionOperations = new SessionOperationsRepository($pdo);
 $delegationRepo = new SessionDelegationRepository($pdo, $sessionOperations);
 
+// Initialize validation providers
+$validationProviderManager = new ValidationProviderManager();
+
+// Register email validation provider (default)
+$emailProvider = new EmailValidationProvider($weblingClient);
+$validationProviderManager->register($emailProvider);
+
+// Register SMS validation provider (if Seven.io API key is configured)
+$sevenApiKey = getenv('SEVEN_API_KEY');
+if ($sevenApiKey && $sevenApiKey !== 'your-seven-api-key-here') {
+    try {
+        $sevenClient = SevenClient::fromEnv();
+        $smsProvider = new SmsValidationProvider($weblingClient, $sevenClient);
+        $validationProviderManager->register($smsProvider);
+    } catch (\Exception $e) {
+        // SMS provider not available, continue with email only
+        // Log the error but don't fail
+        error_log('SMS validation provider not available: ' . $e->getMessage());
+    }
+}
+
 // Instantiate controllers
-$authController = new AuthController($dbService, $authorizer, $apiKeyManager, $CONFIG, $apiKey, $weblingClient, $uidEncryptor);
+$authController = new AuthController($dbService, $authorizer, $apiKeyManager, $CONFIG, $apiKey, $weblingClient, $uidEncryptor, $validationProviderManager);
 $sessionController = new CustomSessionController($dbService, $authorizer, $apiKeyManager, $CONFIG, $apiKey, $delegationRepo);
 $userController = new UserController($dbService, $authorizer, $apiKeyManager, $CONFIG, $apiKey, $weblingClient, $uidEncryptor);
 $membergroupController = new MembergroupController($dbService, $authorizer, $apiKeyManager, $CONFIG, $apiKey, $weblingClient);

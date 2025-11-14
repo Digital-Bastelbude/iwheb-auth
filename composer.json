@@ -28,7 +28,8 @@
             "src/SessionManagement/Auth/",
             "src/UserAuth/Database/",
             "src/UserAuth/Http/",
-            "src/UserAuth/Exception/"
+            "src/UserAuth/Exception/",
+            "src/UserAuth/Validation/"
         ]
     }
 }

@@ -102,6 +102,67 @@ class WeblingClient {
     }
     
     /**
+     * Get user ID by phone number
+     * 
+     * Searches for a member with the given phone number and returns the member ID.
+     * Note: Phone numbers are normalized (digits only) for comparison.
+     * 
+     * @param string $phoneNumber The phone number to search for
+     * @param string $phoneField The Webling field name for phone (default: 'Telefon 1')
+     * @return int|null The member ID or null if not found
+     * @throws WeblingException
+     */
+    public function getUserIdByPhone(string $phoneNumber, string $phoneField = 'Telefon 1'): ?int {
+        // Extract digits from phone number for search
+        $digits = preg_replace('/\D/', '', $phoneNumber);
+        
+        // Search for phone numbers containing these digits
+        $filter = '`' . $phoneField . '` LIKE "%' . $digits . '%"';
+        $encodedFilter = urlencode($filter);
+        
+        $result = $this->request("/member?filter={$encodedFilter}");
+        
+        if (empty($result['objects'])) {
+            return null;
+        }
+        
+        // Normalize the search phone number
+        $normalizedSearch = $this->normalizePhoneNumber($phoneNumber);
+        
+        // Check each result for exact match (after normalization)
+        foreach ($result['objects'] as $userId) {
+            $userData = $this->getUserDataById($userId);
+            if ($userData && isset($userData['properties'][$phoneField])) {
+                $userPhone = $this->normalizePhoneNumber($userData['properties'][$phoneField]);
+                if ($userPhone === $normalizedSearch) {
+                    return $userId;
+                }
+            }
+        }
+        
+        // If no exact match found, return the first result as fallback
+        return $result['objects'][0];
+    }
+    
+    /**
+     * Normalize phone number for comparison
+     * 
+     * @param string $phoneNumber Phone number to normalize
+     * @return string Normalized phone number (digits only with + prefix if present)
+     */
+    private function normalizePhoneNumber(string $phoneNumber): string {
+        // Remove all non-digit characters except +
+        $normalized = preg_replace('/[^\d+]/', '', $phoneNumber);
+        
+        // Ensure + is only at the start
+        if (strpos($normalized, '+') !== false) {
+            $normalized = '+' . str_replace('+', '', $normalized);
+        }
+        
+        return $normalized;
+    }
+    
+    /**
      * Get user data by user ID
      * 
      * Retrieves complete member data for the given member ID.
