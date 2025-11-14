@@ -204,4 +204,32 @@ class UserController extends BaseController {
             'session_expires_at' => $newSession['expires_at']
         ]);
     }
+    
+    /**
+     * GET /user/{user_id}/membergroup/{group_name}
+     * 
+     * Check if a user is member of a specific membergroup.
+     * Requires 'user_group_info' permission.
+     * 
+     * @param array $pathVars ['user_id' => string, 'group_name' => string]
+     * @param array $body Unused
+     * @return array Response with group_name, user_id, and is_member flag
+     * @throws StorageException if Webling fetch fails
+     */
+    public function checkMembergroup(array $pathVars, array $_body): array {
+        $userId = (int)$pathVars['user_id'];
+        $groupName = $pathVars['group_name'];
+        
+        // Require user_group_info permission
+        $this->requirePermission('user_group_info');
+        
+        // Check if user is in the membergroup
+        $isMember = $this->weblingClient->isUserInMembergroup($userId, $groupName);
+        
+        return $this->success([
+            'group_name' => $groupName,
+            'user_id' => $userId,
+            'is_member' => $isMember
+        ]);
+    }
 }
