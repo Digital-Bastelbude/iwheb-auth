@@ -21,7 +21,7 @@ info:
     $API_KEYS = [
         'your-api-key' => [
             'name' => 'Application Name',
-            'permissions' => ['user_info', 'user_token', 'user_id', 'delegate_session'],
+            'permissions' => ['user_info', 'user_token', 'user_id', 'user_group_info', 'delegate_session'],
             'routes' => ['POST:/login', 'POST:/validate/{session_id}', ...],
             'rate_limit' => ['window_seconds' => 60, 'max_requests' => 100]
         ]
@@ -33,6 +33,7 @@ info:
     - `user_info`: Access to GET /user/{session_id}/info (user data from Webling)
     - `user_token`: Access to GET /user/{session_id}/token (encrypted user token)
     - `user_id`: Access to GET /user/{session_id}/id (decrypted Webling user ID)
+    - `user_group_info`: Access to GET /user/{user_id}/membergroup/{group_name} (check membergroup membership)
     - `delegate_session`: Access to POST /session/delegate/{session_id} (create delegated sessions)
     
     **Session Rotation**: All user endpoints (`/user/*`) and delegate endpoint automatically
@@ -354,6 +355,47 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /user/{user_id}/membergroup/{group_name}:
+    get:
+      tags:
+        - User
+      summary: Check membergroup membership
+      description: |
+        Checks if a user with the given user ID is a member of the specified membergroup.
+        Requires `user_group_info` permission.
+        
+        This endpoint queries the Webling API to retrieve membergroup information and
+        checks if the user is in the members list of the specified group.
+      operationId: checkMembergroup
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Webling user/member ID
+          example: 123
+        - name: group_name
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Name of the membergroup to check
+          example: "Admins"
+      responses:
+        '200':
+          description: Membergroup check completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberGroupCheckResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
 components:
   securitySchemes:
     ApiKeyAuth:
@@ -566,6 +608,28 @@ components:
               format: date-time
               description: ISO 8601 timestamp when session expires
               example: "2025-10-31T13:05:00Z"
+
+    MemberGroupCheckResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            group_name:
+              type: string
+              description: Name of the membergroup that was checked
+              example: "Admins"
+            user_id:
+              type: integer
+              description: The Webling user/member ID that was checked
+              example: 123
+            is_member:
+              type: boolean
+              description: True if user is a member of the group, false otherwise
+              example: true
 
     SuccessResponse:
       type: object
