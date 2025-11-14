@@ -21,7 +21,7 @@ info:
     $API_KEYS = [
         'your-api-key' => [
             'name' => 'Application Name',
-            'permissions' => ['user_info', 'user_token', 'user_id', 'delegate_session'],
+            'permissions' => ['user_info', 'user_token', 'user_id', 'user_group_info', 'delegate_session'],
             'routes' => ['POST:/login', 'POST:/validate/{session_id}', ...],
             'rate_limit' => ['window_seconds' => 60, 'max_requests' => 100]
         ]
