@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\MockObject\MockObject;
 use iwhebAPI\UserAuth\Validation\{ValidationProviderManager, EmailValidationProvider, SmsValidationProvider};
 use iwhebAPI\UserAuth\Http\{WeblingClient, SevenClient};
 
@@ -10,8 +11,8 @@ use iwhebAPI\UserAuth\Http\{WeblingClient, SevenClient};
  */
 class ValidationProviderTest extends TestCase {
     
-    private WeblingClient $weblingClient;
-    private SevenClient $sevenClient;
+    private WeblingClient&MockObject $weblingClient;
+    private SevenClient&MockObject $sevenClient;
     
     protected function setUp(): void {
         // Create mock Webling client
