@@ -119,7 +119,7 @@ class ValidationProviderTest extends TestCase {
     public function testSmsValidationProviderGetUserIdCallsWeblingClient(): void {
         $this->weblingClient->expects($this->once())
             ->method('getUserIdByPhone')
-            ->with('+41123456789', 'Telefon 1')
+            ->with('+41123456789', 'Mobile')
             ->willReturn(456);
         
         $provider = new SmsValidationProvider($this->weblingClient, $this->sevenClient);
@@ -184,7 +184,7 @@ class ValidationProviderTest extends TestCase {
         $provider = new SmsValidationProvider($this->weblingClient, $this->sevenClient);
         $userProperties = [
             'E-Mail' => 'test@example.com',
-            'Telefon 1' => '+41123456789',
+            'Mobile' => '+41123456789',
             'Name' => 'Test User'
         ];
         

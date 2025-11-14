@@ -76,13 +76,20 @@ paths:
         Creates a session and sends a 6-digit authentication code via the specified
         validation provider (email or SMS). The code is valid for 5 minutes by default.
         
+        **User Identification:**
+        - User is always identified by their email address in Webling
+        - The `email` field is required for all login requests
+        
         **Validation Providers:**
-        - `email` (default): Sends code via email
-        - `sms`: Sends code via SMS using Seven.io (requires configuration)
+        - `email` (default): Sends code to the user's email address (from Webling `E-Mail` field)
+        - `sms`: Sends code to the user's mobile phone (from Webling `Mobile` field)
         
         **Provider Selection:**
-        - If `provider` is not specified or invalid, defaults to email
-        - If specified provider fails, falls back to email (if email field is provided)
+        - If `provider` is not specified, defaults to `email`
+        - Provider automatically selects the appropriate field from user properties:
+          - Email provider uses `E-Mail` field
+          - SMS provider uses `Mobile` field
+        - If provider cannot find required field, falls back to email provider
         
         **Session Management:** 
         - Deletes ALL existing user sessions across all API keys
@@ -95,25 +102,19 @@ paths:
           application/json:
             schema:
               type: object
+              required:
+                - email
               properties:
                 email:
                   type: string
                   format: byte
-                  description: Base64-encoded email address (URL-safe). Required when provider is 'email' or not specified.
+                  description: Base64-encoded email address (URL-safe) to identify the user in Webling. Always required.
                   example: dXNlckBleGFtcGxlLmNvbQ==
-                phone:
-                  type: string
-                  format: byte
-                  description: Base64-encoded phone number in international format (URL-safe). Required when provider is 'sms'.
-                  example: KzQxMTIzNDU2Nzg5
                 provider:
                   type: string
                   enum: [email, sms]
-                  description: Validation provider to use for sending the authentication code. Defaults to 'email'.
+                  description: Validation provider to use for sending the authentication code. Defaults to 'email' if not specified.
                   example: email
-              oneOf:
-                - required: [email]
-                - required: [phone]
       responses:
         '200':
           description: Session created successfully
