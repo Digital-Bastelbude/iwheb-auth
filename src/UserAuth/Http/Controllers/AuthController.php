@@ -83,11 +83,11 @@ class AuthController extends BaseController {
         }
 
         // Get validation provider from body (optional, defaults to email)
-        $providerName = $body['provider'] ?? null;
+        $validationProvider = $body['provider'] ?? null;
         
         // Get the validation provider (defaults to email if not specified or not found)
-        $provider = $this->validationProviderManager->getProvider($providerName);
-        
+        $provider = $this->validationProviderManager->getProvider($validationProvider);
+
         if ($provider === null) {
             // Fallback to email provider if specified provider not found
             $provider = $this->validationProviderManager->getDefaultProvider();
@@ -125,7 +125,8 @@ class AuthController extends BaseController {
         return $this->success([
             'session_id' => $session['session_id'],
             'code_expires_at' => $session['code_valid_until'],
-            'session_expires_at' => $session['expires_at']
+            'session_expires_at' => $session['expires_at'],
+            'validation_provider' => $provider->getName()
         ]);
     }
     

@@ -25,7 +25,7 @@ class SmsValidationProvider implements ValidationProviderInterface {
     public function __construct(
         WeblingClient $weblingClient,
         SevenClient $sevenClient,
-        string $phoneField = 'Telefon 1'
+        string $phoneField = 'Mobile'
     ) {
         $this->weblingClient = $weblingClient;
         $this->sevenClient = $sevenClient;
@@ -62,7 +62,7 @@ class SmsValidationProvider implements ValidationProviderInterface {
      * {@inheritdoc}
      */
     public function selectRecipient(array $userProperties): ?string {
-        // For SMS provider, try 'Telefon 1' first (mobile), then fallback to configured phone field
-        return $userProperties['Telefon 1'] ?? $userProperties[$this->phoneField] ?? null;
+        // For SMS provider, try 'Mobile' first (mobile), then fallback to configured phone field
+        return $userProperties['Mobile'] ?? $userProperties[$this->phoneField] ?? null;
     }
 }
