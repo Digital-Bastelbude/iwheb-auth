@@ -68,7 +68,7 @@ class AuthController extends BaseController {
             throw new InvalidInputException('INVALID_INPUT', 'Invalid email encoding');
         }
 
-        // Find user in Webling by email
+        // Find user in Webling by email and get properties
         $weblingUserId = $this->weblingClient->getUserIdByEmail($email);
         
         if ($weblingUserId === null) {
@@ -76,13 +76,11 @@ class AuthController extends BaseController {
         }
 
         // Get user properties from Webling
-        $userData = $this->weblingClient->getUserDataById($weblingUserId);
+        $userProperties = $this->weblingClient->getUserPropertiesById($weblingUserId);
         
-        if (!$userData || !isset($userData['properties'])) {
+        if ($userProperties === null) {
             throw new UserNotFoundException();
         }
-        
-        $userProperties = $userData['properties'];
 
         // Get validation provider from body (optional, defaults to email)
         $providerName = $body['provider'] ?? null;

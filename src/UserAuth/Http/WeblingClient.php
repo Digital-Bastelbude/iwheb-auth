@@ -131,9 +131,9 @@ class WeblingClient {
         
         // Check each result for exact match (after normalization)
         foreach ($result['objects'] as $userId) {
-            $userData = $this->getUserDataById($userId);
-            if ($userData && isset($userData['properties'][$phoneField])) {
-                $userPhone = $this->normalizePhoneNumber($userData['properties'][$phoneField]);
+            $userProperties = $this->getUserPropertiesById($userId);
+            if ($userProperties && isset($userProperties[$phoneField])) {
+                $userPhone = $this->normalizePhoneNumber($userProperties[$phoneField]);
                 if ($userPhone === $normalizedSearch) {
                     return $userId;
                 }
@@ -184,6 +184,25 @@ class WeblingClient {
     }
     
     /**
+     * Get user properties by user ID
+     * 
+     * Retrieves only the properties array for the given member ID.
+     * 
+     * @param int $userId The member ID
+     * @return array|null Member properties or null if not found
+     * @throws WeblingException
+     */
+    public function getUserPropertiesById(int $userId): ?array {
+        $userData = $this->getUserDataById($userId);
+        
+        if ($userData === null || !isset($userData['properties'])) {
+            return null;
+        }
+        
+        return $userData['properties'];
+    }
+    
+    /**
      * Get user data by email address
      * 
      * Convenience method that combines getUserIdByEmail() and getUserDataById().
@@ -200,6 +219,25 @@ class WeblingClient {
         }
         
         return $this->getUserDataById($userId);
+    }
+    
+    /**
+     * Get user properties by email address
+     * 
+     * Convenience method that combines getUserIdByEmail() and getUserPropertiesById().
+     * 
+     * @param string $email The email address
+     * @return array|null Member properties or null if not found
+     * @throws WeblingException
+     */
+    public function getUserPropertiesByEmail(string $email): ?array {
+        $userId = $this->getUserIdByEmail($email);
+        
+        if ($userId === null) {
+            return null;
+        }
+        
+        return $this->getUserPropertiesById($userId);
     }
     
     /**

@@ -153,6 +153,86 @@ class WeblingClientTest extends TestCase {
         $client->getUserDataById(123);
     }
     
+    public function testGetUserPropertiesByIdReturnsPropertiesOnly(): void {
+        $client = new TestableWeblingClient('demo', 'test-key');
+        
+        $userData = [
+            'id' => 123,
+            'type' => 'member',
+            'properties' => [
+                'Vorname' => 'Max',
+                'Name' => 'Mustermann',
+                'E-Mail' => 'max@example.com'
+            ],
+            'links' => []
+        ];
+        $client->setMockResponse($userData);
+        
+        $result = $client->getUserPropertiesById(123);
+        
+        $this->assertIsArray($result);
+        $this->assertArrayHasKey('Vorname', $result);
+        $this->assertArrayHasKey('Name', $result);
+        $this->assertArrayHasKey('E-Mail', $result);
+        $this->assertSame('Max', $result['Vorname']);
+        $this->assertSame('Mustermann', $result['Name']);
+    }
+    
+    public function testGetUserPropertiesByIdReturnsNullWhenUserNotFound(): void {
+        $client = new TestableWeblingClient('demo', 'test-key');
+        $client->setMockException(new WeblingException('Not found', 404));
+        
+        $result = $client->getUserPropertiesById(999);
+        
+        $this->assertNull($result);
+    }
+    
+    public function testGetUserPropertiesByIdReturnsNullWhenNoProperties(): void {
+        $client = new TestableWeblingClient('demo', 'test-key');
+        
+        $userData = [
+            'id' => 123,
+            'type' => 'member'
+        ];
+        $client->setMockResponse($userData);
+        
+        $result = $client->getUserPropertiesById(123);
+        
+        $this->assertNull($result);
+    }
+    
+    public function testGetUserPropertiesByEmailReturnsProperties(): void {
+        $client = new TestableWeblingClient('demo', 'test-key');
+        
+        $userData = [
+            'id' => 456,
+            'properties' => [
+                'Vorname' => 'Anna',
+                'E-Mail' => 'anna@example.com'
+            ]
+        ];
+        
+        $client->setMockResponseQueue([
+            ['objects' => [456]],
+            $userData
+        ]);
+        
+        $result = $client->getUserPropertiesByEmail('anna@example.com');
+        
+        $this->assertIsArray($result);
+        $this->assertArrayHasKey('Vorname', $result);
+        $this->assertSame('Anna', $result['Vorname']);
+    }
+    
+    public function testGetUserPropertiesByEmailReturnsNullWhenUserNotFound(): void {
+        $client = new TestableWeblingClient('demo', 'test-key');
+        $client->setMockResponse(['objects' => []]);
+        
+        $result = $client->getUserPropertiesByEmail('notfound@example.com');
+        
+        $this->assertNull($result);
+    }
+    
     public function testGetUserIdByEmailThrowsWeblingException(): void {
         $client = new TestableWeblingClient('demo', 'test-key');
         $client->setMockException(new WeblingException('API error', 401));
