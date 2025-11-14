@@ -11,7 +11,7 @@ use iwhebAPI\SessionManagement\Exception\NotFoundException;
 use iwhebAPI\SessionManagement\Database\Repository\SessionOperationsRepository;
 use Logger;
 
-use iwhebAPI\UserAuth\Http\Controllers\{AuthController, UserController, CustomSessionController};
+use iwhebAPI\UserAuth\Http\Controllers\{AuthController, UserController, CustomSessionController, MembergroupController};
 use iwhebAPI\UserAuth\Http\WeblingClient;
 use iwhebAPI\UserAuth\Database\UidEncryptor;
 use iwhebAPI\UserAuth\Database\Repository\SessionDelegationRepository;
@@ -66,6 +66,7 @@ $delegationRepo = new SessionDelegationRepository($pdo, $sessionOperations);
 $authController = new AuthController($dbService, $authorizer, $apiKeyManager, $CONFIG, $apiKey, $weblingClient, $uidEncryptor);
 $sessionController = new CustomSessionController($dbService, $authorizer, $apiKeyManager, $CONFIG, $apiKey, $delegationRepo);
 $userController = new UserController($dbService, $authorizer, $apiKeyManager, $CONFIG, $apiKey, $weblingClient, $uidEncryptor);
+$membergroupController = new MembergroupController($dbService, $authorizer, $apiKeyManager, $CONFIG, $apiKey, $weblingClient);
 
 // Define routes using pattern-based format for flexible paths
 $routes = [
@@ -114,6 +115,22 @@ $routes = [
         'pathVars' => ['session_id'],
         'methods' => [
             'GET' => [$userController, 'getProperties']
+        ]
+    ],
+    // GET /membergroup/{session_id}/{membergroup_id}
+    [
+        'pattern' => '#^/membergroup/([a-z0-9]+)/(\d+)$#',
+        'pathVars' => ['session_id', 'membergroup_id'],
+        'methods' => [
+            'GET' => [$membergroupController, 'getMembergroup']
+        ]
+    ],
+    // GET /membergroup/{session_id}/{membergroup_name}/member/{user_id}
+    [
+        'pattern' => '#^/membergroup/([a-z0-9]+)/([^/]+)/member/(\d+)$#',
+        'pathVars' => ['session_id', 'membergroup_name', 'user_id'],
+        'methods' => [
+            'GET' => [$membergroupController, 'checkMembership']
         ]
     ],
     // GET /session/check/{session_id}

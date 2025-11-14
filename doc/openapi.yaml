@@ -35,8 +35,10 @@ info:
     - `user_id`: Access to GET /user/{session_id}/id (decrypted Webling user ID)
     - `user_properties`: Access to POST /user/{session_id}/properties (selective user properties)
     - `delegate_session`: Access to POST /session/delegate/{session_id} (create delegated sessions)
+    - `membergroup_info`: Access to GET /membergroup/{session_id}/{membergroup_id} (membergroup data)
+    - `membergroup_check`: Access to GET /membergroup/{session_id}/{membergroup_name}/member/{user_id} (membership check)
     
-    **Session Rotation**: All user endpoints (`/user/*`) and delegate endpoint automatically
+    **Session Rotation**: All user endpoints (`/user/*`), membergroup endpoints (`/membergroup/*`), and delegate endpoint automatically
     create new sessions and invalidate old ones for enhanced security.
   version: 1.0.0
   contact:
@@ -59,6 +61,8 @@ tags:
     description: Session management (check, touch, delegate)
   - name: User
     description: User information and token retrieval
+  - name: Membergroup
+    description: Webling membergroup information and membership checks
 
 paths:
   /login:
@@ -406,6 +410,87 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /membergroup/{session_id}/{membergroup_id}:
+    get:
+      tags:
+        - Membergroup
+      summary: Get membergroup information
+      description: |
+        Retrieves membergroup data from Webling including subgroups and member user IDs.
+        Requires `membergroup_info` permission.
+        
+        **Session Rotation**: Creates a new session and invalidates the old one.
+        Use the new `session_id` from the response for subsequent requests.
+      operationId: getMembergroup
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - name: membergroup_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Webling membergroup ID
+          example: 123
+      responses:
+        '200':
+          description: Membergroup data retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MembergroupResponse'
+        '400':
+          $ref: '#/components/responses/InvalidInput'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /membergroup/{session_id}/{membergroup_name}/member/{user_id}:
+    get:
+      tags:
+        - Membergroup
+      summary: Check membergroup membership
+      description: |
+        Checks if a specific user is a member of a membergroup in Webling.
+        Requires `membergroup_check` permission.
+        
+        **Session Rotation**: Creates a new session and invalidates the old one.
+        Use the new `session_id` from the response for subsequent requests.
+      operationId: checkMembership
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - name: membergroup_name
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Webling membergroup name
+          example: "Vorstand"
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Webling user ID
+          example: 456
+      responses:
+        '200':
+          description: Membership check completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MembershipCheckResponse'
+        '400':
+          $ref: '#/components/responses/InvalidInput'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
 components:
   securitySchemes:
     ApiKeyAuth:
@@ -641,6 +726,86 @@ components:
                 Vorname: "Max"
                 Name: "Mustermann"
                 E-Mail: "max.mustermann@example.com"
+            session_expires_at:
+              type: string
+              format: date-time
+              description: ISO 8601 timestamp when session expires
+              example: "2025-10-31T13:05:00Z"
+
+    MembergroupResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            session_id:
+              type: string
+              description: New session identifier
+              example: stu456vwx789
+            membergroup:
+              type: object
+              description: Membergroup data from Webling
+              properties:
+                id:
+                  type: integer
+                  description: Membergroup ID
+                  example: 123
+                type:
+                  type: string
+                  description: Object type
+                  example: "membergroup"
+                properties:
+                  type: object
+                  description: Membergroup properties
+                  additionalProperties: true
+                parents:
+                  type: array
+                  description: Parent membergroup IDs
+                  items:
+                    type: integer
+                  example: []
+                children:
+                  type: array
+                  description: Child membergroup IDs (subgroups)
+                  items:
+                    type: integer
+                  example: [124, 125]
+                links:
+                  type: object
+                  description: Related object links
+                  properties:
+                    member:
+                      type: array
+                      description: Member user IDs
+                      items:
+                        type: integer
+                      example: [456, 457, 458]
+            session_expires_at:
+              type: string
+              format: date-time
+              description: ISO 8601 timestamp when session expires
+              example: "2025-10-31T13:05:00Z"
+
+    MembershipCheckResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            session_id:
+              type: string
+              description: New session identifier
+              example: yza012bcd345
+            is_member:
+              type: boolean
+              description: Whether the user is a member of the membergroup
+              example: true
             session_expires_at:
               type: string
               format: date-time
