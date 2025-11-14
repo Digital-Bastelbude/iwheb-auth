@@ -47,6 +47,7 @@ See [CONFIG.md](CONFIG.md) for complete configuration details.
 **Auth:** `X-API-Key: your-key` or `Authorization: ApiKey your-key`
 
 **Quick Reference:**
+
 - � [LOGIN-FLOW.md](LOGIN-FLOW.md) - authentication flow details
 - 📘 [openapi.yaml](openapi.yaml) - OpenAPI specification
 
@@ -66,7 +67,8 @@ php keygenerator.php api 64
 ```
 
 **Output example:**
-```
+
+``` text
 === COMPLETE KEY SETUP ===
 
 1. Encryption Key (for config/.secrets.php):
@@ -88,7 +90,7 @@ Add to $API_KEYS array:
 
 ## Structure
 
-```
+``` text
 ├── config/
 │   ├── .secrets.php          # Credentials (NOT in Git)
 │   ├── config.json           # Email templates, rate limits
@@ -108,6 +110,7 @@ Add to $API_KEYS array:
 ## Security
 
 **Permissions:**
+
 ```php
 $API_KEYS = [
     'key1' => ['name' => 'App', 'permissions' => ['user_info']],
@@ -122,6 +125,7 @@ $API_KEYS = [
 ## Development
 
 **Add Controller Method:**
+
 ```php
 // In src/UserAuth/Http/Controllers/MyController.php
 public function myAction(array $pathVars, array $body): array {
@@ -131,6 +135,7 @@ public function myAction(array $pathVars, array $body): array {
 ```
 
 **Add Route:** Edit `src/UserAuth/Http/routes.php`
+
 ```php
 $routes[] = [
     'pattern' => '#^/myroute/([a-z0-9]+)$#',
@@ -172,11 +177,6 @@ TEST_STRICT_ERRORS=1 ./vendor/bin/phpunit --testdo      # Strict
 
 ## Docs
 
-- [CONFIG.md](CONFIG.md) - Complete configuration guide
-- [LOGIN-FLOW.md](LOGIN-FLOW.md) - Authentication flow
-- [SMS-VALIDATION.md](SMS-VALIDATION.md) - SMS authentication with Seven.io
-- [DEPLOYMENT.md](DEPLOYMENT.md) - Production deployment
-- [DELEGATED-SESSIONS.md](DELEGATED-SESSIONS.md) - Cross-app sessions
 - [openapi.yaml](openapi.yaml) - OpenAPI 3.0 specification
 
 **Requirements:** PHP 8.1+ with libsodium, sqlite3, json, curl | Composer | Webling account
