@@ -6,11 +6,14 @@ Secure PHP-based authentication with Webling integration, session management, an
 
 - 🔐 Secure user authentication via Webling API
 - 🎫 Session management with 6-digit verification codes
+- 📧 Email validation via SMTP
+- 📱 SMS validation via Seven.io (optional)
+- 🔌 Pluggable validation provider system
 - 🔑 API key authorization with granular permissions
 - 🛡️ Session isolation per API key
 - � Delegated sessions for cross-app authentication
 - �🔒 UID encryption (XChaCha20-Poly1305)
-- ✅ Comprehensive tests (170 tests, 615 assertions)
+- ✅ Comprehensive tests (138 tests, 383 assertions)
 
 ## Quick Start
 
@@ -41,6 +44,7 @@ Complete documentation is located in the `doc/` directory:
 - **[⚡ API Cheatsheet](doc/API-CHEATSHEET.md)** - Quick curl examples for all endpoints
 - **[🔐 Secrets Setup](doc/SECRETS-SETUP.md)** - Configure API keys and credentials
 - **[🔑 Login Flow](doc/LOGIN-FLOW.md)** - Authentication process details
+- **[📱 SMS Validation](doc/SMS-VALIDATION.md)** - SMS authentication with Seven.io
 - **[🔀 Delegated Sessions](doc/DELEGATED-SESSIONS.md)** - Cross-app authentication
 - **[📡 API Reference](doc/openapi.yaml)** - OpenAPI 3.0 specification
 - **[🎫 Key Generator](doc/KEYGENERATOR.md)** - Generate and manage API keys
