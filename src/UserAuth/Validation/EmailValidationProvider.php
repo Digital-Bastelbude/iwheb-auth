@@ -64,4 +64,12 @@ class EmailValidationProvider implements ValidationProviderInterface {
     public function getUserId(string $recipient): ?int {
         return $this->weblingClient->getUserIdByEmail($recipient);
     }
+    
+    /**
+     * {@inheritdoc}
+     */
+    public function selectRecipient(array $userProperties): ?string {
+        // For email provider, use the 'E-Mail' field
+        return $userProperties['E-Mail'] ?? null;
+    }
 }

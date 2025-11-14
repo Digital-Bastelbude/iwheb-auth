@@ -57,4 +57,12 @@ class SmsValidationProvider implements ValidationProviderInterface {
     public function getUserId(string $recipient): ?int {
         return $this->weblingClient->getUserIdByPhone($recipient, $this->phoneField);
     }
+    
+    /**
+     * {@inheritdoc}
+     */
+    public function selectRecipient(array $userProperties): ?string {
+        // For SMS provider, try 'Telefon 1' first (mobile), then fallback to configured phone field
+        return $userProperties['Telefon 1'] ?? $userProperties[$this->phoneField] ?? null;
+    }
 }

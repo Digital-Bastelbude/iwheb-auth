@@ -37,4 +37,12 @@ interface ValidationProviderInterface {
      * @throws \RuntimeException if lookup fails
      */
     public function getUserId(string $recipient): ?int;
+    
+    /**
+     * Select the appropriate recipient field from user properties
+     * 
+     * @param array $userProperties User properties from Webling
+     * @return string|null The recipient identifier (email, phone number, etc.) or null if not found
+     */
+    public function selectRecipient(array $userProperties): ?string;
 }

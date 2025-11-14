@@ -144,4 +144,82 @@ class ValidationProviderTest extends TestCase {
         $this->assertContains('email', $names);
         $this->assertContains('sms', $names);
     }
+    
+    /**
+     * Test EmailValidationProvider selectRecipient returns email from properties
+     */
+    public function testEmailValidationProviderSelectRecipientReturnsEmail(): void {
+        $provider = new EmailValidationProvider($this->weblingClient);
+        $userProperties = [
+            'E-Mail' => 'test@example.com',
+            'Telefon 1' => '+41123456789',
+            'Name' => 'Test User'
+        ];
+        
+        $recipient = $provider->selectRecipient($userProperties);
+        
+        $this->assertEquals('test@example.com', $recipient);
+    }
+    
+    /**
+     * Test EmailValidationProvider selectRecipient returns null when no email
+     */
+    public function testEmailValidationProviderSelectRecipientReturnsNullWhenNoEmail(): void {
+        $provider = new EmailValidationProvider($this->weblingClient);
+        $userProperties = [
+            'Telefon 1' => '+41123456789',
+            'Name' => 'Test User'
+        ];
+        
+        $recipient = $provider->selectRecipient($userProperties);
+        
+        $this->assertNull($recipient);
+    }
+    
+    /**
+     * Test SmsValidationProvider selectRecipient returns mobile from properties
+     */
+    public function testSmsValidationProviderSelectRecipientReturnsMobile(): void {
+        $provider = new SmsValidationProvider($this->weblingClient, $this->sevenClient);
+        $userProperties = [
+            'E-Mail' => 'test@example.com',
+            'Telefon 1' => '+41123456789',
+            'Name' => 'Test User'
+        ];
+        
+        $recipient = $provider->selectRecipient($userProperties);
+        
+        $this->assertEquals('+41123456789', $recipient);
+    }
+    
+    /**
+     * Test SmsValidationProvider selectRecipient returns null when no phone
+     */
+    public function testSmsValidationProviderSelectRecipientReturnsNullWhenNoPhone(): void {
+        $provider = new SmsValidationProvider($this->weblingClient, $this->sevenClient);
+        $userProperties = [
+            'E-Mail' => 'test@example.com',
+            'Name' => 'Test User'
+        ];
+        
+        $recipient = $provider->selectRecipient($userProperties);
+        
+        $this->assertNull($recipient);
+    }
+    
+    /**
+     * Test SmsValidationProvider selectRecipient uses custom phone field as fallback
+     */
+    public function testSmsValidationProviderSelectRecipientUsesCustomPhoneFieldAsFallback(): void {
+        $provider = new SmsValidationProvider($this->weblingClient, $this->sevenClient, 'Telefon 2');
+        $userProperties = [
+            'E-Mail' => 'test@example.com',
+            'Telefon 2' => '+41987654321',
+            'Name' => 'Test User'
+        ];
+        
+        $recipient = $provider->selectRecipient($userProperties);
+        
+        $this->assertEquals('+41987654321', $recipient);
+    }
 }
