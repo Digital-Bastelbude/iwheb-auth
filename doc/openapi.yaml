@@ -447,13 +447,13 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /membergroup/{session_id}/{membergroup_name}/member/{user_id}:
+  /membergroup/{session_id}/{membergroup_name}/member:
     get:
       tags:
         - Membergroup
       summary: Check membergroup membership
       description: |
-        Checks if a specific user is a member of a membergroup in Webling.
+        Checks if the authenticated user (from the session) is a member of a membergroup in Webling.
         Requires `membergroup_check` permission.
         
         **Session Rotation**: Creates a new session and invalidates the old one.
@@ -468,13 +468,6 @@ paths:
             type: string
           description: Webling membergroup name
           example: "Vorstand"
-        - name: user_id
-          in: path
-          required: true
-          schema:
-            type: integer
-          description: Webling user ID
-          example: 456
       responses:
         '200':
           description: Membership check completed successfully

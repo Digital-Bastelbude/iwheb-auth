@@ -125,10 +125,10 @@ $routes = [
             'GET' => [$membergroupController, 'getMembergroup']
         ]
     ],
-    // GET /membergroup/{session_id}/{membergroup_name}/member/{user_id}
+    // GET /membergroup/{session_id}/{membergroup_name}/member
     [
-        'pattern' => '#^/membergroup/([a-z0-9]+)/([^/]+)/member/(\d+)$#',
-        'pathVars' => ['session_id', 'membergroup_name', 'user_id'],
+        'pattern' => '#^/membergroup/([a-z0-9]+)/([^/]+)/member$#',
+        'pathVars' => ['session_id', 'membergroup_name'],
         'methods' => [
             'GET' => [$membergroupController, 'checkMembership']
         ]

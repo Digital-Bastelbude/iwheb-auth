@@ -91,17 +91,17 @@ class MembergroupController extends BaseController {
     }
     
     /**
-     * GET /membergroup/{session_id}/{membergroup_name}/member/{user_id}
+     * GET /membergroup/{session_id}/{membergroup_name}/member
      * 
-     * Check if a user is a member of a membergroup.
+     * Check if the authenticated user (from session) is a member of a membergroup.
      * Session is extended (children preserved if parent session).
      * Requires 'membergroup_check' permission.
      * 
-     * Query parameter:
+     * Path parameters:
+     * - session_id: Current session ID
      * - membergroup_name: Name of the membergroup
-     * - user_id: Webling user/member ID
      * 
-     * @param array $pathVars ['session_id' => string, 'membergroup_name' => string, 'user_id' => string]
+     * @param array $pathVars ['session_id' => string, 'membergroup_name' => string]
      * @param array $body Unused
      * @return array Response with membership check result and new session_id
      * @throws InvalidSessionException if session not found, access denied, or not validated
@@ -111,12 +111,6 @@ class MembergroupController extends BaseController {
     public function checkMembership(array $pathVars, array $_body): array {
         $sessionId = $pathVars['session_id'];
         $membergroupName = $pathVars['membergroup_name'];
-        $userId = $pathVars['user_id'];
-        
-        // Validate user_id
-        if (!ctype_digit($userId)) {
-            throw new InvalidInputException('user_id must be a numeric value');
-        }
         
         // Validate membergroup_name
         if (empty($membergroupName) || !is_string($membergroupName)) {
@@ -134,9 +128,12 @@ class MembergroupController extends BaseController {
             throw new InvalidSessionException();
         }
 
+        // Get user ID from session
+        $userId = (int)$session['user_id'];
+
         // Check membership via Webling API
         try {
-            $isMember = $this->weblingClient->isUserInMembergroup((int)$userId, $membergroupName);
+            $isMember = $this->weblingClient->isUserInMembergroup($userId, $membergroupName);
         } catch (\Exception $e) {
             throw new StorageException('WEBLING_ERROR', 'Failed to check membership: ' . $e->getMessage());
         }
@@ -146,7 +143,7 @@ class MembergroupController extends BaseController {
 
         return $this->success([
             'session_id' => $newSession['session_id'],
-            'user_id' => (int)$userId,
+            'user_id' => $userId,
             'membergroup_name' => $membergroupName,
             'is_member' => $isMember,
             'session_expires_at' => $newSession['expires_at']
