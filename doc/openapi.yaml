@@ -7,6 +7,8 @@ info:
     Features:
     - Webling API authentication
     - Email code delivery via SMTP
+    - SMS code delivery via Seven.io (optional)
+    - Pluggable validation providers (email, SMS)
     - 6-digit code sessions (30min default)
     - API key permissions with routes and rate limits
     - Session isolation per key
@@ -69,10 +71,25 @@ paths:
     post:
       tags:
         - Authentication
-      summary: Initiate login by email
+      summary: Initiate login with validation code
       description: |
-        Creates a session and sends a 6-digit authentication code via email.
-        The code is valid for 5 minutes by default.
+        Creates a session and sends a 6-digit authentication code via the specified
+        validation provider (email or SMS). The code is valid for 5 minutes by default.
+        
+        **User Identification:**
+        - User is always identified by their email address in Webling
+        - The `email` field is required for all login requests
+        
+        **Validation Providers:**
+        - `email` (default): Sends code to the user's email address (from Webling `E-Mail` field)
+        - `sms`: Sends code to the user's mobile phone (from Webling `Mobile` field)
+        
+        **Provider Selection:**
+        - If `provider` is not specified, defaults to `email`
+        - Provider automatically selects the appropriate field from user properties:
+          - Email provider uses `E-Mail` field
+          - SMS provider uses `Mobile` field
+        - If provider cannot find required field, falls back to email provider
         
         **Session Management:** 
         - Deletes ALL existing user sessions across all API keys
@@ -91,8 +108,13 @@ paths:
                 email:
                   type: string
                   format: byte
-                  description: Base64-encoded email address (URL-safe)
+                  description: Base64-encoded email address (URL-safe) to identify the user in Webling. Always required.
                   example: dXNlckBleGFtcGxlLmNvbQ==
+                provider:
+                  type: string
+                  enum: [email, sms]
+                  description: Validation provider to use for sending the authentication code. Defaults to 'email' if not specified.
+                  example: email
       responses:
         '200':
           description: Session created successfully

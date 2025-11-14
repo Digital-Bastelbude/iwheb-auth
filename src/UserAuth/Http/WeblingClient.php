@@ -102,6 +102,67 @@ class WeblingClient {
     }
     
     /**
+     * Get user ID by phone number
+     * 
+     * Searches for a member with the given phone number and returns the member ID.
+     * Note: Phone numbers are normalized (digits only) for comparison.
+     * 
+     * @param string $phoneNumber The phone number to search for
+     * @param string $phoneField The Webling field name for phone (default: 'Telefon 1')
+     * @return int|null The member ID or null if not found
+     * @throws WeblingException
+     */
+    public function getUserIdByPhone(string $phoneNumber, string $phoneField = 'Telefon 1'): ?int {
+        // Extract digits from phone number for search
+        $digits = preg_replace('/\D/', '', $phoneNumber);
+        
+        // Search for phone numbers containing these digits
+        $filter = '`' . $phoneField . '` LIKE "%' . $digits . '%"';
+        $encodedFilter = urlencode($filter);
+        
+        $result = $this->request("/member?filter={$encodedFilter}");
+        
+        if (empty($result['objects'])) {
+            return null;
+        }
+        
+        // Normalize the search phone number
+        $normalizedSearch = $this->normalizePhoneNumber($phoneNumber);
+        
+        // Check each result for exact match (after normalization)
+        foreach ($result['objects'] as $userId) {
+            $userProperties = $this->getUserPropertiesById($userId);
+            if ($userProperties && isset($userProperties[$phoneField])) {
+                $userPhone = $this->normalizePhoneNumber($userProperties[$phoneField]);
+                if ($userPhone === $normalizedSearch) {
+                    return $userId;
+                }
+            }
+        }
+        
+        // If no exact match found, return the first result as fallback
+        return $result['objects'][0];
+    }
+    
+    /**
+     * Normalize phone number for comparison
+     * 
+     * @param string $phoneNumber Phone number to normalize
+     * @return string Normalized phone number (digits only with + prefix if present)
+     */
+    private function normalizePhoneNumber(string $phoneNumber): string {
+        // Remove all non-digit characters except +
+        $normalized = preg_replace('/[^\d+]/', '', $phoneNumber);
+        
+        // Ensure + is only at the start
+        if (strpos($normalized, '+') !== false) {
+            $normalized = '+' . str_replace('+', '', $normalized);
+        }
+        
+        return $normalized;
+    }
+    
+    /**
      * Get user data by user ID
      * 
      * Retrieves complete member data for the given member ID.
@@ -123,6 +184,25 @@ class WeblingClient {
     }
     
     /**
+     * Get user properties by user ID
+     * 
+     * Retrieves only the properties array for the given member ID.
+     * 
+     * @param int $userId The member ID
+     * @return array|null Member properties or null if not found
+     * @throws WeblingException
+     */
+    public function getUserPropertiesById(int $userId): ?array {
+        $userData = $this->getUserDataById($userId);
+        
+        if ($userData === null || !isset($userData['properties'])) {
+            return null;
+        }
+        
+        return $userData['properties'];
+    }
+    
+    /**
      * Get user data by email address
      * 
      * Convenience method that combines getUserIdByEmail() and getUserDataById().
@@ -139,6 +219,25 @@ class WeblingClient {
         }
         
         return $this->getUserDataById($userId);
+    }
+    
+    /**
+     * Get user properties by email address
+     * 
+     * Convenience method that combines getUserIdByEmail() and getUserPropertiesById().
+     * 
+     * @param string $email The email address
+     * @return array|null Member properties or null if not found
+     * @throws WeblingException
+     */
+    public function getUserPropertiesByEmail(string $email): ?array {
+        $userId = $this->getUserIdByEmail($email);
+        
+        if ($userId === null) {
+            return null;
+        }
+        
+        return $this->getUserPropertiesById($userId);
     }
     
     /**
